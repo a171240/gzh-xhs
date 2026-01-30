@@ -1,0 +1,40 @@
+{
+  "_说明": "微信公众号自动发布配置文件",
+  "_使用方法": "将你的AppID和AppSecret填入对应账号，enabled设为true启用",
+  "_获取方式": "微信公众平台 → 开发 → 基本配置",
+  "_注意事项": "请勿将此文件提交到公开仓库，AppSecret需保密",
+
+  "accounts": {
+    "IP内容工厂": {
+      "appid": "填入你的AppID",
+      "appsecret": "填入你的AppSecret",
+      "enabled": false,
+      "comment": "已认证后改为true"
+    },
+    "IP工厂": {
+      "appid": "填入你的AppID",
+      "appsecret": "填入你的AppSecret",
+      "enabled": false,
+      "comment": "未认证，暂不支持"
+    },
+    "IP增长引擎": {
+      "appid": "填入你的AppID",
+      "appsecret": "填入你的AppSecret",
+      "enabled": false,
+      "comment": "未认证，暂不支持"
+    },
+    "商业IP实战笔记": {
+      "appid": "填入你的AppID",
+      "appsecret": "填入你的AppSecret",
+      "enabled": false,
+      "comment": "未认证，暂不支持"
+    }
+  },
+
+  "settings": {
+    "default_author": "李可",
+    "default_cover": "../covers/default_cover.jpg",
+    "auto_publish": true,
+    "publish_delay_seconds": 5
+  }
+}
