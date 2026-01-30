@@ -1,0 +1,49 @@
+﻿{
+  "skills": [
+    {
+      "id": "xhs",
+      "name": "小红书内容生成",
+      "description": "4步工作流：选题→内容结构→图片提示词→交付",
+      "pipelineId": "xhs",
+      "briefPlaceholder": "请填写账号角色、主关键词、目标人群、约束等...",
+      "defaultContexts": [
+        "../小红书内容生成/小红书内容生成Skill_完整版.md",
+        "../小红书内容生成/resources/30天内容日历.md",
+        "../小红书内容生成/resources/高情绪标题公式.md",
+        "../小红书内容生成/resources/证据素材库.md",
+        "../小红书内容生成/resources/消费者洞察词库.md"
+      ],
+      "quickTemplateLabels": {
+        "sop": "流程模板",
+        "topics": "选题模板",
+        "headline": "标题模板"
+      },
+      "quickTemplates": {
+        "sop": "账号角色：A/B/C\n主关键词：\n目标人群：\n核心目标：引发评论/私信/诊断\n输出类型：流程/步骤/清单\n约束：标题≤20字，每页≤60字，CTA合规\n参考素材：\n",
+        "topics": "账号角色：A/B/C\n领域赛道：\n目标人群：\n痛点场景：\n主关键词：\n长尾关键词(2-4)：\n期望输出：选题清单(10条)+标题候选(3条)\n",
+        "headline": "账号角色：A/B/C\n主关键词：\n受众身份：\n核心矛盾：\n情绪基调：焦虑/好奇/警示/希望\n标题目标：高点击/高完读/高转发\n输出要求：标题20条+评分+Top3\n"
+      }
+    },
+    {
+      "id": "wechat",
+      "name": "公众号爆文写作",
+      "description": "标题 → 大纲 → 正文 → 自检",
+      "pipelineId": "wechat",
+      "briefPlaceholder": "请按 Brief 模板填写主题、目标人群、核心矛盾等...",
+      "defaultContexts": [
+        "../公众号爆文写作系统（增强版：标题库驱动 + 正文生产线）.md",
+        "../公众号爆文写作系统（可直接喂给AI的创作指令库）.md"
+      ],
+      "quickTemplateLabels": {
+        "sop": "Brief模板",
+        "topics": "选题模板",
+        "headline": "标题模板"
+      },
+      "quickTemplates": {
+        "sop": "主题矿区：\n目标人群：\n核心矛盾：\n场景证据：\n希望读者做的第一步：\n引流物：\n禁区(可选)：\n",
+        "topics": "选题母题：钱/职场/关系/自我\n群体：\n场景：\n矛盾：\n代价：\n诱因：\n期望输出：20个标题+Top2+一句理由\n",
+        "headline": "请基于Brief输出：20个标题（覆盖≥5种公式，含公式标签+评分）→ Top2，并说明理由。\n硬约束：标题18-28字优先；至少命中人群/场景/数字/反差/强动词3项；尽量去标点。\n"
+      }
+    }
+  ]
+}

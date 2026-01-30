@@ -1,0 +1,92 @@
+﻿{
+  "groups": [
+    {
+      "id": "xhs-core",
+      "title": "小红书 · 核心规则",
+      "skills": ["xhs"],
+      "items": [
+        {
+          "id": "xhs-skill",
+          "label": "小红书内容生成Skill_完整版",
+          "path": "../小红书内容生成/小红书内容生成Skill_完整版.md",
+          "tags": ["规则", "工作流"]
+        }
+      ]
+    },
+    {
+      "id": "xhs-templates",
+      "title": "小红书 · 模板库",
+      "skills": ["xhs"],
+      "items": [
+        {
+          "id": "infographic-templates",
+          "label": "信息图模板库",
+          "path": "../小红书内容生成/templates/信息图模板库.md",
+          "tags": ["模板", "信息图"]
+        },
+        {
+          "id": "visual-style",
+          "label": "视觉风格库",
+          "path": "../小红书内容生成/templates/视觉风格库.md",
+          "tags": ["模板", "视觉"]
+        },
+        {
+          "id": "note-templates",
+          "label": "笔记模板库",
+          "path": "../小红书内容生成/templates/笔记模板库.md",
+          "tags": ["模板", "文案"]
+        }
+      ]
+    },
+    {
+      "id": "xhs-resources",
+      "title": "小红书 · 素材库",
+      "skills": ["xhs"],
+      "items": [
+        {
+          "id": "calendar-30d",
+          "label": "30天内容日历",
+          "path": "../小红书内容生成/resources/30天内容日历.md",
+          "tags": ["日历", "排期"]
+        },
+        {
+          "id": "headline-formula",
+          "label": "高情绪标题公式",
+          "path": "../小红书内容生成/resources/高情绪标题公式.md",
+          "tags": ["标题", "情绪"]
+        },
+        {
+          "id": "evidence-library",
+          "label": "证据素材库",
+          "path": "../小红书内容生成/resources/证据素材库.md",
+          "tags": ["证据", "素材"]
+        },
+        {
+          "id": "consumer-insights",
+          "label": "消费者洞察词库",
+          "path": "../小红书内容生成/resources/消费者洞察词库.md",
+          "tags": ["洞察", "词库"]
+        }
+      ]
+    },
+    {
+      "id": "wechat-core",
+      "title": "公众号 · 爆文技能",
+      "skills": ["wechat"],
+      "items": [
+        {
+          "id": "wechat-skill-pro",
+          "label": "公众号爆文写作系统（增强版）",
+          "path": "../公众号爆文写作系统（增强版：标题库驱动 + 正文生产线）.md",
+          "tags": ["标题", "正文", "自检"]
+        },
+        {
+          "id": "wechat-skill-basic",
+          "label": "公众号爆文写作系统（指令库）",
+          "path": "../公众号爆文写作系统（可直接喂给AI的创作指令库）.md",
+          "tags": ["人设", "节奏", "证据"]
+        }
+      ]
+    }
+  ]
+}

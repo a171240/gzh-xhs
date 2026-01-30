@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>内容生成控制台</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <div>
+            <div class="brand-title">内容生成控制台</div>
+            <div class="brand-subtitle">提示词编排与内容生产工作台</div>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <div class="status" id="status">就绪</div>
+          <div class="progress">
+          <div class="progress-label" id="progressLabel">0/0</div>
+            <div class="progress-track">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="layout">
+        <section class="panel input-panel">
+          <div class="panel-header">
+            <h2>需求输入</h2>
+            <button class="ghost" id="openSettings">设置</button>
+          </div>
+          <div class="skill-switch">
+            <div class="skill-title">选择技能</div>
+            <div class="skill-actions" id="skillButtons"></div>
+            <div class="skill-desc" id="skillDesc"></div>
+          </div>
+          <div class="quick-templates">
+            <div class="quick-title">快速模板</div>
+            <div class="quick-actions">
+              <button class="ghost" id="templateSop">流程模板</button>
+              <button class="ghost" id="templateTopics">选题</button>
+              <button class="ghost" id="templateHeadline">标题</button>
+            </div>
+          </div>
+          <textarea id="briefInput" placeholder="描述内容目标、受众与约束条件..."></textarea>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>上下文文件</h3>
+              <div class="section-actions">
+                <button class="ghost" id="loadDefaults">加载默认</button>
+                <button class="ghost" id="addFiles">添加文件</button>
+              </div>
+            </div>
+            <div id="filesList" class="files-list"></div>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>流程</h3>
+              <div class="section-actions">
+                <button class="ghost" id="addStage">新增步骤</button>
+                <button class="primary" id="runAll">全部执行</button>
+              </div>
+            </div>
+            <div id="pipelineList" class="pipeline-list"></div>
+          </div>
+        </section>
+
+        <section class="panel output-panel">
+          <div class="panel-header">
+            <h2>输出</h2>
+            <button class="ghost" id="previewPrompt">预览提示词</button>
+          </div>
+          <div class="filter-panel">
+            <div class="filter-header">
+              <h3>快速筛选</h3>
+              <input id="filterSearch" type="text" placeholder="搜索模板 / 素材" />
+            </div>
+            <div class="filter-meta">
+              <div id="filterCount">已选 0</div>
+              <button class="ghost" id="clearFilters">清空筛选</button>
+            </div>
+            <div id="filterList" class="filter-list"></div>
+          </div>
+          <div id="outputList" class="output-list"></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="modal" id="settingsModal" aria-hidden="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>设置</h2>
+          <button class="ghost" id="closeSettings">关闭</button>
+        </div>
+        <div class="modal-body">
+          <label>
+            执行引擎
+            <select id="engineSelect">
+              <option value="codex">Codex CLI（本地）</option>
+              <option value="openai">OpenAI API</option>
+            </select>
+          </label>
+          <div class="settings-group" id="codexSettings">
+            <label>
+              Codex CLI 路径（可选）
+              <input id="codexPathInput" type="text" placeholder="codex 或 C:\\路径\\codex.exe" />
+            </label>
+            <div class="modal-note">
+              Codex 模式依赖本机安装并登录 Codex CLI，模型/权限请在 CLI 配置中设置。
+            </div>
+          </div>
+          <div class="settings-group" id="apiSettings">
+          <label>
+            API 密钥（OpenAI）
+            <input id="apiKeyInput" type="password" placeholder="sk-..." />
+          </label>
+          <label>
+            默认模型（API）
+            <input id="defaultModel" type="text" placeholder="gpt-4.1-mini" />
+          </label>
+          <div class="modal-grid">
+            <label>
+              温度
+              <input id="temperatureInput" type="number" min="0" max="2" step="0.1" />
+            </label>
+            <label>
+              最大输出字数
+              <input id="maxTokensInput" type="number" min="128" step="64" />
+            </label>
+          </div>
+          <div class="modal-note">
+            密钥仅保存在本机。建议使用受限密钥。
+          </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="primary" id="saveSettings">保存设置</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

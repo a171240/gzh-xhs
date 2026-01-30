@@ -1,0 +1,35 @@
+{
+  "A": {
+    "account_id": "A",
+    "name": "转化号",
+    "is_logged_in": true,
+    "last_login_check": "2026-01-12T11:45:49.920812",
+    "last_publish_time": null,
+    "today_publish_count": 0,
+    "total_publish_count": 0,
+    "error_count": 0,
+    "last_error": null
+  },
+  "B": {
+    "account_id": "B",
+    "name": "交付号",
+    "is_logged_in": false,
+    "last_login_check": null,
+    "last_publish_time": null,
+    "today_publish_count": 0,
+    "total_publish_count": 0,
+    "error_count": 0,
+    "last_error": null
+  },
+  "C": {
+    "account_id": "C",
+    "name": "观点号",
+    "is_logged_in": false,
+    "last_login_check": null,
+    "last_publish_time": null,
+    "today_publish_count": 0,
+    "total_publish_count": 0,
+    "error_count": 0,
+    "last_error": null
+  }
+}

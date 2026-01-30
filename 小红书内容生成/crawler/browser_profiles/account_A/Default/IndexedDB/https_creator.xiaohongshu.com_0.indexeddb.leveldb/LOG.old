@@ -1,0 +1,25 @@
+2026/01/16-17:44:25.634 45f4 Reusing MANIFEST E:\公众号内容生成\小红书内容生成\crawler\browser_profiles\account_A\Default\IndexedDB\https_creator.xiaohongshu.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/01/16-17:44:25.634 45f4 Recovering log #113
+2026/01/16-17:44:25.635 45f4 Reusing old log E:\公众号内容生成\小红书内容生成\crawler\browser_profiles\account_A\Default\IndexedDB\https_creator.xiaohongshu.com_0.indexeddb.leveldb/000113.log 
+2026/01/16-17:44:25.635 45f4 Delete type=2 #112
+2026/01/16-17:44:25.642 4a44 Level-0 table #118: started
+2026/01/16-17:44:25.643 4a44 Level-0 table #118: 18756 bytes OK
+2026/01/16-17:44:25.644 4a44 Delete type=0 #113
+2026/01/16-17:44:25.645 4a44 Manual compaction at level-0 from '\x00$\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00%\x00\x00\x00' @ 0 : 0; will stop at '\x00$\x00\x00\x05' @ 1889 : 1
+2026/01/16-17:44:25.645 4a44 Compacting 1@0 + 1@1 files
+2026/01/16-17:44:25.646 4a44 Generated table #119@0: 299 keys, 5493 bytes
+2026/01/16-17:44:25.646 4a44 Compacted 1@0 + 1@1 files => 5493 bytes
+2026/01/16-17:44:25.646 4a44 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/01/16-17:44:25.647 4a44 Manual compaction at level-0 from '\x00$\x00\x00\x05' @ 1889 : 1 .. '\x00%\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/01/16-17:44:25.647 459c Level-0 table #121: started
+2026/01/16-17:44:25.648 459c Level-0 table #121: 531 bytes OK
+2026/01/16-17:44:25.649 459c Delete type=2 #115
+2026/01/16-17:44:25.649 459c Delete type=0 #117
+2026/01/16-17:44:25.649 459c Delete type=2 #118
+2026/01/16-17:44:25.649 4a44 Manual compaction at level-0 from '\x00%\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00&\x00\x00\x00' @ 0 : 0; will stop at '\x00%\x00\x00\x05' @ 1905 : 1
+2026/01/16-17:44:25.649 4a44 Compacting 1@0 + 1@1 files
+2026/01/16-17:44:25.650 4a44 Generated table #122@0: 299 keys, 5485 bytes
+2026/01/16-17:44:25.650 4a44 Compacted 1@0 + 1@1 files => 5485 bytes
+2026/01/16-17:44:25.651 4a44 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/01/16-17:44:25.651 4a44 Delete type=2 #121
+2026/01/16-17:44:25.651 4a44 Manual compaction at level-0 from '\x00%\x00\x00\x05' @ 1905 : 1 .. '\x00&\x00\x00\x00' @ 0 : 0; will stop at (end)

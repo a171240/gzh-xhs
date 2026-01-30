@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "100city浏览器助手",
+  "version": "1.3.1",
+  "description": "100city浏览器助手 - 智能控制浏览器完成任务",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqIHo/rkaf9MXgwibALJrMPR5PwZFxK+KHO5XGW3/Vq4JcwIyLQbOUQ9fwI3ldpG2+tmI5oBdcONTJ022EjMswKt6Z44xBT0cUeONeZYGphjdzGlayc5DT6jdTJMdcjpDV0mSqQk+qgVBQQUC1J0bR+XDOxRQT+LjibABB/XE2PJ1gS0PxR1FswcsvUpelyOWnkBAqTQRqY1qzBSiGLv5skIN1KlJIOivNva9/L/k90/wp/vK2TOyZKUCrGSXWmXLXpxbqLdpZJqu/6IGzjkUtoIg5S3q74IZzghyHAqBdX1/hb86bvcRuvkJztdZ4z5+9xPRWk/F2ygcWzj22Qqo/QIDAQAB",
+  "permissions": [
+    "tabs",
+    "activeTab",
+    "scripting",
+    "debugger",
+    "tabGroups",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content-script.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://*.100.city/*",
+        "https://100.city/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["content-bridge.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_icon": {
+      "48": "icon48.png",
+      "128": "icon128.png"
+    },
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
