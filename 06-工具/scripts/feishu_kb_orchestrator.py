@@ -6,9 +6,8 @@ Contract:
 - CLI: python feishu_kb_orchestrator.py --text ... --event-ref ... --source-time ...
 - Intent routing:
   - Message with URL => ingest link_mode (do not write into quote library directly)
-  - Message with strict prefix `@用户名：正文` => ingest quote_mode（仅入库 @ 后正文）
-  - Message with strict prefix `金句：正文` => ingest quote_mode
-  - Non-link, non-skill, non-quote-trigger message => plain chat fallback
+  - Message with @前缀（含可选“回复/序号”）=> ingest quote_mode（仅入库 @ 后正文）
+  - Non-link, non-skill, non-@ message => plain chat fallback
 - Skill commands support:
     - Strong trigger: /skill {skill_id} 平台={平台} 需求={文本}
     - Weak trigger: 用{skill名}生成{需求}
@@ -49,11 +48,14 @@ SKILL_COMMAND_RE = re.compile(r"^\s*/skill\s+([^\s]+)(.*)$", re.IGNORECASE)
 PLATFORM_KV_RE = re.compile(r"(?:平台|platform)\s*[=:：]\s*([^\s,，;；]+)", re.IGNORECASE)
 BRIEF_KV_RE = re.compile(r"(?:需求|brief|prompt)\s*[=:：]\s*(.+)$", re.IGNORECASE)
 GEN_VERB_RE = re.compile(r"(生成|写|产出|输出|起草|改写|扩写|润色)")
+REPLY_PREFIX_RE = re.compile(
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:回复\s+[^:：\n]{1,80}\s*[:：]\s*)"
+)
 QUOTE_AT_PREFIX_RE = re.compile(
-    r"^\s*(?:\d+\s*[\.、]\s*)?(?:回复\s*)?@(?P<mention>[^\s:：，,]+)\s*[:：]\s*(?P<body>.+?)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?@(?P<mention>[^\s:：，,]+)\s*[:：]\s*(?P<body>.+?)\s*$"
 )
 QUOTE_TEXT_PREFIX_RE = re.compile(
-    r"^\s*金句\s*[:：]\s*(?P<body>.+?)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?金句\s*[:：]\s*(?P<body>.+?)\s*$"
 )
 
 ENV_FALLBACKS = (
@@ -218,7 +220,16 @@ def _extract_quote_after_mention(text: str) -> tuple[bool, str]:
     raw = str(text or "").strip()
     if not raw:
         return False, ""
-    matched = QUOTE_AT_PREFIX_RE.match(raw) or QUOTE_TEXT_PREFIX_RE.match(raw)
+
+    # Feishu thread replies may prefix body with `回复 某某：`.
+    normalized = raw
+    for _ in range(2):
+        prefix = REPLY_PREFIX_RE.match(normalized)
+        if not prefix:
+            break
+        normalized = normalized[prefix.end() :].lstrip()
+
+    matched = QUOTE_AT_PREFIX_RE.match(normalized) or QUOTE_TEXT_PREFIX_RE.match(normalized)
     if not matched:
         return False, ""
     body = re.sub(r"\s+", " ", str(matched.group("body") or "")).strip(" \t\r\n:：")

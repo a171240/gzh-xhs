@@ -24,11 +24,14 @@ from quote_ingest_core import (
 
 URL_RE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
 COMMAND_RE = re.compile(r"^\s*/[\w\u4e00-\u9fff-]+")
+REPLY_PREFIX_RE = re.compile(
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:回复\s+[^:：\n]{1,80}\s*[:：]\s*)"
+)
 QUOTE_AT_PREFIX_RE = re.compile(
-    r"^\s*(?:\d+\s*[\.、]\s*)?(?:回复\s*)?@(?P<mention>[^\s:：，,]+)\s*[:：]\s*(?P<body>.+?)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?@(?P<mention>[^\s:：，,]+)\s*[:：]\s*(?P<body>.+?)\s*$"
 )
 QUOTE_TEXT_PREFIX_RE = re.compile(
-    r"^\s*金句\s*[:：]\s*(?P<body>.+?)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?金句\s*[:：]\s*(?P<body>.+?)\s*$"
 )
 
 
@@ -102,7 +105,16 @@ def _extract_quote_after_mention(text: str) -> tuple[bool, str]:
     if not raw:
         return False, ""
 
-    matched = QUOTE_AT_PREFIX_RE.match(raw) or QUOTE_TEXT_PREFIX_RE.match(raw)
+    # Feishu thread replies may prefix the text with `回复 某某：`.
+    # Strip at most two such prefixes before trigger detection.
+    normalized = raw
+    for _ in range(2):
+        prefix = REPLY_PREFIX_RE.match(normalized)
+        if not prefix:
+            break
+        normalized = normalized[prefix.end() :].lstrip()
+
+    matched = QUOTE_AT_PREFIX_RE.match(normalized) or QUOTE_TEXT_PREFIX_RE.match(normalized)
     if not matched:
         return False, ""
 
