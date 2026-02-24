@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Feishu message orchestrator for knowledge-base ingest + skill generation.
 
@@ -6,11 +6,11 @@ Contract:
 - CLI: python feishu_kb_orchestrator.py --text ... --event-ref ... --source-time ...
 - Intent routing:
   - Message with URL => ingest link_mode (do not write into quote library directly)
-  - Message with @前缀（含可选“回复/序号”）=> ingest quote_mode（仅入库 @ 后正文）
+  - Message with @鍓嶇紑锛堝惈鍙€夆€滃洖澶?搴忓彿鈥濓級=> ingest quote_mode锛堜粎鍏ュ簱 @ 鍚庢鏂囷級
   - Non-link, non-skill, non-@ message => plain chat fallback
 - Skill commands support:
-    - Strong trigger: /skill {skill_id} 平台={平台} 需求={文本}
-    - Weak trigger: 用{skill名}生成{需求}
+    - Strong trigger: /skill {skill_id} 骞冲彴={骞冲彴} 闇€姹?{鏂囨湰}
+    - Weak trigger: 鐢▄skill鍚峿鐢熸垚{闇€姹倉
 - If ingest and skill are both triggered, execute them concurrently and aggregate reply.
 """
 
@@ -39,29 +39,29 @@ from feishu_skill_runner import DEFAULT_MODEL, build_skill_registry, resolve_cod
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-LOG_ROOT = REPO_ROOT / "06-工具" / "data" / "feishu-orchestrator"
+LOG_ROOT = REPO_ROOT / "06-宸ュ叿" / "data" / "feishu-orchestrator"
 RUN_LOG_DIR = LOG_ROOT / "runs"
 DEAD_LETTER_DIR = LOG_ROOT / "dead-letter"
 
 URL_RE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
 SKILL_COMMAND_RE = re.compile(r"^\s*/skill\s+([^\s]+)(.*)$", re.IGNORECASE)
-PLATFORM_KV_RE = re.compile(r"(?:平台|platform)\s*[=:：]\s*([^\s,，;；]+)", re.IGNORECASE)
-BRIEF_KV_RE = re.compile(r"(?:需求|brief|prompt)\s*[=:：]\s*(.+)$", re.IGNORECASE)
-GEN_VERB_RE = re.compile(r"(生成|写|产出|输出|起草|改写|扩写|润色)")
+PLATFORM_KV_RE = re.compile(r"(?:骞冲彴|platform)\s*[=:锛歖\s*([^\s,锛?锛沒+)", re.IGNORECASE)
+BRIEF_KV_RE = re.compile(r"(?:闇€姹倈brief|prompt)\s*[=:锛歖\s*(.+)$", re.IGNORECASE)
+GEN_VERB_RE = re.compile(r"(鐢熸垚|鍐檤浜у嚭|杈撳嚭|璧疯崏|鏀瑰啓|鎵╁啓|娑﹁壊)")
 REPLY_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:回复\s+[^:：\n]{1,80}\s*[:：]\s*)"
+    r"^\s*(?:(?:\d+\s*[\.銆乚\s*)?)?(?:鍥炲\s+[^:锛歕n]{1,80}\s*[:锛歖\s*)"
 )
 QUOTE_AT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?@(?P<mention>[^\s:：，,]+)\s*[:：]\s*(?P<body>.+?)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.銆乚\s*)?(?:鍥炲\s*)?)?@(?P<mention>[^\s:锛氾紝,]+)\s*[:锛歖\s*(?P<body>[\\s\\S]+?)\s*$"
 )
 QUOTE_TEXT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?金句\s*[:：]\s*(?P<body>.+?)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.銆乚\s*)?)?閲戝彞\s*[:锛歖\s*(?P<body>[\\s\\S]+?)\s*$"
 )
 
 ENV_FALLBACKS = (
-    REPO_ROOT / "06-工具" / "scripts" / ".env.ingest-writer.local",
-    REPO_ROOT / "06-工具" / "scripts" / ".env.ingest-writer",
-    REPO_ROOT / "06-工具" / "scripts" / ".env.feishu",
+    REPO_ROOT / "06-宸ュ叿" / "scripts" / ".env.ingest-writer.local",
+    REPO_ROOT / "06-宸ュ叿" / "scripts" / ".env.ingest-writer",
+    REPO_ROOT / "06-宸ュ叿" / "scripts" / ".env.feishu",
 )
 
 
@@ -221,7 +221,7 @@ def _extract_quote_after_mention(text: str) -> tuple[bool, str]:
     if not raw:
         return False, ""
 
-    # Feishu thread replies may prefix body with `回复 某某：`.
+    # Feishu thread replies may prefix body with `鍥炲 鏌愭煇锛歚.
     normalized = raw
     for _ in range(2):
         prefix = REPLY_PREFIX_RE.match(normalized)
@@ -232,7 +232,7 @@ def _extract_quote_after_mention(text: str) -> tuple[bool, str]:
     matched = QUOTE_AT_PREFIX_RE.match(normalized) or QUOTE_TEXT_PREFIX_RE.match(normalized)
     if not matched:
         return False, ""
-    body = re.sub(r"\s+", " ", str(matched.group("body") or "")).strip(" \t\r\n:：")
+    body = re.sub(r"\s+", " ", str(matched.group("body") or "")).strip(" \t\r\n:锛?)
     if not body:
         return False, ""
     return True, body
@@ -277,10 +277,10 @@ def _find_best_skill_alias(text: str, registry: Any) -> str:
         return best_skill
 
     fallback_aliases = (
-        ("公众号批量生产", "wechat"),
-        ("公众号爆文写作", "wechat"),
-        ("小红书内容生产", "xhs"),
-        ("短视频脚本生产", "短视频脚本生产"),
+        ("鍏紬鍙锋壒閲忕敓浜?, "wechat"),
+        ("鍏紬鍙风垎鏂囧啓浣?, "wechat"),
+        ("灏忕孩涔﹀唴瀹圭敓浜?, "xhs"),
+        ("鐭棰戣剼鏈敓浜?, "鐭棰戣剼鏈敓浜?),
     )
     for alias, mapped in fallback_aliases:
         if _normalize_key(alias) in normalized_text:
@@ -304,7 +304,7 @@ def _detect_skill_intent(text: str, registry: Any, forced_skill_id: str, forced_
             raise ValueError("skill brief is empty")
         return SkillIntent(skill_id=skill.skill_id, brief=brief, platform=platform, trigger="strong")
 
-    # Strong trigger: /skill {skill_id} 平台=... 需求=...
+    # Strong trigger: /skill {skill_id} 骞冲彴=... 闇€姹?...
     matched = SKILL_COMMAND_RE.match(raw)
     if matched:
         skill_ref = str(matched.group(1) or "").strip()
@@ -322,10 +322,10 @@ def _detect_skill_intent(text: str, registry: Any, forced_skill_id: str, forced_
             raise ValueError("skill brief is empty")
         return SkillIntent(skill_id=skill.skill_id, brief=brief, platform=platform, trigger="strong")
 
-    # Weak trigger: 用{skill名}生成{需求}
+    # Weak trigger: 鐢▄skill鍚峿鐢熸垚{闇€姹倉
     if not GEN_VERB_RE.search(raw):
         return None
-    if "用" not in raw and "使用" not in raw:
+    if "鐢? not in raw and "浣跨敤" not in raw:
         return None
 
     skill_id = _find_best_skill_alias(raw, registry)
@@ -335,7 +335,7 @@ def _detect_skill_intent(text: str, registry: Any, forced_skill_id: str, forced_
     platform = forced_platform or _extract_platform(raw) or skill.default_platform
 
     verb_match = GEN_VERB_RE.search(raw)
-    brief = raw[verb_match.end() :].strip(" ：:，,。") if verb_match else ""
+    brief = raw[verb_match.end() :].strip(" 锛?锛?銆?) if verb_match else ""
     if not brief:
         brief = _remove_kv_chunks(raw)
     brief = _strip_urls(brief)
@@ -417,8 +417,8 @@ def _run_ingest(
         payload["text"] = text
     else:
         quote_body = _strip_urls(text)
-        if quote_body and not re.match(r"^\s*金句\s*[:：]\s*", quote_body):
-            quote_body = f"金句：{quote_body}"
+        if quote_body and not re.match(r"^\s*閲戝彞\s*[:锛歖\s*", quote_body):
+            quote_body = f"閲戝彞锛歿quote_body}"
         payload["text"] = quote_body
 
     if dry_run:
@@ -552,9 +552,9 @@ def _run_plain_chat(
         }
 
     prompt = (
-        "你是飞书私聊助手。\n"
-        "请直接用中文回复用户，简洁自然，不要输出代码块、JSON、系统解释。\n\n"
-        f"用户消息：{text.strip()}\n"
+        "浣犳槸椋炰功绉佽亰鍔╂墜銆俓n"
+        "璇风洿鎺ョ敤涓枃鍥炲鐢ㄦ埛锛岀畝娲佽嚜鐒讹紝涓嶈杈撳嚭浠ｇ爜鍧椼€丣SON銆佺郴缁熻В閲娿€俓n\n"
+        f"鐢ㄦ埛娑堟伅锛歿text.strip()}\n"
     )
     codex_cli = resolve_codex_cli()
     args = [codex_cli, "exec", "--json", "--skip-git-repo-check", "-m", settings.plain_chat_model, "-"]
@@ -672,13 +672,13 @@ def _ingest_reply_line(ingest: dict[str, Any]) -> str:
 
     if status in {"error"}:
         errors = result.get("errors") or ingest.get("errors") or ["unknown error"]
-        return f"入库失败：{errors[0]}"
+        return f"鍏ュ簱澶辫触锛歿errors[0]}"
 
     if mode == "quote":
         added = int(result.get("added") or 0)
         near_dup = int(result.get("near_dup") or 0)
         skipped = int(result.get("skipped") or 0)
-        return f"金句已入库：新增{added}，近似{near_dup}，重复{skipped}"
+        return f"閲戝彞宸插叆搴擄細鏂板{added}锛岃繎浼納near_dup}锛岄噸澶峽skipped}"
 
     if mode == "link":
         added = int(result.get("added") or 0)
@@ -688,14 +688,14 @@ def _ingest_reply_line(ingest: dict[str, Any]) -> str:
         if total > 0 and success <= 0:
             errors = result.get("errors") or ingest.get("errors") or []
             if errors:
-                return f"链接入库失败：{errors[0]}"
-            return f"链接入库失败：成功{success}/{total}，正文{added}"
-        return f"链接已入库：成功{success}/{total}，正文{added}"
+                return f"閾炬帴鍏ュ簱澶辫触锛歿errors[0]}"
+            return f"閾炬帴鍏ュ簱澶辫触锛氭垚鍔焮success}/{total}锛屾鏂噞added}"
+        return f"閾炬帴宸插叆搴擄細鎴愬姛{success}/{total}锛屾鏂噞added}"
 
     added = int(result.get("added") or 0)
     near_dup = int(result.get("near_dup") or 0)
     skipped = int(result.get("skipped") or 0)
-    return f"入库已处理：新增{added}，近似{near_dup}，跳过{skipped}"
+    return f"鍏ュ簱宸插鐞嗭細鏂板{added}锛岃繎浼納near_dup}锛岃烦杩噞skipped}"
 
 
 def _segment_reply(text: str, max_chars: int) -> list[str]:
@@ -735,7 +735,7 @@ def _compose_reply(
             if full_text:
                 segments = _segment_reply(full_text, max_chars=max_chars)
                 return (segments[0] if segments else full_text, segments)
-        fallback = "处理失败：聊天回复不可用，请稍后重试。"
+        fallback = "澶勭悊澶辫触锛氳亰澶╁洖澶嶄笉鍙敤锛岃绋嶅悗閲嶈瘯銆?
         return fallback, [fallback]
 
     ingest_line = _ingest_reply_line(ingest) if ingest else ""
@@ -748,19 +748,19 @@ def _compose_reply(
             if ingest_line and full_text:
                 joined = f"{ingest_line}\n\n{full_text}"
             else:
-                joined = full_text or ingest_line or "已处理。"
+                joined = full_text or ingest_line or "宸插鐞嗐€?
             segments = _segment_reply(joined, max_chars=max_chars)
             return (segments[0] if segments else joined, segments)
 
         # Skill failed: keep concise and do not flood.
-        errors = skill_result.get("errors") or skill.get("errors") or ["skill执行失败"]
+        errors = skill_result.get("errors") or skill.get("errors") or ["skill鎵ц澶辫触"]
         if ingest_line:
-            return (f"{ingest_line}；文案生成失败：{errors[0]}", [f"{ingest_line}；文案生成失败：{errors[0]}"])
-        return (f"文案生成失败：{errors[0]}", [f"文案生成失败：{errors[0]}"])
+            return (f"{ingest_line}锛涙枃妗堢敓鎴愬け璐ワ細{errors[0]}", [f"{ingest_line}锛涙枃妗堢敓鎴愬け璐ワ細{errors[0]}"])
+        return (f"鏂囨鐢熸垚澶辫触锛歿errors[0]}", [f"鏂囨鐢熸垚澶辫触锛歿errors[0]}"])
 
     if ingest_line:
         return ingest_line, [ingest_line]
-    return "未识别可处理内容。", ["未识别可处理内容。"]
+    return "鏈瘑鍒彲澶勭悊鍐呭銆?, ["鏈瘑鍒彲澶勭悊鍐呭銆?]
 
 
 def orchestrate_message(
@@ -893,7 +893,7 @@ def orchestrate_message(
             link_total = int(result_summary.get("link_total") or 0)
             link_success = int(result_summary.get("link_success") or 0)
             if link_total > 0 and link_success <= 0:
-                errors.append(f"链接抓取失败：成功{link_success}/{link_total}")
+                errors.append(f"閾炬帴鎶撳彇澶辫触锛氭垚鍔焮link_success}/{link_total}")
     if skill_result and skill_result.get("status") == "error":
         skill_err = (skill_result.get("result") or {}).get("errors") or skill_result.get("errors") or []
         errors.extend(skill_err)
@@ -1001,8 +1001,8 @@ def main(argv: list[str]) -> int:
             json.dumps(
                 {
                     "status": "error",
-                    "reply": f"处理失败：{exc}",
-                    "reply_segments": [f"处理失败：{exc}"],
+                    "reply": f"澶勭悊澶辫触锛歿exc}",
+                    "reply_segments": [f"澶勭悊澶辫触锛歿exc}"],
                     "errors": [str(exc)],
                 },
                 ensure_ascii=False,

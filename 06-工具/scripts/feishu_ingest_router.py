@@ -28,10 +28,10 @@ REPLY_PREFIX_RE = re.compile(
     r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:回复\s+[^:：\n]{1,80}\s*[:：]\s*)"
 )
 QUOTE_AT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?@(?P<mention>[^\s:：，,]+)\s*[:：]\s*(?P<body>.+?)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?@(?P<mention>[^\s:：，,]+)\s*[:：]\s*(?P<body>[\\s\\S]+?)\s*$"
 )
 QUOTE_TEXT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?金句\s*[:：]\s*(?P<body>.+?)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?金句\s*[:：]\s*(?P<body>[\\s\\S]+?)\s*$"
 )
 
 
