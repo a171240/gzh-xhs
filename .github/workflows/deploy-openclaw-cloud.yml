@@ -52,10 +52,29 @@ jobs:
           ssh ${SSH_OPTS} "${CLOUD_USER}@${CLOUD_HOST}" "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'EOS'
           set -euo pipefail
           DEPLOY_PATH="${DEPLOY_PATH:-/root/gzh-xhs}"
+
+          # self-heal: ensure repo exists and is on latest main before locating deploy script
+          if [ ! -d "${DEPLOY_PATH}/.git" ]; then
+            rm -rf "${DEPLOY_PATH}"
+            git clone https://github.com/a171240/gzh-xhs.git "${DEPLOY_PATH}"
+          fi
+
+          cd "${DEPLOY_PATH}"
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
           SCRIPT="${DEPLOY_PATH}/06-工具/deploy/cloud-deploy.sh"
           if [ ! -f "${SCRIPT}" ]; then
-            SCRIPT="$(find "${DEPLOY_PATH}" -maxdepth 4 -type f -path "*/deploy/cloud-deploy.sh" | head -n1)"
+            SCRIPT="$(find "${DEPLOY_PATH}" -maxdepth 8 -type f -path "*/deploy/cloud-deploy.sh" | head -n1)"
           fi
+
+          echo "[deploy-workflow] DEPLOY_PATH=${DEPLOY_PATH}"
+          echo "[deploy-workflow] SCRIPT=${SCRIPT:-<empty>}"
+          ls -la "${DEPLOY_PATH}" || true
+          ls -la "${DEPLOY_PATH}/06-工具" || true
+          ls -la "${DEPLOY_PATH}/06-工具/deploy" || true
+
           test -n "${SCRIPT}"
           test -f "${SCRIPT}"
           bash "${SCRIPT}" --repo-path "${DEPLOY_PATH}" --branch "main" --remote "origin"
