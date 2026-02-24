@@ -1,0 +1,103 @@
+{
+  "skills": [
+    {
+      "id": "xhs",
+      "name": "小红书内容生成",
+      "description": "4步工作流：选题→内容结构→图片提示词→交付",
+      "pipelineId": "xhs",
+      "briefPlaceholder": "请填写账号角色、主关键词、目标人群、约束等...",
+      "defaultContexts": [
+        "../../skills/自有矩阵/小红书内容生产.md",
+        "../../02-内容生产/小红书/resources/30天内容日历.md",
+        "../../02-内容生产/小红书/resources/高情绪标题公式.md",
+        "../../02-内容生产/小红书/resources/证据素材库.md",
+        "../../02-内容生产/小红书/resources/消费者洞察词库.md"
+      ],
+      "wizard": {
+        "homeTitle": "写小红书",
+        "homeDescription": "支持信息图6页与情绪冲突文字帖双模式",
+        "defaultMode": "信息图6页",
+        "modeOptions": [
+          "信息图6页",
+          "情绪冲突文字帖"
+        ],
+        "step2Hint": "按定位、互动、约束三类填写。",
+        "step3Hint": "先勾选核心规则，再按需加情绪引擎/金句库。",
+        "deliverySummaryTemplateKey": "xhs_wizard_confirm"
+      },
+      "quickTemplateLabels": {
+        "sop": "流程模板",
+        "topics": "选题模板",
+        "headline": "标题模板"
+      },
+      "quickTemplates": {
+        "sop": "模式：信息图6页|情绪冲突文字帖\n账号角色：A/B/C\n主关键词：\n目标人群：\n核心目标：引发收藏/评论/私信\n置顶互动开关：ON|OFF\n是否调用金句库：是|否\n金句主题：搞钱与生意/内容与增长/系统与执行/人性与沟通\n输出类型：流程/步骤/清单\n约束：标题≤20字，每页≤60字；合规；不要虚构数据\n参考素材：\n",
+        "topics": "账号角色：A/B/C\n领域赛道：\n目标人群：\n痛点场景：\n主关键词：\n长尾关键词(2-4)：\n期望输出：选题清单(10条)+标题候选(3条)\n",
+        "headline": "账号角色：A/B/C\n主关键词：\n受众身份：\n核心矛盾：\n情绪基调：焦虑/好奇/警示/希望\n标题目标：高点击/高完读/高转发\n输出要求：标题20条+评分+Top3\n"
+      }
+    },
+    {
+      "id": "wechat",
+      "name": "公众号爆文写作",
+      "description": "四账号批量：标题 → 大纲 → 正文 → 打包落盘",
+      "pipelineId": "wechat",
+      "briefPlaceholder": "请按 Brief 模板填写主题、目标人群、核心矛盾等...",
+      "defaultContexts": [
+        "../../skills/自有矩阵/公众号批量生产.md"
+      ],
+      "wizard": {
+        "homeTitle": "写公众号",
+        "homeDescription": "四账号批量生产，自动输出可落盘交付包",
+        "defaultMode": "四账号批量",
+        "modeOptions": [
+          "四账号批量"
+        ],
+        "step2Hint": "按主题矛盾、证据动作、风格约束三类填写。",
+        "step3Hint": "建议至少勾选：公众号核心技能 + 金句库/富贵模块（按需）。",
+        "deliverySummaryTemplateKey": "wechat_wizard_confirm"
+      },
+      "quickTemplateLabels": {
+        "sop": "Brief模板",
+        "topics": "选题模板",
+        "headline": "标题模板"
+      },
+      "quickTemplates": {
+        "sop": "日期(YYYY-MM-DD，可空，默认今天)：\n主题矿区/选题：\n目标人群：\n核心矛盾：\n场景证据/案例素材：\n希望读者做的第一步：\n引流物(CTA关键词)：\n禁区(可选)：\n是否调用金句库：是|否\n金句主题：搞钱与生意/内容与增长/系统与执行/人性与沟通\n",
+        "topics": "选题母题：钱/职场/关系/自我\n群体：\n场景：\n矛盾：\n代价：\n诱因：\n期望输出：20个标题+Top2+一句理由\n",
+        "headline": "请基于Brief输出：20个标题（覆盖≥5种公式，含公式标签+评分）→ Top2，并说明理由。\n硬约束：标题18-28字优先；至少命中人群/场景/数字/反差/强动词3项；尽量去标点。\n"
+      }
+    },
+    {
+      "id": "crawler",
+      "name": "内容抓取台",
+      "description": "独立抓取：URL / 关键词矩阵 / 双模式",
+      "pipelineId": "crawler",
+      "briefPlaceholder": "请填写抓取模式、URL或关键词等参数...",
+      "defaultContexts": [],
+      "wizard": {
+        "homeTitle": "内容抓取台",
+        "homeDescription": "先抓取再注入素材库，供公众号/小红书勾选使用",
+        "defaultMode": "URL抓取",
+        "modeOptions": [
+          "URL抓取",
+          "关键词矩阵",
+          "双模式"
+        ],
+        "step2Hint": "按输入模式填写 URL 与关键词参数。",
+        "step3Hint": "抓取台不需要素材包，执行后会自动写入抓取素材目录。",
+        "deliverySummaryTemplateKey": "crawler_wizard_confirm"
+      },
+      "quickTemplateLabels": {
+        "sop": "抓取模板",
+        "topics": "关键词模板",
+        "headline": "URL模板"
+      },
+      "quickTemplates": {
+        "sop": "模式：URL抓取|关键词矩阵|双模式\nURL列表：\n关键词列表：\n平台列表：wechat,xhs,x\n时间窗口起：\n时间窗口止：\nmax_results：30\ndedup_key：url\ndry_run：否\n",
+        "topics": "模式：关键词矩阵\n关键词列表：AI内容\n内容增长\n平台列表：wechat,xhs,x\n时间窗口起：\n时间窗口止：\nmax_results：30\ndedup_key：url\ndry_run：是\n",
+        "headline": "模式：URL抓取\nURL列表：\nhttps://example.com\nhttps://mp.weixin.qq.com/s/xxxxx\ndry_run：否\n"
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,62 @@
+﻿name: deploy-openclaw-cloud
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "06-工具/scripts/**"
+      - "06-工具/deploy/**"
+      - ".github/workflows/deploy-openclaw-cloud.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Validate required secrets
+        env:
+          CLOUD_HOST: ${{ secrets.CLOUD_HOST }}
+          CLOUD_USER: ${{ secrets.CLOUD_USER }}
+          CLOUD_SSH_KEY: ${{ secrets.CLOUD_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUD_HOST}"
+          test -n "${CLOUD_USER}"
+          test -n "${CLOUD_SSH_KEY}"
+
+      - name: Configure SSH
+        env:
+          CLOUD_HOST: ${{ secrets.CLOUD_HOST }}
+          CLOUD_SSH_KEY: ${{ secrets.CLOUD_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "${CLOUD_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${CLOUD_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Run cloud deploy script
+        env:
+          CLOUD_HOST: ${{ secrets.CLOUD_HOST }}
+          CLOUD_PORT: ${{ secrets.CLOUD_PORT }}
+          CLOUD_USER: ${{ secrets.CLOUD_USER }}
+          CLOUD_DEPLOY_PATH: ${{ secrets.CLOUD_DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          PORT="${CLOUD_PORT:-22}"
+          DEPLOY_PATH="${CLOUD_DEPLOY_PATH:-/root/gzh-xhs}"
+          SSH_OPTS="-o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -p ${PORT}"
+          ssh ${SSH_OPTS} "${CLOUD_USER}@${CLOUD_HOST}" "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'EOS'
+          set -euo pipefail
+          DEPLOY_PATH="${DEPLOY_PATH:-/root/gzh-xhs}"
+          SCRIPT="${DEPLOY_PATH}/06-工具/deploy/cloud-deploy.sh"
+          if [ ! -f "${SCRIPT}" ]; then
+            SCRIPT="$(find "${DEPLOY_PATH}" -maxdepth 4 -type f -path "*/deploy/cloud-deploy.sh" | head -n1)"
+          fi
+          test -n "${SCRIPT}"
+          test -f "${SCRIPT}"
+          bash "${SCRIPT}" --repo-path "${DEPLOY_PATH}" --branch "main" --remote "origin"
+          EOS
