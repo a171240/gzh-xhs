@@ -1,0 +1,85 @@
+# 飞书离线补偿导入记录
+
+## 2026-02-22T10:57:47 (last 24h)
+- 时间窗口(UTC): `2026-02-21T02:57:47+00:00` -> `2026-02-22T02:57:47+00:00`
+- chat_count: `1`
+- pulled_messages: `24`
+- processed: `12`
+- success: `10`
+- duplicate: `1`
+- ignored: `0`
+- failed: `1`
+
+- event_ref: `feishu-backfill-om_x100b56a6c145fca8c362150e97b98bf`
+  - status: duplicate
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b56a6c145fca8c362150e97b98bf`
+  - mode: quote
+  - detail: added=1 skipped=0
+- event_ref: `feishu-backfill-om_x100b56a8185544a4c3a43982a72ae7c`
+  - status: success
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b56a8185544a4c3a43982a72ae7c`
+  - mode: quote
+  - detail: added=1 skipped=0
+- event_ref: `feishu-backfill-om_x100b5691bbc1e8a0c390d642799bc95`
+  - status: success
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b5691bbc1e8a0c390d642799bc95`
+  - mode: mixed
+  - detail: added=1 skipped=0
+- event_ref: `feishu-backfill-om_x100b5691b44650a0c108b7a2e560cb4`
+  - status: success
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b5691b44650a0c108b7a2e560cb4`
+  - mode: quote
+  - detail: added=1 skipped=0
+- event_ref: `feishu-backfill-om_x100b56924307a4a8c144b559d3f823b`
+  - status: success
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b56924307a4a8c144b559d3f823b`
+  - mode: quote
+  - detail: added=2 skipped=0
+- event_ref: `feishu-backfill-om_x100b569211cae4a8c39556f640af79c`
+  - status: success
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b569211cae4a8c39556f640af79c`
+  - mode: quote
+  - detail: added=2 skipped=0
+- event_ref: `feishu-backfill-om_x100b56922e8880a8c2b03d065e019e8`
+  - status: failed
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b56922e8880a8c2b03d065e019e8`
+  - mode: mixed
+  - detail: HTTPConnectionPool(host='127.0.0.1', port=8790): Read timed out. (read timeout=20)
+- event_ref: `feishu-backfill-om_x100b56928fbc2ca4c32f3e50765ecfb`
+  - status: success
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b56928fbc2ca4c32f3e50765ecfb`
+  - mode: quote
+  - detail: added=1 skipped=0
+- event_ref: `feishu-backfill-om_x100b5692975e54a4c4e959872d1fbf4`
+  - status: success
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b5692975e54a4c4e959872d1fbf4`
+  - mode: quote
+  - detail: added=0 skipped=1
+- event_ref: `feishu-backfill-om_x100b5692beaa60a0c4a6ba1f9dc4d63`
+  - status: success
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b5692beaa60a0c4a6ba1f9dc4d63`
+  - mode: quote
+  - detail: added=0 skipped=2
+- event_ref: `feishu-backfill-om_x100b5692b02c0534c4d034b3878ed55`
+  - status: success
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b5692b02c0534c4d034b3878ed55`
+  - mode: quote
+  - detail: added=1 skipped=1
+- event_ref: `feishu-backfill-om_x100b56934e0434a0c3abdedf69d33cb`
+  - status: success
+  - chat_id: `oc_ec32f4d1bfe0bfeae7b4cf2719182570`
+  - message_id: `om_x100b56934e0434a0c3abdedf69d33cb`
+  - mode: mixed
+  - detail: added=1 skipped=1
+
