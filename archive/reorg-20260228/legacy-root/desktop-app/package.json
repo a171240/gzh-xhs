@@ -1,0 +1,17 @@
+{
+  "name": "content-codex-desktop",
+  "version": "0.1.0",
+  "description": "Desktop shell for content generation with Codex",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "openai": "^6.16.0"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0"
+  }
+}

@@ -1,0 +1,337 @@
+{
+  "groups": [
+    {
+      "id": "xhs-core",
+      "title": "小红书 · 核心规则",
+      "skills": [
+        "xhs"
+      ],
+      "items": [
+        {
+          "id": "xhs-skill",
+          "label": "小红书内容生成Skill_完整版",
+          "path": "../../skills/自有矩阵/小红书内容生产.md",
+          "recommendedForWizard": true,
+          "tags": [
+            "规则",
+            "工作流"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "xhs-templates",
+      "title": "小红书 · 模板库",
+      "skills": [
+        "xhs"
+      ],
+      "items": [
+        {
+          "id": "infographic-templates",
+          "label": "信息图模板库",
+          "path": "../../02-内容生产/小红书/templates/信息图模板库.md",
+          "tags": [
+            "模板",
+            "信息图"
+          ]
+        },
+        {
+          "id": "visual-style",
+          "label": "视觉风格库",
+          "path": "../../02-内容生产/小红书/templates/视觉风格库.md",
+          "tags": [
+            "模板",
+            "视觉"
+          ]
+        },
+        {
+          "id": "note-templates",
+          "label": "笔记模板库",
+          "path": "../../02-内容生产/小红书/templates/笔记模板库.md",
+          "tags": [
+            "模板",
+            "文案"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "xhs-resources",
+      "title": "小红书 · 素材库",
+      "skills": [
+        "xhs"
+      ],
+      "items": [
+        {
+          "id": "calendar-30d",
+          "label": "30天内容日历",
+          "path": "../../02-内容生产/小红书/resources/30天内容日历.md",
+          "tags": [
+            "日历",
+            "排期"
+          ]
+        },
+        {
+          "id": "headline-formula",
+          "label": "高情绪标题公式",
+          "path": "../../02-内容生产/小红书/resources/高情绪标题公式.md",
+          "tags": [
+            "标题",
+            "情绪"
+          ]
+        },
+        {
+          "id": "evidence-lib",
+          "label": "证据素材库",
+          "path": "../../02-内容生产/小红书/resources/证据素材库.md",
+          "tags": [
+            "素材",
+            "证据"
+          ]
+        },
+        {
+          "id": "consumer-insight",
+          "label": "消费者洞察词库",
+          "path": "../../02-内容生产/小红书/resources/消费者洞察词库.md",
+          "tags": [
+            "词库",
+            "洞察"
+          ]
+        },
+        {
+          "id": "emotion-engine",
+          "label": "情绪冲突内容引擎",
+          "path": "../../02-内容生产/小红书/resources/情绪冲突内容引擎.md",
+          "tags": [
+            "情绪",
+            "冲突"
+          ]
+        },
+        {
+          "id": "keyword-matrix",
+          "label": "关键词矩阵",
+          "path": "../../02-内容生产/小红书/resources/关键词矩阵.md",
+          "tags": [
+            "关键词",
+            "SEO"
+          ]
+        },
+        {
+          "id": "copycat-cases",
+          "label": "可模仿爆款案例库",
+          "path": "../../02-内容生产/小红书/resources/可模仿爆款案例库.md",
+          "tags": [
+            "案例",
+            "爆款"
+          ]
+        },
+        {
+          "id": "cta-prompts",
+          "label": "CTA提示词",
+          "path": "../../02-内容生产/小红书/resources/CTA提示词.md",
+          "tags": [
+            "CTA",
+            "转化"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wechat-core",
+      "title": "公众号 · 核心规则",
+      "skills": [
+        "wechat"
+      ],
+      "items": [
+        {
+          "id": "wechat-skill",
+          "label": "公众号批量生产Skill",
+          "path": "../../skills/自有矩阵/公众号批量生产.md",
+          "recommendedForWizard": true,
+          "tags": [
+            "规则",
+            "工作流"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wechat-resources",
+      "title": "公众号 · 素材库",
+      "skills": [
+        "wechat"
+      ],
+      "items": [
+        {
+          "id": "content-framework",
+          "label": "内容框架知识库",
+          "path": "../../03-素材库/内容框架库/内容框架知识库.md",
+          "tags": [
+            "框架",
+            "知识"
+          ]
+        },
+        {
+          "id": "cognitive-framework",
+          "label": "认知框架库",
+          "path": "../../03-素材库/内容框架库/认知框架库.md",
+          "tags": [
+            "框架",
+            "认知"
+          ]
+        },
+        {
+          "id": "emotion-value",
+          "label": "情绪价值点库",
+          "path": "../../03-素材库/情绪价值点库/情绪价值点库.md",
+          "tags": [
+            "情绪",
+            "价值"
+          ]
+        },
+        {
+          "id": "topic-lib",
+          "label": "选题素材库",
+          "path": "../../01-选题管理/选题规划/选题素材库.md",
+          "tags": [
+            "选题",
+            "素材"
+          ]
+        },
+        {
+          "id": "content-template",
+          "label": "内容框架模板",
+          "path": "../../02-内容生产/公众号/prompts/内容框架模板.md",
+          "tags": [
+            "模板",
+            "框架"
+          ]
+        },
+        {
+          "id": "visual-style-wechat",
+          "label": "视觉风格库",
+          "path": "../../02-内容生产/公众号/prompts/视觉风格库.md",
+          "tags": [
+            "模板",
+            "视觉"
+          ]
+        },
+        {
+          "id": "story-lib",
+          "label": "故事素材库",
+          "path": "../../03-素材库/故事素材库/故事素材库.md",
+          "tags": [
+            "故事",
+            "素材"
+          ]
+        },
+        {
+          "id": "boom-enhanced",
+          "label": "公众号爆文增强版",
+          "path": "../../03-素材库/增强模块/公众号爆文增强版.md",
+          "tags": [
+            "增强",
+            "标题库"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quotes",
+      "title": "金句库（跨平台）",
+      "skills": [
+        "xhs",
+        "wechat"
+      ],
+      "items": [
+        {
+          "id": "quotes-index",
+          "label": "金句库索引",
+          "path": "../../03-素材库/金句库/00-索引.md",
+          "recommendedForWizard": true,
+          "tags": [
+            "金句",
+            "索引"
+          ]
+        },
+        {
+          "id": "quotes-money",
+          "label": "搞钱与生意",
+          "path": "../../03-素材库/金句库/01-搞钱与生意.md",
+          "tags": [
+            "金句",
+            "搞钱"
+          ]
+        },
+        {
+          "id": "quotes-content",
+          "label": "内容与增长",
+          "path": "../../03-素材库/金句库/02-内容与增长.md",
+          "tags": [
+            "金句",
+            "增长"
+          ]
+        },
+        {
+          "id": "quotes-system",
+          "label": "系统与执行",
+          "path": "../../03-素材库/金句库/03-系统与执行.md",
+          "tags": [
+            "金句",
+            "系统"
+          ]
+        },
+        {
+          "id": "quotes-human",
+          "label": "人性与沟通",
+          "path": "../../03-素材库/金句库/04-人性与沟通.md",
+          "tags": [
+            "金句",
+            "人性"
+          ]
+        },
+        {
+          "id": "quotes-marriage",
+          "label": "婚恋与家庭（次级）",
+          "path": "../../03-素材库/金句库/90-婚恋与家庭（次级）.md",
+          "tags": [
+            "金句",
+            "婚恋"
+          ]
+        },
+        {
+          "id": "quotes-self",
+          "label": "自我与哲学（次级）",
+          "path": "../../03-素材库/金句库/91-自我与哲学（次级）.md",
+          "tags": [
+            "金句",
+            "哲学"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fugui-modules",
+      "title": "富贵 · 打动人模块（可选）",
+      "skills": [
+        "xhs",
+        "wechat"
+      ],
+      "items": [
+        {
+          "id": "fugui-touch-modules",
+          "label": "富贵-打动人模块（提炼版）",
+          "path": "../../03-素材库/增强模块/富贵-打动人模块.md",
+          "recommendedForWizard": true,
+          "tags": [
+            "方法论",
+            "人群",
+            "情绪",
+            "体验"
+          ]
+        }
+      ]
+    }
+  ]
+}
+

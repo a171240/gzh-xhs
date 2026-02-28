@@ -1,0 +1,18 @@
+[Unit]
+Description=OpenClaw Ingest Writer API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=content
+Group=content
+WorkingDirectory=/srv/content-repo
+EnvironmentFile=/srv/content-repo/06-工具/scripts/.env.ingest-writer
+ExecStart=/usr/bin/python3 -m uvicorn ingest_writer_api:app --app-dir /srv/content-repo/06-工具/scripts --host 0.0.0.0 --port 8790
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

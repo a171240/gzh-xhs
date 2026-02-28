@@ -1,0 +1,407 @@
+{
+  "version": 2,
+  "skills": {
+    "xhs": {
+      "id": "xhs",
+      "displayName": "写小红书",
+      "defaultMode": "信息图6页",
+      "modeOptions": [
+        {
+          "value": "信息图6页",
+          "label": "信息图6页",
+          "description": "适合知识讲解、方法拆解与收藏导向"
+        },
+        {
+          "value": "情绪冲突文字帖",
+          "label": "情绪冲突文字帖",
+          "description": "适合观点表达、评论互动与讨论扩散"
+        }
+      ],
+      "step2Groups": [
+        {
+          "id": "positioning",
+          "title": "定位与目标",
+          "description": "定义这条内容的方向和结果",
+          "fields": [
+            {
+              "id": "账号角色",
+              "label": "账号角色",
+              "type": "text",
+              "required": true,
+              "placeholder": "例如：职场转型顾问 / 创业复盘账号"
+            },
+            {
+              "id": "主关键词",
+              "label": "主关键词",
+              "type": "text",
+              "required": true,
+              "placeholder": "例如：35岁转型"
+            },
+            {
+              "id": "目标人群",
+              "label": "目标人群",
+              "type": "text",
+              "required": true,
+              "placeholder": "例如：30-40岁一线城市上班族"
+            },
+            {
+              "id": "核心目标",
+              "label": "核心目标",
+              "type": "select",
+              "required": true,
+              "default": "引发收藏",
+              "options": [
+                "引发收藏",
+                "促进评论",
+                "引导私信",
+                "提升转发"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "interaction",
+          "title": "互动与转化",
+          "description": "控制置顶互动和金句注入",
+          "fields": [
+            {
+              "id": "置顶互动开关",
+              "label": "置顶互动开关",
+              "type": "select",
+              "required": true,
+              "default": "ON",
+              "options": [
+                "ON",
+                "OFF"
+              ]
+            },
+            {
+              "id": "是否调用金句库",
+              "label": "是否调用金句库",
+              "type": "select",
+              "required": true,
+              "default": "否",
+              "options": [
+                "是",
+                "否"
+              ]
+            },
+            {
+              "id": "金句主题",
+              "label": "金句主题",
+              "type": "select",
+              "required": false,
+              "default": "内容与增长",
+              "options": [
+                "搞钱与生意",
+                "内容与增长",
+                "系统与执行",
+                "人性与沟通"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "constraints",
+          "title": "约束与素材",
+          "description": "减少跑题和风格漂移",
+          "fields": [
+            {
+              "id": "约束",
+              "label": "约束",
+              "type": "textarea",
+              "required": false,
+              "placeholder": "例如：标题20字以内，避免攻击性措辞，严禁虚构数据"
+            },
+            {
+              "id": "参考素材",
+              "label": "参考素材",
+              "type": "textarea",
+              "required": false,
+              "placeholder": "可填你手上的案例、截图描述、关键词片段"
+            }
+          ]
+        }
+      ],
+      "step3Recommendations": [
+        "xhs-core",
+        "xhs-emotion",
+        "quote-library",
+        "fugui-modules"
+      ],
+      "briefOrder": [
+        "模式",
+        "账号角色",
+        "主关键词",
+        "目标人群",
+        "核心目标",
+        "置顶互动开关",
+        "是否调用金句库",
+        "金句主题",
+        "约束",
+        "参考素材"
+      ]
+    },
+    "wechat": {
+      "id": "wechat",
+      "displayName": "写公众号",
+      "defaultMode": "四账号批量",
+      "modeOptions": [
+        {
+          "value": "四账号批量",
+          "label": "四账号批量",
+          "description": "一键生成 gongchang/ipgc/zengzhang/shizhan 四篇"
+        }
+      ],
+      "step2Groups": [
+        {
+          "id": "topic",
+          "title": "主题与矛盾",
+          "description": "先确定核心选题与冲突轴",
+          "fields": [
+            {
+              "id": "日期",
+              "label": "日期(YYYY-MM-DD，可空)",
+              "type": "text",
+              "required": false,
+              "placeholder": "例如：2026-02-17"
+            },
+            {
+              "id": "主题矿区/选题",
+              "label": "主题矿区/选题",
+              "type": "text",
+              "required": true,
+              "placeholder": "例如：35岁能力折旧与重启"
+            },
+            {
+              "id": "目标人群",
+              "label": "目标人群",
+              "type": "text",
+              "required": true,
+              "placeholder": "例如：30-45岁正在职业焦虑的人"
+            },
+            {
+              "id": "核心矛盾",
+              "label": "核心矛盾",
+              "type": "textarea",
+              "required": true,
+              "placeholder": "例如：想稳定但收入下降，想转型但怕失败"
+            }
+          ]
+        },
+        {
+          "id": "evidence",
+          "title": "证据与动作",
+          "description": "补齐案例、行动和转化目标",
+          "fields": [
+            {
+              "id": "场景证据/案例素材",
+              "label": "场景证据/案例素材",
+              "type": "textarea",
+              "required": true,
+              "placeholder": "写你真实可讲述的案例、观察和数据"
+            },
+            {
+              "id": "希望读者做的第一步",
+              "label": "希望读者做的第一步",
+              "type": "text",
+              "required": true,
+              "placeholder": "例如：先做能力盘点表"
+            },
+            {
+              "id": "引流物(CTA关键词)",
+              "label": "引流物(CTA关键词)",
+              "type": "text",
+              "required": true,
+              "placeholder": "例如：回复“重启清单”"
+            }
+          ]
+        },
+        {
+          "id": "style",
+          "title": "风格约束",
+          "description": "控制内容边界和注入素材",
+          "fields": [
+            {
+              "id": "禁区",
+              "label": "禁区(可选)",
+              "type": "textarea",
+              "required": false,
+              "placeholder": "例如：不写夸张承诺，不攻击某职业群体"
+            },
+            {
+              "id": "是否调用金句库",
+              "label": "是否调用金句库",
+              "type": "select",
+              "required": true,
+              "default": "否",
+              "options": [
+                "是",
+                "否"
+              ]
+            },
+            {
+              "id": "金句主题",
+              "label": "金句主题",
+              "type": "select",
+              "required": false,
+              "default": "系统与执行",
+              "options": [
+                "搞钱与生意",
+                "内容与增长",
+                "系统与执行",
+                "人性与沟通"
+              ]
+            }
+          ]
+        }
+      ],
+      "step3Recommendations": [
+        "wechat-core",
+        "quote-library",
+        "fugui-modules"
+      ],
+      "briefOrder": [
+        "日期",
+        "主题矿区/选题",
+        "目标人群",
+        "核心矛盾",
+        "场景证据/案例素材",
+        "希望读者做的第一步",
+        "引流物(CTA关键词)",
+        "禁区",
+        "是否调用金句库",
+        "金句主题"
+      ]
+    },
+    "crawler": {
+      "id": "crawler",
+      "displayName": "内容抓取台",
+      "defaultMode": "URL抓取",
+      "modeOptions": [
+        {
+          "value": "URL抓取",
+          "label": "URL抓取",
+          "description": "逐条读取 URL，提取正文并保存为可注入素材"
+        },
+        {
+          "value": "关键词矩阵",
+          "label": "关键词矩阵",
+          "description": "按平台+关键词批量抓取并输出标准化报表"
+        },
+        {
+          "value": "双模式",
+          "label": "双模式",
+          "description": "URL 与关键词矩阵同时执行，支持部分成功"
+        }
+      ],
+      "step2Groups": [
+        {
+          "id": "input_mode",
+          "title": "输入模式与核心参数",
+          "description": "先选模式，再补充 URL/关键词。",
+          "fields": [
+            {
+              "id": "输入模式",
+              "label": "输入模式",
+              "type": "select",
+              "required": true,
+              "default": "URL抓取",
+              "options": [
+                "URL抓取",
+                "关键词矩阵",
+                "双模式"
+              ]
+            },
+            {
+              "id": "URL列表",
+              "label": "URL列表",
+              "type": "textarea",
+              "required": false,
+              "placeholder": "每行一个 URL，例如：https://example.com"
+            },
+            {
+              "id": "关键词列表",
+              "label": "关键词列表",
+              "type": "textarea",
+              "required": false,
+              "placeholder": "每行一个关键词，例如：AI内容"
+            }
+          ]
+        },
+        {
+          "id": "matrix_options",
+          "title": "关键词矩阵参数",
+          "description": "仅关键词矩阵/双模式生效。",
+          "fields": [
+            {
+              "id": "平台列表",
+              "label": "平台列表",
+              "type": "text",
+              "required": false,
+              "default": "wechat,xhs,x",
+              "placeholder": "逗号分隔：wechat,xhs,x"
+            },
+            {
+              "id": "时间窗口起",
+              "label": "时间窗口起",
+              "type": "text",
+              "required": false,
+              "placeholder": "YYYY-MM-DD（可空）"
+            },
+            {
+              "id": "时间窗口止",
+              "label": "时间窗口止",
+              "type": "text",
+              "required": false,
+              "placeholder": "YYYY-MM-DD（可空）"
+            },
+            {
+              "id": "max_results",
+              "label": "max_results",
+              "type": "text",
+              "required": false,
+              "default": "30",
+              "placeholder": "每个关键词最多抓取条数"
+            },
+            {
+              "id": "dedup_key",
+              "label": "dedup_key",
+              "type": "select",
+              "required": false,
+              "default": "url",
+              "options": [
+                "url",
+                "title"
+              ]
+            },
+            {
+              "id": "dry_run",
+              "label": "dry_run",
+              "type": "select",
+              "required": false,
+              "default": "否",
+              "options": [
+                "是",
+                "否"
+              ]
+            }
+          ]
+        }
+      ],
+      "step3Recommendations": [],
+      "briefOrder": [
+        "模式",
+        "输入模式",
+        "URL列表",
+        "关键词列表",
+        "平台列表",
+        "时间窗口起",
+        "时间窗口止",
+        "max_results",
+        "dedup_key",
+        "dry_run"
+      ]
+    }
+  }
+}

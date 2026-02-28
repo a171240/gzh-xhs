@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>内容生产桌面版</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <div class="brand-title">内容生产桌面版</div>
+            <div class="brand-subtitle">三层分级工作流：导航 → 向导 → 执行</div>
+          </div>
+        </div>
+        <div class="topbar-tools">
+          <div class="status" id="status">就绪</div>
+          <div class="progress-wrap">
+            <div class="progress-label" id="progressLabel">0/0</div>
+            <div class="progress-track">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+          </div>
+          <div class="topbar-nav">
+            <button class="ghost" id="navHome">首页</button>
+            <button class="ghost" id="navExecution">运行记录</button>
+            <button class="ghost" id="navPro">专业模式</button>
+            <button class="ghost" id="openGuide">引导</button>
+            <button class="ghost" id="openSettings">设置</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="main" id="mainRoot">
+        <section class="view active" id="viewHome" data-view="home">
+          <div class="home-header">
+            <h1>你要先做什么</h1>
+            <p>从任务卡进入，系统会自动带上对应技能预设。</p>
+          </div>
+          <div class="home-grid">
+            <button class="home-card" id="homeXhs">
+              <div class="home-card-title">写小红书</div>
+              <div class="home-card-desc">双模式：信息图6页 / 情绪冲突文字帖</div>
+            </button>
+            <button class="home-card" id="homeWechat">
+              <div class="home-card-title">写公众号</div>
+              <div class="home-card-desc">四账号批量生成与交付</div>
+            </button>
+            <button class="home-card" id="homeCrawler">
+              <div class="home-card-title">内容抓取台</div>
+              <div class="home-card-desc">URL / 关键词矩阵 / 双模式抓取沉淀</div>
+            </button>
+            <button class="home-card" id="homeRuns">
+              <div class="home-card-title">运行记录</div>
+              <div class="home-card-desc">查看时间线、阶段输出、落盘文件</div>
+            </button>
+            <button class="home-card" id="homeSettings">
+              <div class="home-card-title">设置与帮助</div>
+              <div class="home-card-desc">引擎参数、默认提示词、使用引导</div>
+            </button>
+          </div>
+        </section>
+
+        <section class="view" id="viewWizard" data-view="wizard">
+          <div class="wizard-shell">
+            <aside class="wizard-aside">
+              <div class="wizard-skill-title" id="wizardSkillTitle">写小红书</div>
+              <div class="wizard-steps" id="wizardStepNav"></div>
+              <div class="wizard-example" id="wizardExample"></div>
+            </aside>
+            <section class="wizard-main">
+              <div class="wizard-header">
+                <button class="ghost" id="wizardBackHome">返回首页</button>
+                <div class="wizard-breadcrumb" id="wizardBreadcrumb">首页 / 向导</div>
+              </div>
+
+              <div class="wizard-step active" id="wizardStep1" data-step="1">
+                <h2>第1步 选择技能/模式</h2>
+                <div class="skill-cards" id="wizardSkillCards"></div>
+                <div class="mode-cards" id="wizardModeCards"></div>
+              </div>
+
+              <div class="wizard-step" id="wizardStep2" data-step="2">
+                <h2>第2步 填写 Brief</h2>
+                <div class="accordion-list" id="wizardBriefAccordion"></div>
+              </div>
+
+              <div class="wizard-step" id="wizardStep3" data-step="3">
+                <div class="step-head">
+                  <h2>第3步 选择素材包</h2>
+                  <div class="step-head-tools">
+                    <button class="ghost" id="wizardLoadDefaults">加载默认</button>
+                    <button class="ghost" id="wizardAddFiles">添加本地文件</button>
+                  </div>
+                </div>
+                <div class="context-summary" id="wizardContextSummary">已选 0 个素材</div>
+                <div class="accordion-list" id="wizardContextAccordion"></div>
+              </div>
+
+              <div class="wizard-step" id="wizardStep4" data-step="4">
+                <h2>第4步 确认参数</h2>
+                <div class="confirm-layout">
+                  <div class="confirm-card">
+                    <h3>Brief 预览</h3>
+                    <pre id="wizardBriefPreview"></pre>
+                  </div>
+                  <div class="confirm-card">
+                    <h3>执行参数</h3>
+                    <label>
+                      执行引擎
+                      <select id="wizardEngine">
+                        <option value="codex">Codex CLI（本地）</option>
+                        <option value="openai">OpenAI API</option>
+                      </select>
+                    </label>
+                    <label>
+                      模型
+                      <input type="text" id="wizardModel" placeholder="gpt-5.3-codex" />
+                    </label>
+                    <label>
+                      推理强度
+                      <select id="wizardReasoningEffort">
+                        <option value="low">低</option>
+                        <option value="medium">中</option>
+                        <option value="high">高</option>
+                        <option value="xhigh">超高</option>
+                      </select>
+                    </label>
+                    <label>
+                      温度
+                      <input type="number" id="wizardTemperature" min="0" max="2" step="0.1" />
+                    </label>
+                    <label>
+                      最大输出字数
+                      <input type="number" id="wizardMaxTokens" min="128" step="64" />
+                    </label>
+                    <button class="ghost" id="wizardSaveParams">保存参数</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="wizard-step" id="wizardStep5" data-step="5">
+                <h2>第5步 执行与交付</h2>
+                <div class="wizard-run-actions">
+                  <button class="primary" id="wizardRun">开始执行</button>
+                  <button class="ghost" id="wizardOpenRunDetail">查看本次结果</button>
+                </div>
+                <div class="wizard-live" id="wizardLive"></div>
+              </div>
+
+              <div class="wizard-footer">
+                <button class="ghost" id="wizardPrev">上一步</button>
+                <button class="primary" id="wizardNext">下一步</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="viewExecution" data-view="execution">
+          <div class="execution-shell">
+            <aside class="runs-panel">
+              <div class="runs-head">
+                <h2>运行时间线</h2>
+                <button class="ghost" id="refreshRuns">刷新</button>
+              </div>
+              <div id="runsList" class="runs-list"></div>
+            </aside>
+            <section class="run-detail" id="runDetail">
+              <div class="empty">请选择一条运行记录查看详情</div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="viewPro" data-view="pro">
+          <div class="pro-shell">
+            <section class="pro-left panel">
+              <div class="panel-head">
+                <h2>专业模式：输入与流程</h2>
+              </div>
+              <div class="skill-switch">
+                <div class="skill-title">选择技能</div>
+                <div class="skill-actions" id="proSkillButtons"></div>
+                <div class="skill-desc" id="proSkillDesc"></div>
+              </div>
+
+              <label class="field-wrap">
+                <span>Brief</span>
+                <textarea id="proBriefInput" placeholder="描述目标、受众、矛盾、约束"></textarea>
+              </label>
+
+              <div class="section">
+                <div class="section-head">
+                  <h3>上下文文件</h3>
+                  <div class="section-actions">
+                    <button class="ghost" id="proLoadDefaults">加载默认</button>
+                    <button class="ghost" id="proAddFiles">添加文件</button>
+                  </div>
+                </div>
+                <div id="proFilesList" class="files-list"></div>
+              </div>
+
+              <div class="section">
+                <div class="section-head">
+                  <h3>流程编辑</h3>
+                  <div class="section-actions">
+                    <button class="ghost" id="proAddStage">新增步骤</button>
+                    <button class="primary" id="proRunAll">全部执行</button>
+                  </div>
+                </div>
+                <div id="proPipelineList" class="pipeline-list"></div>
+              </div>
+            </section>
+
+            <section class="pro-right panel">
+              <div class="panel-head">
+                <h2>专业模式：筛选与输出</h2>
+                <button class="ghost" id="proPreviewPrompt">预览提示词</button>
+              </div>
+
+              <div class="filter-panel">
+                <div class="filter-head">
+                  <h3>素材筛选</h3>
+                  <input type="text" id="proFilterSearch" placeholder="搜索素材" />
+                </div>
+                <div class="filter-meta">
+                  <span id="proFilterCount">已选 0</span>
+                  <button class="ghost" id="proClearFilters">清空筛选</button>
+                </div>
+                <div id="proFilterList" class="filter-list"></div>
+              </div>
+
+              <div id="proOutputList" class="output-list"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal" id="settingsModal" aria-hidden="true">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2>设置</h2>
+          <button class="ghost" id="closeSettings">关闭</button>
+        </div>
+        <div class="modal-body">
+          <label>
+            执行引擎
+            <select id="engineSelect">
+              <option value="codex">Codex CLI（本地）</option>
+              <option value="openai">OpenAI API</option>
+            </select>
+          </label>
+
+          <div id="codexSettings" class="settings-group">
+            <label>
+              Codex 路径（可选）
+              <input id="codexPathInput" type="text" placeholder="codex 或 C:\\path\\codex.exe" />
+            </label>
+            <label>
+              默认模型
+              <input id="codexModelInput" type="text" placeholder="gpt-5.3-codex" />
+            </label>
+            <label>
+              推理强度
+              <select id="codexReasoningEffort">
+                <option value="low">低</option>
+                <option value="medium">中</option>
+                <option value="high">高</option>
+                <option value="xhigh">超高</option>
+              </select>
+            </label>
+            <p class="hint">如果留空，将优先使用自动检测路径，失败时回退到 PATH 中的 `codex`。</p>
+          </div>
+
+          <div id="apiSettings" class="settings-group">
+            <label>
+              API Key
+              <input id="apiKeyInput" type="password" placeholder="sk-..." />
+            </label>
+            <label>
+              默认模型
+              <input id="defaultModel" type="text" placeholder="gpt-5.3-codex" />
+            </label>
+            <label>
+              温度
+              <input id="temperatureInput" type="number" min="0" max="2" step="0.1" />
+            </label>
+            <label>
+              最大输出字数
+              <input id="maxTokensInput" type="number" min="128" step="64" />
+            </label>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="ghost" id="syncPrompts">同步默认提示词</button>
+          <button class="primary" id="saveSettings">保存设置</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="guideModal" aria-hidden="true">
+      <div class="modal-card guide-card">
+        <div class="modal-head">
+          <h2 id="guideTitle">使用引导</h2>
+          <button class="ghost" id="closeGuide">关闭</button>
+        </div>
+        <div class="guide-intro" id="guideIntro"></div>
+        <div class="guide-body">
+          <aside class="guide-step-list" id="guideStepList"></aside>
+          <section class="guide-step-detail" id="guideStepDetail"></section>
+        </div>
+        <div class="modal-foot">
+          <button class="ghost" id="guidePrev">上一步</button>
+          <button class="primary" id="guideNext">下一步</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

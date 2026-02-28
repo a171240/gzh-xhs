@@ -109,6 +109,18 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
+def _safe_repo_relative(rel_path: str) -> tuple[str, Path] | None:
+    text = str(rel_path or "").strip().replace("\\", "/")
+    if not text:
+        return None
+    candidate = (REPO_ROOT / text).resolve()
+    try:
+        candidate.relative_to(REPO_ROOT)
+    except Exception:
+        return None
+    return candidate.relative_to(REPO_ROOT).as_posix(), candidate
+
+
 def _load_json(path: Path, default: Any) -> Any:
     if not path.exists():
         return default
@@ -126,6 +138,33 @@ def _load_json(path: Path, default: Any) -> Any:
 
 def _resolve_context_path(base: Path, relative_path: str) -> Path:
     return (base / relative_path).resolve()
+
+
+def _codex_home() -> Path:
+    env_home = str(os.getenv("CODEX_HOME") or "").strip()
+    if env_home:
+        return Path(env_home)
+    if os.name == "nt":
+        userprofile = str(os.getenv("USERPROFILE") or "").strip()
+        if userprofile:
+            return Path(userprofile) / ".codex"
+    return Path.home() / ".codex"
+
+
+def _skill_roots() -> list[Path]:
+    roots: list[Path] = [SKILLS_ROOT]
+    global_root = (_codex_home() / "skills").resolve()
+    roots.append(global_root)
+
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for root in roots:
+        key = str(root).strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(root)
+    return unique
 
 
 def _platform_for_skill(skill_id: str, aliases: set[str]) -> str:
@@ -194,19 +233,26 @@ def build_skill_registry() -> SkillRegistry:
                         aliases.add(candidate.relative_to(SKILLS_ROOT).as_posix() if SKILLS_ROOT in candidate.parents else candidate.as_posix())
                         upsert(skill_id, name, candidate, aliases)
 
-    # 2) All local skill markdown files
-    if SKILLS_ROOT.exists():
-        for path in SKILLS_ROOT.rglob("*.md"):
+    # 2) Skill markdown files from repository and global CODEX_HOME.
+    for root in _skill_roots():
+        if not root.exists():
+            continue
+        for path in root.rglob("SKILL.md"):
             if not path.is_file():
                 continue
-            relative = path.relative_to(SKILLS_ROOT).as_posix()
-            stem = path.stem
+            stem = path.parent.name or path.stem
             skill_id = stem
-            aliases = {stem, relative, path.as_posix()}
+            aliases = {stem, path.as_posix(), path.parent.as_posix()}
+            try:
+                aliases.add(path.relative_to(root).as_posix())
+                aliases.add(path.parent.relative_to(root).as_posix())
+            except Exception:
+                pass
             # If it looks like known skill names, map to stable ids.
             normalized_stem = _normalize_key(stem)
-            for known_id in ("wechat", "xhs"):
-                if normalized_stem == _normalize_key(known_id):
+            for known_id in ("wechat", "xhs", "douyin"):
+                normalized_known = _normalize_key(known_id)
+                if normalized_stem == normalized_known or normalized_stem.startswith(normalized_known):
                     skill_id = known_id
             upsert(skill_id, stem, path, aliases)
 
@@ -490,7 +536,52 @@ def _render_full_text_for_reply(text: str) -> str:
     return cleaned.strip()
 
 
-def _build_prompt(*, skill: SkillDefinition, platform: str, date_str: str, brief: str) -> str:
+def _prepare_context_blocks(context_files: list[str] | None) -> tuple[list[str], list[str], str]:
+    if not context_files:
+        return [], [], ""
+
+    used: list[str] = []
+    warnings: list[str] = []
+    blocks: list[str] = []
+    seen: set[str] = set()
+
+    for raw in context_files:
+        resolved = _safe_repo_relative(str(raw or ""))
+        if not resolved:
+            warnings.append(f"path escapes repo or invalid: {raw}")
+            continue
+        rel_text, abs_path = resolved
+        if rel_text in seen:
+            continue
+        seen.add(rel_text)
+        if not abs_path.exists() or not abs_path.is_file():
+            warnings.append(f"missing context file: {rel_text}")
+            continue
+        try:
+            content = _read_text(abs_path).strip()
+        except Exception as exc:
+            warnings.append(f"read failed {rel_text}: {exc}")
+            continue
+        if not content:
+            warnings.append(f"empty context file: {rel_text}")
+            continue
+        used.append(rel_text)
+        blocks.append(f"File: {rel_text}\n{content}")
+
+    prompt_text = ""
+    if blocks:
+        prompt_text = "【参考资料】\n" + "\n\n".join(blocks) + "\n\n"
+    return used, warnings, prompt_text
+
+
+def _build_prompt(
+    *,
+    skill: SkillDefinition,
+    platform: str,
+    date_str: str,
+    brief: str,
+    context_prompt: str = "",
+) -> str:
     skill_content = _read_text(skill.path)
     target_dir = f"02-内容生产/{platform}/生成内容/{date_str}/"
     return (
@@ -502,6 +593,7 @@ def _build_prompt(*, skill: SkillDefinition, platform: str, date_str: str, brief
         "1) 优先使用 FILES_JSON + FILE 块输出多文件结果；\n"
         "2) 若只输出单文件，也必须输出完整 markdown 正文；\n"
         "3) 所有示例和结论保持可发布，不编造来源。\n\n"
+        f"{context_prompt}"
         f"【技能ID】\n{skill.skill_id}\n\n"
         f"【技能文档路径】\n{skill.path.as_posix()}\n\n"
         f"【技能文档】\n{skill_content}\n\n"
@@ -638,6 +730,7 @@ def run_skill_task(
     date_str: str = "",
     timeout_sec: int = 1800,
     codex_cli: str = "",
+    context_files: list[str] | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     started = time.time()
@@ -646,6 +739,7 @@ def run_skill_task(
 
     resolved_platform = _sanitize_segment(platform or skill.default_platform or "通用")
     resolved_date = str(date_str or _today()).strip() or _today()
+    context_files_used, context_warnings, context_prompt = _prepare_context_blocks(context_files)
 
     if not brief.strip():
         raise ValueError("brief is empty")
@@ -662,6 +756,8 @@ def run_skill_task(
             "model": model or DEFAULT_MODEL,
             "event_ref": event_ref,
             "source_ref": source_ref,
+            "context_files_used": context_files_used,
+            "context_warnings": context_warnings,
             "saved_files": [],
             "full_text": "",
             "stderr": "",
@@ -671,7 +767,13 @@ def run_skill_task(
         }
 
     cli_path = codex_cli.strip() or resolve_codex_cli()
-    prompt = _build_prompt(skill=skill, platform=resolved_platform, date_str=resolved_date, brief=brief)
+    prompt = _build_prompt(
+        skill=skill,
+        platform=resolved_platform,
+        date_str=resolved_date,
+        brief=brief,
+        context_prompt=context_prompt,
+    )
 
     generated_text, stderr_text = _run_codex(
         prompt,
@@ -698,6 +800,8 @@ def run_skill_task(
         "model": model or DEFAULT_MODEL,
         "event_ref": event_ref,
         "source_ref": source_ref,
+        "context_files_used": context_files_used,
+        "context_warnings": context_warnings,
         "saved_files": saved_files,
         "full_text": full_text,
         "stderr": stderr_text,
@@ -717,6 +821,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Codex model. Default: gpt-5.3-codex")
     parser.add_argument("--timeout-sec", type=int, default=1800, help="Codex timeout seconds.")
     parser.add_argument("--codex-cli", default="", help="Override codex binary path.")
+    parser.add_argument(
+        "--context-file",
+        action="append",
+        default=[],
+        help="Relative path to context file. Can be used multiple times.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Plan only, do not call codex or write files.")
     parser.add_argument("--list-skills", action="store_true", help="List discovered skills.")
     return parser.parse_args(argv)
@@ -740,6 +850,7 @@ def main(argv: list[str]) -> int:
             date_str=args.date,
             timeout_sec=max(30, args.timeout_sec),
             codex_cli=args.codex_cli,
+            context_files=args.context_file,
             dry_run=args.dry_run,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))

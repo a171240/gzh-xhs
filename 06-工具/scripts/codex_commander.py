@@ -35,6 +35,7 @@ class CommanderTask:
     model: str
     event_ref: str
     source_ref: str
+    context_files: tuple[str, ...]
 
 
 LOCKS_GUARD = threading.Lock()
@@ -95,6 +96,11 @@ def _load_tasks(payload: Any) -> list[CommanderTask]:
                 model=str(item.get("model") or DEFAULT_MODEL).strip() or DEFAULT_MODEL,
                 event_ref=str(item.get("event_ref") or "").strip(),
                 source_ref=str(item.get("source_ref") or "").strip(),
+                context_files=tuple(
+                    str(path or "").strip()
+                    for path in (item.get("context_files") if isinstance(item.get("context_files"), list) else [])
+                    if str(path or "").strip()
+                ),
             )
         )
     if not tasks:
@@ -134,6 +140,7 @@ def _run_one_task(
                     date_str=task.date,
                     timeout_sec=timeout_sec,
                     codex_cli=codex_cli,
+                    context_files=list(task.context_files),
                     dry_run=dry_run,
                 )
             result["task_id"] = task.task_id
