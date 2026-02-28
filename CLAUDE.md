@@ -60,10 +60,10 @@ skills/                    AI 自动化能力定义
   客户项目/                客户交付的生成内容归档
 
 06-工具/                   工具和脚本
-  desktop-app/             Electron桌面应用
+  06-工具/desktop-app/     Electron桌面应用
   内容抓取/                URLReader
   MediaCrawler/            小红书爬虫
-  scripts/
+  06-工具/scripts/
 
 archive/                   旧系统归档
 ```

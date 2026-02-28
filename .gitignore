@@ -1,12 +1,15 @@
-.DS_Store
-.obsidian/
+﻿.DS_Store
 skills-dist/
 
-# Local tooling/runtime artifacts (do not commit)
+# Local IDE/runtime artifacts
+.obsidian/
+.vscode/
 .claude/
-.gha_*
-archive/
-tmp/
+.gha_*/
+
+# Local tooling outputs
+/tmp/
+/reports/
 *.zip
 one-shot-feishu-cutover.sh
 
@@ -23,7 +26,7 @@ one-shot-feishu-cutover.sh
 06-工具/data/
 06-工具/deploy/backups/
 
-# Local crawler runtime directories
+# Local crawler/runtime directories
 06-工具/MediaCrawler/
 06-工具/scripts/crawlers/
 06-工具/内容抓取/
