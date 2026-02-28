@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "WeChat Batch Writer (4 Accounts)"
+  short_description: "Batch-generate 4 WeChat public account long-form articles (gongchang/ipgc/zengzhang/shizhan) with a strict multi-file delivery contract for auto-save."
+  default_prompt: "Given a Brief, write 4 differentiated WeChat articles and output FILES_JSON + FILE blocks so the desktop app can auto-save them to 生成内容/YYYY-MM-DD/*.md."

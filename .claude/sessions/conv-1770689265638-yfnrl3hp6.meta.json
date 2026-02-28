@@ -1,0 +1,19 @@
+{
+  "id": "conv-1770689265638-yfnrl3hp6",
+  "title": "你好",
+  "titleGenerationStatus": "failed",
+  "createdAt": 1770689265644,
+  "updatedAt": 1770689896341,
+  "lastResponseAt": 1770689896341,
+  "sessionId": "2641baea-d235-4b17-8b42-b409f303e98c",
+  "sdkSessionId": "2641baea-d235-4b17-8b42-b409f303e98c",
+  "usage": {
+    "model": "opus",
+    "inputTokens": 8,
+    "cacheCreationInputTokens": 18644,
+    "cacheReadInputTokens": 0,
+    "contextWindow": 200000,
+    "contextTokens": 18652,
+    "percentage": 9
+  }
+}

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Feishu message orchestrator for knowledge-base ingest + skill generation.
 
@@ -6,11 +6,11 @@ Contract:
 - CLI: python feishu_kb_orchestrator.py --text ... --event-ref ... --source-time ...
 - Intent routing:
   - Message with URL => ingest link_mode (do not write into quote library directly)
-  - Message with @前缀（含可选“回复/序号”）=> ingest quote_mode（仅入库 @ 后正文）
+  - Message with @鍓嶇紑锛堝惈鍙€夆€滃洖澶?搴忓彿鈥濓級=> ingest quote_mode锛堜粎鍏ュ簱 @ 鍚庢鏂囷級
   - Non-link, non-skill, non-@ message => plain chat fallback
 - Skill commands support:
-    - Strong trigger: /skill {skill_id} 平台={平台} 需求={文本}
-    - Weak trigger: 用{skill名}生成{需求}
+    - Strong trigger: /skill {skill_id} 骞冲彴={骞冲彴} 闇€姹?{鏂囨湰}
+    - Weak trigger: 鐢▄skill鍚峿鐢熸垚{闇€姹倉
 - If ingest and skill are both triggered, execute them concurrently and aggregate reply.
 """
 
@@ -36,6 +36,7 @@ import requests
 
 from codex_commander import execute_tasks
 from feishu_skill_runner import DEFAULT_MODEL, build_skill_registry, resolve_codex_cli, resolve_skill
+from topic_pipeline import run_pipeline_daemon, run_pipeline_once
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -45,17 +46,23 @@ DEAD_LETTER_DIR = LOG_ROOT / "dead-letter"
 
 URL_RE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
 SKILL_COMMAND_RE = re.compile(r"^\s*/skill\s+([^\s]+)(.*)$", re.IGNORECASE)
-PLATFORM_KV_RE = re.compile(r"(?:平台|platform)\s*[=:：]\s*([^\s,，;；]+)", re.IGNORECASE)
+MEDIA_COMMAND_RE = re.compile(r"^\s*/media\s+generate\b", re.IGNORECASE)
+PUBLISH_PREPARE_RE = re.compile(r"^\s*/publish\s+prepare\b", re.IGNORECASE)
+PUBLISH_RETRY_RE = re.compile(r"^\s*/publish\s+retry\b", re.IGNORECASE)
+METRICS_COMMAND_RE = re.compile(r"^\s*/metrics\s+run\b", re.IGNORECASE)
+RETRO_COMMAND_RE = re.compile(r"^\s*/retro\s+run\b", re.IGNORECASE)
+APPROVE_COMMAND_RE = re.compile(r"(?:任务|task)\s*[=:：]\s*([A-Za-z0-9._:-]+)", re.IGNORECASE)
+PLATFORM_KV_RE = re.compile(r"(?:平台|platform)\s*[=:：]\s*([^\s,，]+)", re.IGNORECASE)
 BRIEF_KV_RE = re.compile(r"(?:需求|brief|prompt)\s*[=:：]\s*(.+)$", re.IGNORECASE)
-GEN_VERB_RE = re.compile(r"(生成|写|产出|输出|起草|改写|扩写|润色)")
-REPLY_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:回复\s+[^:：\n]{1,80}\s*[:：]\s*)"
-)
+GEN_VERB_RE = re.compile(r"(生成|创作|产出|输出|起草|改写|扩写|润色)", re.IGNORECASE)
+REPLY_PREFIX_RE = re.compile(r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:回复\s+[^:\n]{1,80}\s*[:：]\s*)", re.IGNORECASE)
 QUOTE_AT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?[\"'“”‘’]?[@＠]\s*(?P<mention>[^:：，,\n]+?)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?[@＠]\s*(?P<mention>[^:：，,\n]+?)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
+    re.IGNORECASE,
 )
 QUOTE_TEXT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?金句\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:金句|quote)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
+    re.IGNORECASE,
 )
 
 ENV_FALLBACKS = (
@@ -88,6 +95,7 @@ class OrchestratorSettings:
     git_sync_author_name: str
     git_sync_author_email: str
     git_sync_max_retries: int
+    approval_open_ids: tuple[str, ...]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -96,6 +104,12 @@ class SkillIntent:
     brief: str
     platform: str
     trigger: str  # strong | weak
+
+
+@dataclasses.dataclass(frozen=True)
+class AutomationIntent:
+    kind: str
+    payload: dict[str, Any]
 
 
 def _as_bool(value: str | None, *, default: bool) -> bool:
@@ -185,6 +199,10 @@ def _load_settings() -> OrchestratorSettings:
         git_sync_author_email=str(os.getenv("GIT_SYNC_AUTHOR_EMAIL") or "feishu-bot@local").strip()
         or "feishu-bot@local",
         git_sync_max_retries=max(0, int(os.getenv("GIT_SYNC_MAX_RETRIES", "2"))),
+        approval_open_ids=_split_csv(
+            os.getenv("FEISHU_APPROVAL_OPEN_IDS"),
+            default=(),
+        ),
     )
 
 
@@ -221,7 +239,7 @@ def _parse_quote_trigger(text: str) -> tuple[str, str]:
     if not raw:
         return "none", ""
 
-    # Feishu thread replies may prefix body with `回复 某某：`.
+    # Feishu thread replies may prefix body with `鍥炲 鏌愭煇锛歚.
     normalized = raw
     for _ in range(2):
         prefix = REPLY_PREFIX_RE.match(normalized)
@@ -266,6 +284,109 @@ def _remove_kv_chunks(text: str) -> str:
     return cleaned
 
 
+def _extract_token(text: str, names: list[str]) -> str:
+    if not names:
+        return ""
+    pattern = r"(?:%s)\s*[:=：]\s*([^\s]+)" % "|".join(re.escape(name) for name in names)
+    matched = re.search(pattern, str(text or ""), re.IGNORECASE)
+    if not matched:
+        return ""
+    return str(matched.group(1) or "").strip()
+
+
+def _extract_text_value(text: str, names: list[str], stop_names: list[str]) -> str:
+    if not names:
+        return ""
+    stop_pattern = "|".join(re.escape(name) for name in stop_names)
+    pattern = r"(?:%s)\s*[:=：]\s*(.+?)(?=\s+(?:%s)\s*[:=：]|$)" % (
+        "|".join(re.escape(name) for name in names),
+        stop_pattern if stop_pattern else "$^",
+    )
+    matched = re.search(pattern, str(text or ""), re.IGNORECASE | re.DOTALL)
+    if not matched:
+        return ""
+    value = re.sub(r"\s+", " ", str(matched.group(1) or "")).strip()
+    return value
+
+
+def _source_user_from_ref(source_ref: str) -> str:
+    text = str(source_ref or "").strip()
+    if not text:
+        return ""
+    matched = re.search(r"(?:open_id|openid|user_id|userid)[:=]([A-Za-z0-9_-]+)", text, re.IGNORECASE)
+    if matched:
+        return str(matched.group(1) or "").strip()
+    return ""
+
+
+def _looks_like_media_command(text: str) -> bool:
+    return bool(MEDIA_COMMAND_RE.search(str(text or "")))
+
+
+def _detect_automation_intent(text: str, *, meta: dict[str, Any] | None = None) -> AutomationIntent | None:
+    raw = str(text or "").strip()
+    if not raw:
+        return None
+    meta_payload = dict(meta or {})
+
+    if _looks_like_media_command(raw):
+        platform = _extract_token(raw, ["平台", "platform"])
+        model = _extract_token(raw, ["模型", "model"])
+        mode = _extract_token(raw, ["模式", "mode"])
+        brief = _extract_text_value(
+            raw,
+            ["文案", "copy", "prompt"],
+            ["平台", "platform", "模型", "model", "模式", "mode"],
+        )
+        payload = {
+            **meta_payload,
+            "action": "generate",
+            "platform": platform,
+            "model": model,
+            "mode": mode or "text",
+            "copy": brief,
+        }
+        return AutomationIntent(kind="media_generate", payload=payload)
+
+    if PUBLISH_PREPARE_RE.search(raw):
+        payload = {
+            **meta_payload,
+            "platform": _extract_token(raw, ["平台", "platform"]),
+            "account": _extract_token(raw, ["账号", "account"]),
+            "content": _extract_token(raw, ["内容", "content"]),
+            "mode": _extract_token(raw, ["模式", "mode"]) or "publish",
+            "schedule_time": _extract_token(raw, ["时间", "publish_time", "schedule_time"]),
+        }
+        return AutomationIntent(kind="publish_prepare", payload=payload)
+
+    if PUBLISH_RETRY_RE.search(raw):
+        payload = {
+            **meta_payload,
+            "action": "retry",
+            "task_id": _extract_token(raw, ["任务", "task"]),
+        }
+        return AutomationIntent(kind="publish_approve", payload=payload)
+
+    approve_match = APPROVE_COMMAND_RE.search(raw)
+    if approve_match and re.search(r"(确认发布|approve)", raw, re.IGNORECASE):
+        payload = {
+            **meta_payload,
+            "action": "approve",
+            "task_id": str(approve_match.group(1) or "").strip(),
+        }
+        return AutomationIntent(kind="publish_approve", payload=payload)
+
+    if METRICS_COMMAND_RE.search(raw):
+        payload = {**meta_payload, "date": _extract_token(raw, ["日期", "date"]) or "today"}
+        return AutomationIntent(kind="metrics_run", payload=payload)
+
+    if RETRO_COMMAND_RE.search(raw):
+        payload = {**meta_payload, "date": _extract_token(raw, ["日期", "date"]) or "today"}
+        return AutomationIntent(kind="retro_run", payload=payload)
+
+    return None
+
+
 def _find_best_skill_alias(text: str, registry: Any) -> str:
     normalized_text = _normalize_key(text)
     if not normalized_text:
@@ -286,10 +407,12 @@ def _find_best_skill_alias(text: str, registry: Any) -> str:
         return best_skill
 
     fallback_aliases = (
-        ("公众号批量生产", "wechat"),
-        ("公众号爆文写作", "wechat"),
-        ("小红书内容生产", "xhs"),
-        ("短视频脚本生产", "短视频脚本生产"),
+        ("wechat", "wechat"),
+        ("公众号", "wechat"),
+        ("xhs", "xhs"),
+        ("小红书", "xhs"),
+        ("douyin", "douyin"),
+        ("短视频", "短视频脚本生成"),
     )
     for alias, mapped in fallback_aliases:
         if _normalize_key(alias) in normalized_text:
@@ -313,7 +436,7 @@ def _detect_skill_intent(text: str, registry: Any, forced_skill_id: str, forced_
             raise ValueError("skill brief is empty")
         return SkillIntent(skill_id=skill.skill_id, brief=brief, platform=platform, trigger="strong")
 
-    # Strong trigger: /skill {skill_id} 平台=... 需求=...
+    # Strong trigger: /skill {skill_id} 骞冲彴=... 闇€姹?...
     matched = SKILL_COMMAND_RE.match(raw)
     if matched:
         skill_ref = str(matched.group(1) or "").strip()
@@ -331,10 +454,11 @@ def _detect_skill_intent(text: str, registry: Any, forced_skill_id: str, forced_
             raise ValueError("skill brief is empty")
         return SkillIntent(skill_id=skill.skill_id, brief=brief, platform=platform, trigger="strong")
 
-    # Weak trigger: 用{skill名}生成{需求}
+    # Weak trigger: use-skill + generate intent.
     if not GEN_VERB_RE.search(raw):
         return None
-    if "用" not in raw and "使用" not in raw:
+    lowered = raw.lower()
+    if "用" not in raw and "使用" not in raw and "skill" not in lowered:
         return None
 
     skill_id = _find_best_skill_alias(raw, registry)
@@ -415,9 +539,10 @@ def _run_ingest(
     mode = "link" if urls else "quote"
     endpoint = "/internal/ingest/v1/link" if urls else "/internal/ingest/v1/quote"
     ingest_event_ref = f"{event_ref}#{mode}"
+    source_kind = str(os.getenv("INGEST_SOURCE_KIND") or "openclaw-feishu").strip() or "openclaw-feishu"
     payload: dict[str, Any] = {
         "event_ref": ingest_event_ref,
-        "source_kind": "feishu-orchestrator",
+        "source_kind": source_kind,
         "source_ref": source_ref,
         "source_time": source_time,
     }
@@ -426,7 +551,7 @@ def _run_ingest(
         payload["text"] = text
     else:
         quote_body = _strip_urls(text)
-        if quote_body and not re.match(r"^\s*金句\s*[:：]\s*", quote_body):
+        if quote_body and not re.match(r"^\s*(金句|quote)\s*[:：]\s*", quote_body, re.IGNORECASE):
             quote_body = f"金句：{quote_body}"
         payload["text"] = quote_body
 
@@ -452,6 +577,28 @@ def _run_ingest(
     }
 
 
+def _latest_nextday_brief() -> str:
+    enabled = str(os.getenv("FEISHU_SKILL_INCLUDE_NEXTDAY_BRIEF", "true")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "y",
+        "on",
+    }
+    if not enabled:
+        return ""
+    brief_dir = REPO_ROOT / "01-选题管理" / "次日创作输入"
+    if not brief_dir.exists() or not brief_dir.is_dir():
+        return ""
+    files = sorted((path for path in brief_dir.glob("*.md") if path.is_file()), key=lambda p: p.name, reverse=True)
+    if not files:
+        return ""
+    try:
+        return files[0].resolve().relative_to(REPO_ROOT).as_posix()
+    except Exception:
+        return ""
+
+
 def _run_skill(
     *,
     settings: OrchestratorSettings,
@@ -461,6 +608,11 @@ def _run_skill(
     source_time: str,
     dry_run: bool,
 ) -> dict[str, Any]:
+    context_files: list[str] = []
+    nextday_brief = _latest_nextday_brief()
+    if nextday_brief:
+        context_files.append(nextday_brief)
+
     task = {
         "task_id": f"{event_ref}#skill",
         "event_ref": f"{event_ref}#skill",
@@ -470,6 +622,7 @@ def _run_skill(
         "brief": skill_intent.brief,
         "platform": skill_intent.platform,
         "model": settings.codex_model,
+        "context_files": context_files,
     }
 
     if dry_run:
@@ -508,6 +661,134 @@ def _run_skill(
         "result": first,
         "commander": commander_result,
     }
+
+
+def _run_automation_intent(
+    *,
+    settings: OrchestratorSettings,
+    intent: AutomationIntent,
+    event_ref: str,
+    source_ref: str,
+    source_time: str,
+    source_user: str,
+    dry_run: bool,
+) -> dict[str, Any]:
+    endpoint_map = {
+        "media_generate": "/internal/media/generate",
+        "publish_prepare": "/internal/publish/prepare",
+        "publish_approve": "/internal/publish/approve",
+        "metrics_run": "/internal/metrics/run",
+        "retro_run": "/internal/retro/run",
+    }
+    endpoint = endpoint_map.get(intent.kind)
+    if not endpoint:
+        raise RuntimeError(f"unsupported automation intent: {intent.kind}")
+
+    payload = dict(intent.payload or {})
+    payload.setdefault("event_ref", f"{event_ref}#{intent.kind}")
+    payload.setdefault("source_ref", source_ref)
+    payload.setdefault("source_time", source_time)
+    if source_user:
+        payload.setdefault("source_user", source_user)
+    if dry_run:
+        payload["dry_run"] = True
+        skip_writer = str(os.getenv("ORCHESTRATOR_DRYRUN_SKIP_WRITER", "true")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "y",
+            "on",
+        }
+        if skip_writer:
+            return {
+                "status": "success",
+                "kind": intent.kind,
+                "event_ref": str(payload.get("event_ref") or ""),
+                "result": {"status": "success", "dry_run": True, "payload": payload},
+                "raw": {"code": 0, "msg": "dry_run_skip_writer"},
+            }
+
+    data = _call_writer(settings, endpoint, payload)
+    result = data.get("result") or {}
+    status = str(result.get("status") or ("success" if int(data.get("code") or 0) == 0 else "error"))
+    return {
+        "status": status,
+        "kind": intent.kind,
+        "event_ref": str(payload.get("event_ref") or ""),
+        "result": result,
+        "raw": data,
+    }
+
+
+def _compose_automation_reply(auto_result: dict[str, Any], *, max_chars: int) -> tuple[str, list[str]]:
+    kind = str(auto_result.get("kind") or "")
+    status = str(auto_result.get("status") or "")
+    result = auto_result.get("result") or {}
+    payload = result.get("payload") if isinstance(result, dict) else {}
+    nested = result.get("result") if isinstance(result, dict) else {}
+    task_id = str(
+        (result.get("task_id") if isinstance(result, dict) else "")
+        or (nested.get("task_id") if isinstance(nested, dict) else "")
+        or (payload.get("task_id") if isinstance(payload, dict) else "")
+        or ""
+    )
+    lines: list[str] = []
+
+    if kind == "media_generate":
+        if status == "success":
+            video_url = str(result.get("video_url") or ((result.get("result") or {}).get("video_url")) or "").strip()
+            line = f"媒体生成完成 task={task_id or '-'}"
+            if video_url:
+                line += f" video={video_url}"
+            lines.append(line)
+        elif status == "duplicate":
+            lines.append(f"媒体任务已存在 task={task_id or '-'}")
+        else:
+            err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
+            lines.append(f"媒体生成失败：{err}")
+    elif kind == "publish_prepare":
+        if status in {"success", "duplicate"}:
+            lines.append(f"发布准备完成 task={task_id or '-'}，等待审批确认。")
+        else:
+            err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
+            lines.append(f"发布准备失败：{err}")
+    elif kind == "publish_approve":
+        if status in {"success", "partial"}:
+            task_status = str(result.get("task_status") or status)
+            lines.append(f"发布审批已执行 task={task_id or '-'}，状态={task_status}。")
+        else:
+            err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
+            lines.append(f"发布审批失败：{err}")
+    elif kind == "metrics_run":
+        if status == "success":
+            date = str(
+                (result.get("date") if isinstance(result, dict) else "")
+                or (nested.get("date") if isinstance(nested, dict) else "")
+                or (payload.get("date") if isinstance(payload, dict) else "")
+                or ""
+            )
+            lines.append(f"抓数完成 date={date or '-'} task={task_id or '-'}")
+        else:
+            err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
+            lines.append(f"抓数失败：{err}")
+    elif kind == "retro_run":
+        if status == "success":
+            date = str(
+                (result.get("date") if isinstance(result, dict) else "")
+                or (nested.get("date") if isinstance(nested, dict) else "")
+                or (payload.get("date") if isinstance(payload, dict) else "")
+                or ""
+            )
+            lines.append(f"复盘完成 date={date or '-'} task={task_id or '-'}")
+        else:
+            err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
+            lines.append(f"复盘失败：{err}")
+    else:
+        lines.append(f"已处理命令 kind={kind} status={status}")
+
+    joined = "\n".join(lines).strip() or f"已处理命令 kind={kind}"
+    segments = _segment_reply(joined, max_chars=max_chars)
+    return (segments[0] if segments else joined, segments)
 
 
 def _parse_codex_json_lines(stdout_text: str) -> tuple[str, str]:
@@ -561,8 +842,7 @@ def _run_plain_chat(
         }
 
     prompt = (
-        "你是飞书私聊助手。\n"
-        "请直接用中文回复用户，简洁自然，不要输出代码块、JSON、系统解释。\n\n"
+        "你是飞书聊天助手。请直接使用中文回复，简洁清晰，不要输出 JSON 或代码块。\n\n"
         f"用户消息：{text.strip()}\n"
     )
     codex_cli = resolve_codex_cli()
@@ -679,7 +959,7 @@ def _ingest_reply_line(ingest: dict[str, Any]) -> str:
     mode = str(result.get("mode") or ingest.get("mode") or "")
     detail_summary = (result.get("details") or {}).get("summary") or {}
 
-    if status in {"error"}:
+    if status == "error":
         errors = result.get("errors") or ingest.get("errors") or ["unknown error"]
         return f"入库失败：{errors[0]}"
 
@@ -687,7 +967,7 @@ def _ingest_reply_line(ingest: dict[str, Any]) -> str:
         added = int(result.get("added") or 0)
         near_dup = int(result.get("near_dup") or 0)
         skipped = int(result.get("skipped") or 0)
-        return f"金句已入库：新增{added}，近似{near_dup}，重复{skipped}"
+        return f"金句入库完成：新增{added}，近似{near_dup}，重复{skipped}"
 
     if mode == "link":
         added = int(result.get("added") or 0)
@@ -698,13 +978,13 @@ def _ingest_reply_line(ingest: dict[str, Any]) -> str:
             errors = result.get("errors") or ingest.get("errors") or []
             if errors:
                 return f"链接入库失败：{errors[0]}"
-            return f"链接入库失败：成功{success}/{total}，正文{added}"
-        return f"链接已入库：成功{success}/{total}，正文{added}"
+            return f"链接入库失败：成功{success}/{total}，正文保存{added}"
+        return f"链接入库完成：成功{success}/{total}，正文保存{added}"
 
     added = int(result.get("added") or 0)
     near_dup = int(result.get("near_dup") or 0)
     skipped = int(result.get("skipped") or 0)
-    return f"入库已处理：新增{added}，近似{near_dup}，跳过{skipped}"
+    return f"入库完成：新增{added}，近似{near_dup}，跳过{skipped}"
 
 
 def _segment_reply(text: str, max_chars: int) -> list[str]:
@@ -762,14 +1042,17 @@ def _compose_reply(
             return (segments[0] if segments else joined, segments)
 
         # Skill failed: keep concise and do not flood.
-        errors = skill_result.get("errors") or skill.get("errors") or ["skill执行失败"]
+        errors = skill_result.get("errors") or skill.get("errors") or ["skill 执行失败"]
         if ingest_line:
-            return (f"{ingest_line}；文案生成失败：{errors[0]}", [f"{ingest_line}；文案生成失败：{errors[0]}"])
-        return (f"文案生成失败：{errors[0]}", [f"文案生成失败：{errors[0]}"])
+            text = f"{ingest_line}；文案生成失败：{errors[0]}"
+            return (text, [text])
+        text = f"文案生成失败：{errors[0]}"
+        return (text, [text])
 
     if ingest_line:
         return ingest_line, [ingest_line]
-    return "未识别可处理内容。", ["未识别可处理内容。"]
+    fallback = "未识别到可处理内容。"
+    return fallback, [fallback]
 
 
 def orchestrate_message(
@@ -778,6 +1061,8 @@ def orchestrate_message(
     event_ref: str = "",
     source_ref: str = "",
     source_time: str = "",
+    source_user: str = "",
+    meta: dict[str, Any] | None = None,
     forced_skill_id: str = "",
     forced_platform: str = "",
     dry_run: bool = False,
@@ -788,6 +1073,121 @@ def orchestrate_message(
     source_time_value = str(source_time or "").strip() or _now_iso()
     source_ref_value = str(source_ref or "").strip() or "feishu-message"
     event_ref_value = str(event_ref or "").strip() or _stable_event_ref(text=message_text, source_ref=source_ref_value)
+    meta_payload = dict(meta or {})
+    source_user_value = (
+        str(source_user or "").strip()
+        or str(meta_payload.get("source_user") or "").strip()
+        or _source_user_from_ref(source_ref_value)
+    )
+
+    automation_intent = _detect_automation_intent(message_text, meta=meta_payload)
+    if automation_intent is not None:
+        auto_errors: list[str] = []
+        auto_result: dict[str, Any]
+        approval_guard = automation_intent.kind == "publish_approve"
+        if approval_guard:
+            whitelist = {str(item or "").strip() for item in settings.approval_open_ids if str(item or "").strip()}
+            if not source_user_value:
+                auto_result = {
+                    "status": "error",
+                    "kind": automation_intent.kind,
+                    "result": {"errors": ["approval source_user missing"]},
+                }
+            elif not whitelist or source_user_value not in whitelist:
+                auto_result = {
+                    "status": "error",
+                    "kind": automation_intent.kind,
+                    "result": {"errors": [f"approver not allowed: {source_user_value}"]},
+                }
+                auto_errors.append(f"approval rejected: {source_user_value}")
+            else:
+                try:
+                    auto_result = _run_automation_intent(
+                        settings=settings,
+                        intent=automation_intent,
+                        event_ref=event_ref_value,
+                        source_ref=source_ref_value,
+                        source_time=source_time_value,
+                        source_user=source_user_value,
+                        dry_run=dry_run,
+                    )
+                except Exception as exc:
+                    auto_result = {"status": "error", "kind": automation_intent.kind, "result": {"errors": [str(exc)]}}
+                    auto_errors.append(str(exc))
+        else:
+            try:
+                auto_result = _run_automation_intent(
+                    settings=settings,
+                    intent=automation_intent,
+                    event_ref=event_ref_value,
+                    source_ref=source_ref_value,
+                    source_time=source_time_value,
+                    source_user=source_user_value,
+                    dry_run=dry_run,
+                )
+            except Exception as exc:
+                auto_result = {"status": "error", "kind": automation_intent.kind, "result": {"errors": [str(exc)]}}
+                auto_errors.append(str(exc))
+
+        auto_status = str(auto_result.get("status") or "")
+        status = "success" if auto_status in {"success", "partial", "duplicate"} else "error"
+        reply, reply_segments = _compose_automation_reply(auto_result, max_chars=settings.max_reply_chars)
+        if status == "error":
+            auto_errors.extend((auto_result.get("result") or {}).get("errors") or auto_result.get("errors") or [])
+        elapsed_ms = int((time.time() - started) * 1000)
+        output = {
+            "status": status,
+            "event_ref": event_ref_value,
+            "source_ref": source_ref_value,
+            "source_time": source_time_value,
+            "source_user": source_user_value,
+            "intent": {
+                "automation": True,
+                "automation_kind": automation_intent.kind,
+                "ingest": False,
+                "skill": False,
+                "urls": [],
+                "skill_id": "",
+                "skill_platform": "",
+                "skill_trigger": "",
+                "ingest_trigger": "none",
+            },
+            "automation": auto_result,
+            "reply": reply,
+            "reply_segments": reply_segments,
+            "errors": auto_errors,
+            "elapsed_ms": elapsed_ms,
+        }
+        run_log = RUN_LOG_DIR / f"{_today()}.jsonl"
+        _append_jsonl(
+            run_log,
+            {
+                "ts": _now_iso(),
+                "event_ref": event_ref_value,
+                "status": status,
+                "intent": output["intent"],
+                "source_user": source_user_value,
+                "automation_kind": automation_intent.kind,
+                "elapsed_ms": elapsed_ms,
+                "errors": auto_errors,
+            },
+        )
+        output["run_log"] = run_log.relative_to(REPO_ROOT).as_posix()
+        if status == "error":
+            dead_log = DEAD_LETTER_DIR / f"{_today()}.jsonl"
+            _append_jsonl(
+                dead_log,
+                {
+                    "ts": _now_iso(),
+                    "event_ref": event_ref_value,
+                    "source_user": source_user_value,
+                    "text": message_text,
+                    "output": output,
+                    "reason": "automation_error",
+                },
+            )
+            output["dead_letter_log"] = dead_log.relative_to(REPO_ROOT).as_posix()
+        return output
 
     registry = build_skill_registry()
     urls = _extract_urls(message_text)
@@ -922,7 +1322,10 @@ def orchestrate_message(
         "event_ref": event_ref_value,
         "source_ref": source_ref_value,
         "source_time": source_time_value,
+        "source_user": source_user_value,
         "intent": {
+            "automation": False,
+            "automation_kind": "",
             "ingest": will_ingest,
             "skill": will_skill,
             "urls": urls,
@@ -985,33 +1388,99 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--event-ref", default="", help="External idempotency key.")
     parser.add_argument("--source-ref", default="", help="Source trace id.")
     parser.add_argument("--source-time", default="", help="Source ISO timestamp.")
+    parser.add_argument("--source-user", default="", help="Source open_id/user id for approval whitelist.")
+    parser.add_argument("--meta-json", default="", help="Optional extra metadata JSON object.")
     parser.add_argument("--skill-id", default="", help="Force skill id.")
     parser.add_argument("--platform", default="", help="Force platform for skill generation.")
     parser.add_argument("--dry-run", action="store_true", help="Do not call writer/codex, only plan output.")
+    parser.add_argument(
+        "--pipeline-mode",
+        choices=("off", "once", "daemon"),
+        default="off",
+        help="Run topic pipeline mode instead of message routing.",
+    )
+    parser.add_argument(
+        "--pipeline-dry-run",
+        action="store_true",
+        help="Topic pipeline dry-run: no file mutation and no generation call.",
+    )
+    parser.add_argument(
+        "--pipeline-force-batch",
+        action="store_true",
+        help="Topic pipeline: force batch execution regardless of daily window.",
+    )
+    parser.add_argument(
+        "--pipeline-poll-sec",
+        type=int,
+        default=60,
+        help="Topic pipeline daemon poll interval in seconds. Default: 60",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
     try:
+        if args.pipeline_mode != "off":
+            settings = _load_settings()
+            if args.pipeline_mode == "once":
+                result = run_pipeline_once(
+                    dry_run=args.pipeline_dry_run,
+                    force_batch=args.pipeline_force_batch,
+                    batch_limit=3,
+                    model=settings.codex_model,
+                )
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+                return 0 if result.get("status") in {"success", "partial"} else 1
+
+            print(
+                json.dumps(
+                    {
+                        "status": "running",
+                        "mode": "pipeline-daemon",
+                        "poll_seconds": max(5, int(args.pipeline_poll_sec)),
+                        "dry_run": bool(args.pipeline_dry_run),
+                        "force_batch": bool(args.pipeline_force_batch),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            run_pipeline_daemon(
+                poll_seconds=max(5, int(args.pipeline_poll_sec)),
+                dry_run=args.pipeline_dry_run,
+                force_batch=args.pipeline_force_batch,
+                batch_limit=3,
+                model=settings.codex_model,
+            )
+            return 0
+
         result = orchestrate_message(
             text=args.text,
             event_ref=args.event_ref,
             source_ref=args.source_ref,
             source_time=args.source_time,
+            source_user=args.source_user,
+            meta=json.loads(args.meta_json) if str(args.meta_json or "").strip() else None,
             forced_skill_id=args.skill_id,
             forced_platform=args.platform,
             dry_run=args.dry_run,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("status") in {"success", "partial", "ignored"} else 1
+    except KeyboardInterrupt:
+        print(json.dumps({"status": "stopped", "reason": "keyboard_interrupt"}, ensure_ascii=False, indent=2))
+        return 0
     except Exception as exc:
+        if str(os.getenv("ORCHESTRATOR_RAISE_ON_ERROR") or "").strip().lower() in {"1", "true", "yes", "y", "on"}:
+            raise
+        err_text = f"处理失败：{exc}"
         print(
             json.dumps(
                 {
                     "status": "error",
-                    "reply": f"处理失败：{exc}",
-                    "reply_segments": [f"处理失败：{exc}"],
+                    "reply": err_text,
+                    "reply_segments": [err_text],
                     "errors": [str(exc)],
                 },
                 ensure_ascii=False,
@@ -1023,3 +1492,4 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
+

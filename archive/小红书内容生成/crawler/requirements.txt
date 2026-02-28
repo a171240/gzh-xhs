@@ -1,0 +1,16 @@
+# XHS Crawler Dependencies
+# Install: pip install -r requirements.txt
+
+# Feishu API SDK
+lark-oapi>=1.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Playwright for browser automation
+# After installing, run: playwright install chromium
+playwright>=1.40.0
+
+# Gemini Web API (reverse-engineered, uses your login cookies)
+# Supports image generation with your Gemini subscription
+gemini-webapi>=0.5.0

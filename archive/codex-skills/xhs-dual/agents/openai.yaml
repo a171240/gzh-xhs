@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "XHS Dual Mode Generator"
+  short_description: "Generate Xiaohongshu content in two modes: 6-page infographic or emotion-conflict text note, with structured deliverables."
+  default_prompt: "Given a Brief, generate Xiaohongshu (XHS) deliverables in the requested mode, including titles, tags, body/copy, visual prompts, and a QC checklist."

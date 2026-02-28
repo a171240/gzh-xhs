@@ -25,14 +25,24 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from automation_maintenance_runner import run_maintenance
+from automation_state import get_task
 from feishu_ingest_router import process_message
+from media_task_runner import run_media_task
+from metrics_runner import run_metrics
+from publish_action_runner import approve_publish, prepare_publish, retry_publish_task
 from quote_ingest_core import DEFAULT_NEAR_DUP_THRESHOLD
+from retro_runner import run_retro
 
 URL_RE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 QUOTE_TRIGGER_RE = re.compile(
     r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?(?:@[^:\s：，,]+\s*[:：]\s*.+|金句\s*[:：]\s*.+)\s*$"
 )
+SOURCE_KIND_ALIAS_MAP = {
+    # Keep backward compatibility with older orchestrator sender.
+    "feishu-orchestrator": "openclaw-feishu",
+}
 
 
 @dataclass(frozen=True)
@@ -63,7 +73,45 @@ def _split_csv(value: str | None) -> set[str]:
     return {item.strip() for item in value.replace(";", ",").replace("\n", ",").split(",") if item.strip()}
 
 
+def _normalize_source_kind_value(value: str | None) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    return SOURCE_KIND_ALIAS_MAP.get(raw, raw)
+
+
+def _load_env_fallbacks() -> None:
+    required = {"INGEST_SHARED_TOKEN", "INGEST_HMAC_SECRET"}
+    missing = [k for k in required if not (os.getenv(k) or "").strip()]
+    if not missing:
+        return
+
+    script_dir = Path(__file__).resolve().parent
+    candidates = (
+        script_dir / ".env.ingest-writer.local",
+        script_dir / ".env.ingest-writer",
+        script_dir / ".env.feishu",
+    )
+    for env_path in candidates:
+        if not env_path.exists():
+            continue
+        text = env_path.read_text(encoding="utf-8", errors="ignore")
+        for raw_line in text.splitlines():
+            line = raw_line.strip().lstrip("\ufeff")
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and value and not (os.getenv(key) or "").strip():
+                os.environ[key] = value
+        missing = [k for k in required if not (os.getenv(k) or "").strip()]
+        if not missing:
+            return
+
+
 def _load_settings() -> WriterSettings:
+    _load_env_fallbacks()
     shared_token = os.getenv("INGEST_SHARED_TOKEN", "").strip()
     hmac_secret = os.getenv("INGEST_HMAC_SECRET", "").strip() or shared_token
     return WriterSettings(
@@ -317,7 +365,7 @@ def _make_result(
 
 def _normalize_source(payload: dict[str, Any], *, default_ref: str) -> tuple[str, str, str]:
     source_time = str(payload.get("source_time") or "").strip() or _now_iso()
-    source_kind = str(payload.get("source_kind") or "").strip() or "openclaw"
+    source_kind = _normalize_source_kind_value(payload.get("source_kind")) or "openclaw"
     source_ref = str(payload.get("source_ref") or "").strip() or default_ref
     return source_time, source_kind, source_ref
 
@@ -325,7 +373,8 @@ def _normalize_source(payload: dict[str, Any], *, default_ref: str) -> tuple[str
 def _check_source_kind(source_kind: str) -> None:
     if not SETTINGS.allowed_source_kinds:
         return
-    if source_kind not in SETTINGS.allowed_source_kinds:
+    allowed = {_normalize_source_kind_value(item) for item in SETTINGS.allowed_source_kinds}
+    if _normalize_source_kind_value(source_kind) not in allowed:
         raise HTTPException(status_code=403, detail=f"source_kind not allowed: {source_kind}")
 
 
@@ -582,6 +631,43 @@ def _handle_ingest(mode: str, payload: dict[str, Any], *, allow_duplicate_skip: 
         raise HTTPException(status_code=500, detail=error_text) from exc
 
 
+def _payload_bool(payload: dict[str, Any], key: str, *, default: bool = False) -> bool:
+    value = payload.get(key)
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _run_media(payload: dict[str, Any]) -> dict[str, Any]:
+    return run_media_task(payload, dry_run=_payload_bool(payload, "dry_run", default=False))
+
+
+def _run_publish_prepare(payload: dict[str, Any]) -> dict[str, Any]:
+    return prepare_publish(payload, dry_run=_payload_bool(payload, "dry_run", default=False))
+
+
+def _run_publish_approve(payload: dict[str, Any]) -> dict[str, Any]:
+    action = str(payload.get("action") or "approve").strip().lower()
+    dry_run = _payload_bool(payload, "dry_run", default=False)
+    if action == "retry":
+        return retry_publish_task(payload, dry_run=dry_run)
+    return approve_publish(payload, dry_run=dry_run)
+
+
+def _run_metrics_runner(payload: dict[str, Any]) -> dict[str, Any]:
+    return run_metrics(payload, dry_run=_payload_bool(payload, "dry_run", default=False))
+
+
+def _run_retro_runner(payload: dict[str, Any]) -> dict[str, Any]:
+    return run_retro(payload, dry_run=_payload_bool(payload, "dry_run", default=False))
+
+
+def _run_maintenance_runner(payload: dict[str, Any]) -> dict[str, Any]:
+    return run_maintenance(payload, dry_run=_payload_bool(payload, "dry_run", default=False))
+
+
 @app.on_event("startup")
 def _startup() -> None:
     _init_db()
@@ -670,6 +756,87 @@ async def replay_ingest(request: Request) -> JSONResponse:
 
     result = _handle_ingest(replay_mode, replay_payload, allow_duplicate_skip=False)
     return JSONResponse(content={"code": 0, "msg": "ok", "event_ref": event_ref, "result": result, "replay": True})
+
+
+def _automation_response(result: dict[str, Any]) -> JSONResponse:
+    code = 0 if str(result.get("status") or "") in {"success", "partial", "duplicate"} else 1
+    msg = "ok" if code == 0 else "failed"
+    return JSONResponse(content={"code": code, "msg": msg, "result": result})
+
+
+@app.post("/internal/media/generate")
+async def media_generate(request: Request) -> JSONResponse:
+    body = await request.body()
+    _verify_auth(request, body)
+    payload = _json_body_or_400(body)
+    try:
+        return _automation_response(_run_media(payload))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/internal/publish/prepare")
+async def publish_prepare(request: Request) -> JSONResponse:
+    body = await request.body()
+    _verify_auth(request, body)
+    payload = _json_body_or_400(body)
+    try:
+        return _automation_response(_run_publish_prepare(payload))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/internal/publish/approve")
+async def publish_approve(request: Request) -> JSONResponse:
+    body = await request.body()
+    _verify_auth(request, body)
+    payload = _json_body_or_400(body)
+    try:
+        return _automation_response(_run_publish_approve(payload))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/internal/metrics/run")
+async def metrics_run(request: Request) -> JSONResponse:
+    body = await request.body()
+    _verify_auth(request, body)
+    payload = _json_body_or_400(body)
+    try:
+        return _automation_response(_run_metrics_runner(payload))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/internal/retro/run")
+async def retro_run(request: Request) -> JSONResponse:
+    body = await request.body()
+    _verify_auth(request, body)
+    payload = _json_body_or_400(body)
+    try:
+        return _automation_response(_run_retro_runner(payload))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/internal/maintenance/run")
+async def maintenance_run(request: Request) -> JSONResponse:
+    body = await request.body()
+    _verify_auth(request, body)
+    payload = _json_body_or_400(body)
+    try:
+        return _automation_response(_run_maintenance_runner(payload))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/internal/tasks/{task_id}")
+async def get_task_detail(task_id: str, request: Request) -> JSONResponse:
+    _verify_auth(request, b"")
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="task not found")
+    return JSONResponse(content={"code": 0, "msg": "ok", "task": task})
 
 
 if __name__ == "__main__":
