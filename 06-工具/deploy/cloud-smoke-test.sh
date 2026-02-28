@@ -64,7 +64,7 @@ cases = [
     ("quote_at", "@Winnie蛋：真正拉开差距的，从来不是天赋，而是长期正确。", True, False, "at_prefix"),
     ("quote_text", "金句：复利不是天赋，是情绪稳定下的重复执行。", True, False, "text_prefix"),
     ("link", "https://raw.githubusercontent.com/openai/openai-python/main/README.md", True, False, "url"),
-    ("skill", "用公众号批量生产生成一篇关于复利思维的文章，1200字", False, True, "none"),
+    ("skill", "/skill wechat 平台=公众号 需求=写一篇关于复利思维的文章，1200字", False, True, "none"),
 ]
 
 for idx, (name, text, ingest, skill, trigger) in enumerate(cases):

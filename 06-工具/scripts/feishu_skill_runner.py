@@ -137,7 +137,22 @@ def _load_json(path: Path, default: Any) -> Any:
 
 
 def _resolve_context_path(base: Path, relative_path: str) -> Path:
-    return (base / relative_path).resolve()
+    raw = str(relative_path or "").strip().replace("\\", "/")
+    candidate = (base / raw).resolve()
+    if candidate.exists():
+        return candidate
+
+    # Compatibility fallback: if desktop skill context paths are anchored to an
+    # older base directory, strip leading ../ segments and resolve from repo root.
+    normalized = raw
+    while normalized.startswith("../"):
+        normalized = normalized[3:]
+    if normalized:
+        repo_candidate = (REPO_ROOT / normalized).resolve()
+        if repo_candidate.exists():
+            return repo_candidate
+
+    return candidate
 
 
 def _codex_home() -> Path:
