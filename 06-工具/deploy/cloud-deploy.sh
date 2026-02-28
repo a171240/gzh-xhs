@@ -6,8 +6,10 @@ REMOTE="${CLOUD_DEPLOY_REMOTE:-origin}"
 BRANCH="${CLOUD_DEPLOY_BRANCH:-main}"
 GATEWAY_SERVICE="${OPENCLAW_GATEWAY_SERVICE:-openclaw-gateway}"
 WRITER_SERVICE="${INGEST_WRITER_SERVICE:-ingest-writer-api}"
+OPENCLAW_CONFIG_PATH="${OPENCLAW_CONFIG_PATH:-/root/.openclaw/openclaw.json}"
 ROLLBACK_ON_FAIL="${ROLLBACK_ON_FAIL:-true}"
 ROLLBACK_SHA=""
+WORKSPACE_DIR="/root/.openclaw/workspace"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -105,7 +107,7 @@ EOF
 
 apply_workspace_prompt() {
   local src="$DEPLOY_DIR/openclaw-feishu-routing-prompt.md"
-  local ws="/root/.openclaw/workspace"
+  local ws="$WORKSPACE_DIR"
   local orch_py="$RUNTIME_DIR/feishu_kb_orchestrator.py"
   mkdir -p "$ws"
   cp -f "$src" "$ws/FEISHU_ROUTING_PROMPT.md"
@@ -117,6 +119,28 @@ Always call: python3 ${orch_py} ...
 Do not free-form reply.
 Only return reply or reply_segments.
 EOF
+}
+
+resolve_workspace_dir() {
+  local cfg="${OPENCLAW_CONFIG_PATH}"
+  if [[ ! -f "$cfg" ]]; then
+    WORKSPACE_DIR="/root/.openclaw/workspace"
+    return
+  fi
+  local detected
+  detected="$(python3 - <<PY
+import json, pathlib
+p = pathlib.Path(r'''$cfg''')
+ws = "/root/.openclaw/workspace"
+try:
+    obj = json.loads(p.read_text(encoding="utf-8", errors="ignore"))
+    ws = (obj.get("agents", {}) or {}).get("defaults", {}).get("workspace") or ws
+except Exception:
+    pass
+print(ws)
+PY
+)"
+  WORKSPACE_DIR="${detected:-/root/.openclaw/workspace}"
 }
 
 require_cmd git
@@ -155,6 +179,8 @@ find_runtime_layout
 
 echo "[deploy] runtime dir: $RUNTIME_DIR"
 echo "[deploy] deploy dir:  $DEPLOY_DIR"
+resolve_workspace_dir
+echo "[deploy] workspace:   $WORKSPACE_DIR"
 
 mkdir -p /etc/openclaw
 touch /etc/openclaw/feishu.env
