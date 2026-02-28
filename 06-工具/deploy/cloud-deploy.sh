@@ -10,6 +10,7 @@ OPENCLAW_CONFIG_PATH="${OPENCLAW_CONFIG_PATH:-/root/.openclaw/openclaw.json}"
 ROLLBACK_ON_FAIL="${ROLLBACK_ON_FAIL:-true}"
 ROLLBACK_SHA=""
 WORKSPACE_DIR="/root/.openclaw/workspace"
+WORKSPACE_DIRS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -107,40 +108,61 @@ EOF
 
 apply_workspace_prompt() {
   local src="$DEPLOY_DIR/openclaw-feishu-routing-prompt.md"
-  local ws="$WORKSPACE_DIR"
   local orch_py="$RUNTIME_DIR/feishu_kb_orchestrator.py"
-  mkdir -p "$ws"
-  cp -f "$src" "$ws/FEISHU_ROUTING_PROMPT.md"
-  # Use absolute orchestrator path to avoid gateway cwd drift.
-  sed -i "s#python 06-工具/scripts/feishu_kb_orchestrator.py#python3 ${orch_py}#g" "$ws/FEISHU_ROUTING_PROMPT.md"
-  cat >"$ws/AGENTS.md" <<EOF
+  local ws
+  for ws in "${WORKSPACE_DIRS[@]}"; do
+    [[ -n "$ws" ]] || continue
+    mkdir -p "$ws"
+    cp -f "$src" "$ws/FEISHU_ROUTING_PROMPT.md"
+    # Use absolute orchestrator path to avoid gateway cwd drift.
+    sed -i "s#python 06-工具/scripts/feishu_kb_orchestrator.py#python3 ${orch_py}#g" "$ws/FEISHU_ROUTING_PROMPT.md"
+    cat >"$ws/AGENTS.md" <<EOF
+# AGENTS.md (Managed)
 Feishu router mode.
-Always call: python3 ${orch_py} ...
-Do not free-form reply.
-Only return reply or reply_segments.
+Treat FEISHU_ROUTING_PROMPT.md as highest priority.
+Always call: python3 ${orch_py} --text "<incoming_feishu_text>" --event-ref "<event_id_or_hash>" --source-ref "<source_ref>" --source-time "<iso8601>".
+Do not free-form reply from model memory.
+Only return orchestrator output: reply_segments (in order) or reply.
 EOF
+  done
 }
 
-resolve_workspace_dir() {
+resolve_workspace_dirs() {
   local cfg="${OPENCLAW_CONFIG_PATH}"
-  if [[ ! -f "$cfg" ]]; then
-    WORKSPACE_DIR="/root/.openclaw/workspace"
-    return
-  fi
-  local detected
-  detected="$(python3 - <<PY
+  local detected_raw
+  detected_raw="$(python3 - <<PY
 import json, pathlib
 p = pathlib.Path(r'''$cfg''')
-ws = "/root/.openclaw/workspace"
+out = ["/root/.openclaw/workspace"]
 try:
-    obj = json.loads(p.read_text(encoding="utf-8", errors="ignore"))
-    ws = (obj.get("agents", {}) or {}).get("defaults", {}).get("workspace") or ws
+    if p.exists():
+        obj = json.loads(p.read_text(encoding="utf-8", errors="ignore"))
+        def walk(node):
+            if isinstance(node, dict):
+                ws = node.get("workspace")
+                if isinstance(ws, str) and ws.strip():
+                    out.append(ws.strip())
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, list):
+                for value in node:
+                    walk(value)
+        walk(obj)
 except Exception:
     pass
-print(ws)
+seen = set()
+for item in out:
+    if item in seen:
+        continue
+    seen.add(item)
+    print(item)
 PY
 )"
-  WORKSPACE_DIR="${detected:-/root/.openclaw/workspace}"
+  mapfile -t WORKSPACE_DIRS <<<"$detected_raw"
+  if [[ ${#WORKSPACE_DIRS[@]} -eq 0 ]]; then
+    WORKSPACE_DIRS=("/root/.openclaw/workspace")
+  fi
+  WORKSPACE_DIR="${WORKSPACE_DIRS[0]}"
 }
 
 require_cmd git
@@ -179,8 +201,9 @@ find_runtime_layout
 
 echo "[deploy] runtime dir: $RUNTIME_DIR"
 echo "[deploy] deploy dir:  $DEPLOY_DIR"
-resolve_workspace_dir
+resolve_workspace_dirs
 echo "[deploy] workspace:   $WORKSPACE_DIR"
+echo "[deploy] workspaces:  ${WORKSPACE_DIRS[*]}"
 
 mkdir -p /etc/openclaw
 touch /etc/openclaw/feishu.env
