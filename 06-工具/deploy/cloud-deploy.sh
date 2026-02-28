@@ -106,11 +106,14 @@ EOF
 apply_workspace_prompt() {
   local src="$DEPLOY_DIR/openclaw-feishu-routing-prompt.md"
   local ws="/root/.openclaw/workspace"
+  local orch_py="$RUNTIME_DIR/feishu_kb_orchestrator.py"
   mkdir -p "$ws"
   cp -f "$src" "$ws/FEISHU_ROUTING_PROMPT.md"
-  cat >"$ws/AGENTS.md" <<'EOF'
+  # Use absolute orchestrator path to avoid gateway cwd drift.
+  sed -i "s#python 06-工具/scripts/feishu_kb_orchestrator.py#python3 ${orch_py}#g" "$ws/FEISHU_ROUTING_PROMPT.md"
+  cat >"$ws/AGENTS.md" <<EOF
 Feishu router mode.
-Always call: python 06-工具/scripts/feishu_kb_orchestrator.py ...
+Always call: python3 ${orch_py} ...
 Do not free-form reply.
 Only return reply or reply_segments.
 EOF
