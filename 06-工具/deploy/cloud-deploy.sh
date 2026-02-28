@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 REPO_PATH="${CLOUD_DEPLOY_PATH:-/root/gzh-xhs}"

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 REPO_PATH="${CLOUD_DEPLOY_PATH:-/root/gzh-xhs}"
@@ -62,7 +62,7 @@ ts = int(time.time())
 cases = [
     ("plain", "先完成再完美", False, False, "none"),
     ("quote_at", "@Winnie蛋：真正拉开差距的，从来不是天赋，而是长期正确。", True, False, "at_prefix"),
-    ("quote_text", "金句：复利不是天赋，是情绪稳定下的重复执行。", True, False, "at_prefix"),
+    ("quote_text", "金句：复利不是天赋，是情绪稳定下的重复执行。", True, False, "text_prefix"),
     ("link", "https://raw.githubusercontent.com/openai/openai-python/main/README.md", True, False, "url"),
     ("skill", "用公众号批量生产生成一篇关于复利思维的文章，1200字", False, True, "none"),
 ]
