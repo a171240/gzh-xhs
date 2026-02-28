@@ -13,26 +13,31 @@ if (-not $toolDir) {
 $pipelineHeartbeat = Join-Path $toolDir "data\feishu-orchestrator\topic-pipeline\heartbeat.json"
 $pipelineStateFile = Join-Path $toolDir "data\feishu-orchestrator\topic-pipeline\state.json"
 $automationHeartbeat = Join-Path $toolDir "data\automation\scheduler\heartbeat.json"
+$writerHealthUrl = "http://127.0.0.1:8790/internal/healthz"
+$writerEnvLocal = Join-Path $toolDir "scripts\.env.ingest-writer.local"
 
 function Get-PipelineProcess {
   $all = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue
   if (-not $all) { return @() }
-  return $all | Where-Object {
-    $_.CommandLine -and
-    $_.CommandLine -like "*feishu_kb_orchestrator.py*" -and
-    $_.CommandLine -like "*--pipeline-mode*" -and
-    $_.CommandLine -like "*daemon*"
-  }
+  $pattern = '(?i)feishu_kb_orchestrator\.py.+--pipeline-mode\s+daemon'
+  return @(
+    $all | Where-Object {
+      $_.ProcessId -ne $PID -and
+      [string]$_.CommandLine -match $pattern
+    }
+  )
 }
 
 function Get-AutomationSchedulerProcess {
   $all = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue
   if (-not $all) { return @() }
-  return $all | Where-Object {
-    $_.CommandLine -and
-    $_.CommandLine -like "*automation_scheduler.py*" -and
-    $_.CommandLine -notlike "*--once*"
-  }
+  return @(
+    $all | Where-Object {
+      $_.ProcessId -ne $PID -and
+      [string]$_.CommandLine -match '(?i)automation_scheduler\.py' -and
+      [string]$_.CommandLine -notmatch '(?i)--once'
+    }
+  )
 }
 
 Write-Host "=== Local Hub Status ==="
@@ -40,8 +45,8 @@ Write-Host "Repo: $repoRoot"
 
 Write-Host ""
 Write-Host "[1] Pipeline daemon process"
-$pipeline = Get-PipelineProcess
-if ($pipeline -and $pipeline.Count -gt 0) {
+$pipeline = @(Get-PipelineProcess)
+if ($pipeline.Count -gt 0) {
   foreach ($proc in $pipeline) { Write-Host "  running: pid=$($proc.ProcessId)" }
 }
 else {
@@ -90,8 +95,8 @@ else {
 
 Write-Host ""
 Write-Host "[4] Automation scheduler process"
-$scheduler = Get-AutomationSchedulerProcess
-if ($scheduler -and $scheduler.Count -gt 0) {
+$scheduler = @(Get-AutomationSchedulerProcess)
+if ($scheduler.Count -gt 0) {
   foreach ($proc in $scheduler) { Write-Host "  running: pid=$($proc.ProcessId)" }
 }
 else {
@@ -115,4 +120,42 @@ if (Test-Path $automationHeartbeat) {
 }
 else {
   Write-Host "  missing: $automationHeartbeat"
+}
+
+Write-Host ""
+Write-Host "[6] Ingest writer health"
+try {
+  $resp = Invoke-RestMethod -Method Get -Uri $writerHealthUrl -TimeoutSec 3
+  Write-Host "  endpoint: $writerHealthUrl"
+  Write-Host "  status: $($resp.status)"
+  if ($null -ne $resp.apply_mode) { Write-Host "  apply_mode: $($resp.apply_mode)" }
+  if ($null -ne $resp.signature_required) { Write-Host "  signature_required: $($resp.signature_required)" }
+  if ($resp.allowed_source_kinds) { Write-Host "  allowed_source_kinds: $([string]::Join(', ', $resp.allowed_source_kinds))" }
+}
+catch {
+  Write-Host "  unavailable: $writerHealthUrl"
+  Write-Host "  error: $($_.Exception.Message)"
+}
+
+Write-Host ""
+Write-Host "[7] Ingest writer env check"
+if (Test-Path $writerEnvLocal) {
+  $tokenLine = Get-Content -Path $writerEnvLocal -ErrorAction SilentlyContinue |
+    Where-Object { $_ -match '^\s*INGEST_SHARED_TOKEN\s*=' } |
+    Select-Object -First 1
+  $hmacLine = Get-Content -Path $writerEnvLocal -ErrorAction SilentlyContinue |
+    Where-Object { $_ -match '^\s*INGEST_HMAC_SECRET\s*=' } |
+    Select-Object -First 1
+
+  $tokenValue = ""
+  $hmacValue = ""
+  if ($tokenLine) { $tokenValue = ($tokenLine -split '=', 2)[1].Trim() }
+  if ($hmacLine) { $hmacValue = ($hmacLine -split '=', 2)[1].Trim() }
+
+  Write-Host "  env_file: $writerEnvLocal"
+  Write-Host "  INGEST_SHARED_TOKEN: $(if ($tokenValue) { 'set' } else { 'missing' })"
+  Write-Host "  INGEST_HMAC_SECRET: $(if ($hmacValue) { 'set' } else { 'missing' })"
+}
+else {
+  Write-Host "  missing: $writerEnvLocal"
 }

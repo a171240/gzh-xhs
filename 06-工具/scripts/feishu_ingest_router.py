@@ -23,10 +23,16 @@ from quote_ingest_core import (
 )
 
 URL_RE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
+SHORT_LINK_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:v\.douyin\.com|xhslink\.com|b23\.tv)/[A-Za-z0-9_-]+/?(?:\?[^\s<>\"'`]+)?",
+    re.IGNORECASE,
+)
 COMMAND_RE = re.compile(r"^\s*/[\w\u4e00-\u9fff-]+")
 REPLY_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:回复\s+[^:：\n]{1,80}\s*[:：]\s*)"
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s+[^:：\n]{1,80}\s*[:：]\s*)",
+    re.IGNORECASE,
 )
+BLOCKQUOTE_PREFIX_RE = re.compile(r"^\s*(?:[|｜>＞]+\s*)+")
 QUOTE_AT_PREFIX_RE = re.compile(
     r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?[\"'“”‘’]?[@＠]\s*(?P<mention>[^:：，,\n]+?)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$"
 )
@@ -87,12 +93,25 @@ def _dedupe_urls(urls: list[str]) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
     for url in urls:
-        cleaned = url.strip()
+        cleaned = str(url or "").strip().rstrip(".,;:!?，。；：！？）)]》」』")
         if not cleaned or cleaned in seen:
             continue
         seen.add(cleaned)
         out.append(cleaned)
     return out
+
+
+def _extract_urls(text: str) -> list[str]:
+    raw = str(text or "")
+    urls: list[str] = list(URL_RE.findall(raw))
+    for match in SHORT_LINK_RE.finditer(raw):
+        value = str(match.group(0) or "").strip()
+        if not value:
+            continue
+        if not value.lower().startswith("http"):
+            value = f"https://{value}"
+        urls.append(value)
+    return _dedupe_urls(urls)
 
 
 def _strip_command_shell(text: str) -> str:
@@ -109,10 +128,14 @@ def _extract_quote_after_mention(text: str) -> tuple[bool, str]:
     # Strip at most two such prefixes before trigger detection.
     normalized = raw
     for _ in range(2):
+        normalized = BLOCKQUOTE_PREFIX_RE.sub("", normalized).lstrip()
         prefix = REPLY_PREFIX_RE.match(normalized)
         if not prefix:
             break
         normalized = normalized[prefix.end() :].lstrip()
+
+    # Some clients keep one or more quote markers before the actual trigger.
+    normalized = BLOCKQUOTE_PREFIX_RE.sub("", normalized).lstrip()
 
     matched = QUOTE_AT_PREFIX_RE.match(normalized) or QUOTE_TEXT_PREFIX_RE.match(normalized)
     if not matched:
@@ -133,7 +156,7 @@ def route_message_text(text: str) -> RoutedMessage:
         return RoutedMessage(mode="ignore", urls=[], quote_text="", original_text=original)
 
     body = _strip_command_shell(original)
-    urls = _dedupe_urls(URL_RE.findall(body))
+    urls = _extract_urls(body)
 
     # Product rule: if a message contains URL(s), treat it as benchmark-link input only.
     if urls:

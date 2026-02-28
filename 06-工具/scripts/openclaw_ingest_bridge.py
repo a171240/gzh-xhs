@@ -19,6 +19,10 @@ from typing import Any
 import requests
 
 URL_RE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
+SHORT_LINK_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:v\.douyin\.com|xhslink\.com|b23\.tv)/[A-Za-z0-9_-]+/?(?:\?[^\s<>\"'`]+)?",
+    re.IGNORECASE,
+)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ENV_FALLBACKS = (
     os.path.join(SCRIPT_DIR, ".env.ingest-writer.local"),
@@ -95,8 +99,18 @@ def _now_iso() -> str:
 def _extract_urls(text: str) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
-    for item in URL_RE.findall(str(text or "")):
-        value = item.strip()
+    raw = str(text or "")
+    candidates: list[str] = list(URL_RE.findall(raw))
+    for match in SHORT_LINK_RE.finditer(raw):
+        value = str(match.group(0) or "").strip()
+        if not value:
+            continue
+        if not value.lower().startswith("http"):
+            value = f"https://{value}"
+        candidates.append(value)
+
+    for item in candidates:
+        value = str(item or "").strip().rstrip(".,;:!?，。；：！？）)]》」』")
         if not value or value in seen:
             continue
         seen.add(value)
@@ -118,6 +132,7 @@ def _dedupe_urls(urls: list[str]) -> list[str]:
 
 def _strip_urls(text: str) -> str:
     no_url = URL_RE.sub(" ", str(text or ""))
+    no_url = SHORT_LINK_RE.sub(" ", no_url)
     return re.sub(r"\s+", " ", no_url).strip()
 
 

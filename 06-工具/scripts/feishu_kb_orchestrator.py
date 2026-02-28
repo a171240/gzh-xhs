@@ -45,6 +45,10 @@ RUN_LOG_DIR = LOG_ROOT / "runs"
 DEAD_LETTER_DIR = LOG_ROOT / "dead-letter"
 
 URL_RE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
+SHORT_LINK_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:v\.douyin\.com|xhslink\.com|b23\.tv)/[A-Za-z0-9_-]+/?(?:\?[^\s<>\"'`]+)?",
+    re.IGNORECASE,
+)
 SKILL_COMMAND_RE = re.compile(r"^\s*/skill\s+([^\s]+)(.*)$", re.IGNORECASE)
 MEDIA_COMMAND_RE = re.compile(r"^\s*/media\s+generate\b", re.IGNORECASE)
 PUBLISH_PREPARE_RE = re.compile(r"^\s*/publish\s+prepare\b", re.IGNORECASE)
@@ -55,7 +59,11 @@ APPROVE_COMMAND_RE = re.compile(r"(?:任务|task)\s*[=:：]\s*([A-Za-z0-9._:-]+)
 PLATFORM_KV_RE = re.compile(r"(?:平台|platform)\s*[=:：]\s*([^\s,，]+)", re.IGNORECASE)
 BRIEF_KV_RE = re.compile(r"(?:需求|brief|prompt)\s*[=:：]\s*(.+)$", re.IGNORECASE)
 GEN_VERB_RE = re.compile(r"(生成|创作|产出|输出|起草|改写|扩写|润色)", re.IGNORECASE)
-REPLY_PREFIX_RE = re.compile(r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:回复\s+[^:\n]{1,80}\s*[:：]\s*)", re.IGNORECASE)
+REPLY_PREFIX_RE = re.compile(
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s+[^:：\n]{1,80}\s*[:：]\s*)",
+    re.IGNORECASE,
+)
+BLOCKQUOTE_PREFIX_RE = re.compile(r"^\s*(?:[|｜>＞]+\s*)+")
 QUOTE_AT_PREFIX_RE = re.compile(
     r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?[@＠]\s*(?P<mention>[^:：，,\n]+?)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
     re.IGNORECASE,
@@ -217,7 +225,7 @@ def _dedupe_urls(urls: list[str]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for item in urls:
-        value = str(item or "").strip()
+        value = str(item or "").strip().rstrip(".,;:!?，。；：！？）)]》」』")
         if not value or value in seen:
             continue
         seen.add(value)
@@ -226,11 +234,21 @@ def _dedupe_urls(urls: list[str]) -> list[str]:
 
 
 def _extract_urls(text: str) -> list[str]:
-    return _dedupe_urls(URL_RE.findall(str(text or "")))
+    raw = str(text or "")
+    urls: list[str] = list(URL_RE.findall(raw))
+    for match in SHORT_LINK_RE.finditer(raw):
+        value = str(match.group(0) or "").strip()
+        if not value:
+            continue
+        if not value.lower().startswith("http"):
+            value = f"https://{value}"
+        urls.append(value)
+    return _dedupe_urls(urls)
 
 
 def _strip_urls(text: str) -> str:
     cleaned = URL_RE.sub(" ", str(text or ""))
+    cleaned = SHORT_LINK_RE.sub(" ", cleaned)
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
@@ -242,10 +260,14 @@ def _parse_quote_trigger(text: str) -> tuple[str, str]:
     # Feishu thread replies may prefix body with `鍥炲 鏌愭煇锛歚.
     normalized = raw
     for _ in range(2):
+        normalized = BLOCKQUOTE_PREFIX_RE.sub("", normalized).lstrip()
         prefix = REPLY_PREFIX_RE.match(normalized)
         if not prefix:
             break
         normalized = normalized[prefix.end() :].lstrip()
+
+    # Clients may still keep one leading quote marker after prefix stripping.
+    normalized = BLOCKQUOTE_PREFIX_RE.sub("", normalized).lstrip()
 
     matched = QUOTE_AT_PREFIX_RE.match(normalized)
     trigger = "at_prefix"

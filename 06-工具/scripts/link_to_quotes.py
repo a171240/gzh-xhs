@@ -77,6 +77,40 @@ EXACT_NOISE_LINES = {
     "直播管理",
 }
 
+DOUYIN_UI_NOISE_SUBSTRINGS = (
+    "Topick",
+    "For You",
+    "Following",
+    "Friends",
+    "Profile",
+    "下载抖音精选",
+    "Full screen",
+    "Picture in picture",
+    "Watch later",
+    "Quality",
+    "Autoplay",
+    "Listen Video",
+    "Open autoplay",
+    "ClearJ",
+    "设备无网络请试试刷新",
+    "不支持的音频/视频格式",
+    "点击按住可拖动视频",
+    "Please login before leaving comments",
+    "Log in to Douyin",
+    "Log in / Sign up",
+    "Use Phone",
+    "Use Password",
+    "Send code",
+    "Web-Cross-Storage",
+)
+DOUYIN_STOP_MARKERS = (
+    "## 推荐视频",
+    "## 全部评论",
+    "Log in to Douyin",
+    "Please login before leaving comments",
+    "Web-Cross-Storage",
+)
+
 
 @dataclass(frozen=True)
 class LinkProcessItem:
@@ -191,6 +225,18 @@ def _normalize_title(value: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+def _host_from_url(url: str) -> str:
+    try:
+        return str(urlparse(str(url or "")).netloc or "").lower()
+    except Exception:
+        return ""
+
+
+def _is_douyin_url(url: str) -> bool:
+    host = _host_from_url(url)
+    return ("douyin.com" in host) or ("iesdouyin.com" in host)
+
+
 def _extract_front_matter(markdown: str) -> tuple[dict[str, str], str]:
     text = _repair_mojibake(markdown).replace("\r\n", "\n").replace("\r", "\n")
     if not text.startswith("---\n"):
@@ -245,17 +291,93 @@ def _looks_like_noise_line(line: str) -> bool:
     return False
 
 
-def _markdown_to_plain_text(markdown: str, *, title: str = "") -> str:
+def _looks_like_douyin_noise_line(line: str) -> bool:
+    value = str(line or "").strip()
+    if not value:
+        return True
+    if re.search(r"https?://", value, flags=re.IGNORECASE):
+        return True
+    if value.startswith(("原文链接", "来源", "字幕", "不开启", "720p", "540p", "360p", "推荐视频", "全部评论")):
+        return True
+    if value.startswith(("00:", "0:", "播放", "截图", "进入全屏", "开启读屏标签", "读屏标签已关闭")):
+        return True
+    if value.startswith(("重播", "3s 后", "粉丝", "获赞", "举报", "关注")):
+        return True
+    if re.fullmatch(r"\d+(?:\.\d+)?[KWM]?", value, flags=re.IGNORECASE):
+        return True
+    if re.fullmatch(r"\d{2}:\d{2}(?:/\d{2}:\d{2})?", value):
+        return True
+    lower = value.lower()
+    if any(token.lower() in lower for token in DOUYIN_UI_NOISE_SUBSTRINGS):
+        return True
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9 ._-]{1,20}", value):
+        return True
+    return False
+
+
+def _extract_douyin_caption(markdown: str, *, title: str = "") -> str:
     text = _repair_mojibake(markdown).replace("\r\n", "\n").replace("\r", "\n")
     text = _strip_code_blocks(text)
     text = re.sub(r"!\[[^\]]*\]\([^\)]*\)", " ", text)
     text = re.sub(r"\[([^\]]+)\]\([^\)]*\)", r"\1", text)
     text = re.sub(r"<[^>]+>", " ", text)
 
+    title_norm = _normalize_title(title)
+    candidates: list[str] = []
+    hashtag_best = ""
+
+    for raw in text.split("\n"):
+        line = re.sub(r"^[#>*\-\s]+", "", raw).strip()
+        line = re.sub(r"\s+", " ", line).strip("`*_ ").strip()
+        if not line:
+            continue
+        if any(marker in line for marker in DOUYIN_STOP_MARKERS):
+            break
+        has_hashtag = "#" in line
+        if ((not has_hashtag) and _looks_like_noise_line(line)) or _looks_like_douyin_noise_line(line):
+            continue
+        if title_norm and line == title_norm:
+            continue
+        if len(line) < 8:
+            continue
+        if not re.search(r"[\u4e00-\u9fff]", line):
+            continue
+        if "#" in line:
+            hash_count = len(re.findall(r"#[^\s#]+", line))
+            if hash_count >= 2:
+                return line
+            if not hashtag_best:
+                hashtag_best = line
+        candidates.append(line)
+
+    if hashtag_best:
+        return hashtag_best
+    if not candidates:
+        return ""
+    with_hashtag = [line for line in candidates if "#" in line and len(line) >= 12]
+    return (with_hashtag[0] if with_hashtag else candidates[0]).strip()
+
+
+def _extract_douyin_publish_time(markdown: str) -> str:
+    text = _repair_mojibake(markdown)
+    m = re.search(r"发布时间[:：]\s*([0-9]{4}-[0-9]{2}-[0-9]{2}(?:\s+[0-9]{2}:[0-9]{2})?)", text)
+    return str(m.group(1) if m else "").strip()
+
+
+def _markdown_to_plain_text(markdown: str, *, title: str = "", source_url: str = "") -> str:
+    text = _repair_mojibake(markdown).replace("\r\n", "\n").replace("\r", "\n")
+    text = _strip_code_blocks(text)
+    text = re.sub(r"!\[[^\]]*\]\([^\)]*\)", " ", text)
+    text = re.sub(r"\[([^\]]+)\]\([^\)]*\)", r"\1", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+
+    is_douyin = _is_douyin_url(source_url)
     lines: list[str] = []
     seen: set[str] = set()
     title_norm = _normalize_title(title)
     for raw in text.split("\n"):
+        if is_douyin and any(marker in raw for marker in DOUYIN_STOP_MARKERS):
+            break
         line = raw.strip()
         if not line:
             continue
@@ -268,6 +390,8 @@ def _markdown_to_plain_text(markdown: str, *, title: str = "") -> str:
         line = line.strip("`*_ ").strip()
 
         if _looks_like_noise_line(line):
+            continue
+        if is_douyin and _looks_like_douyin_noise_line(line):
             continue
         if title_norm and line == title_norm:
             continue
@@ -500,7 +624,12 @@ def process_urls_to_quotes(
             meta, body_markdown = _extract_front_matter(markdown)
             title = _normalize_title(title or str(meta.get("title") or ""))
             published_date = _pick_published_date(meta, source_time)
-            body_plain = _markdown_to_plain_text(body_markdown, title=title)
+            body_plain = _markdown_to_plain_text(body_markdown, title=title, source_url=url)
+            if _is_douyin_url(url):
+                caption = _extract_douyin_caption(body_markdown, title=title)
+                if caption:
+                    publish_time = _extract_douyin_publish_time(body_markdown)
+                    body_plain = caption if not publish_time else f"{caption}\n发布时间：{publish_time}"
             body_chars = len(body_plain)
 
             if apply_mode:
@@ -526,7 +655,7 @@ def process_urls_to_quotes(
                     path_name = Path(urlparse(url).path).name
                     title = _normalize_title(path_name.rsplit(".", 1)[0] if "." in path_name else path_name) or "链接正文"
                 published_date = _normalize_date(source_time) or _today()
-                body_plain = _markdown_to_plain_text(fallback_text, title=title)
+                body_plain = _markdown_to_plain_text(fallback_text, title=title, source_url=url)
                 body_chars = len(body_plain)
                 if apply_mode:
                     body_doc = _write_body_doc(

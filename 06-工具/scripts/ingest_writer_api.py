@@ -35,6 +35,10 @@ from quote_ingest_core import DEFAULT_NEAR_DUP_THRESHOLD
 from retro_runner import run_retro
 
 URL_RE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
+SHORT_LINK_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:v\.douyin\.com|xhslink\.com|b23\.tv)/[A-Za-z0-9_-]+/?(?:\?[^\s<>\"'`]+)?",
+    re.IGNORECASE,
+)
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 QUOTE_TRIGGER_RE = re.compile(
     r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?(?:@[^:\s：，,]+\s*[:：]\s*.+|金句\s*[:：]\s*.+)\s*$"
@@ -166,7 +170,7 @@ def _dedupe_urls(urls: list[str]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for item in urls:
-        value = str(item or "").strip()
+        value = str(item or "").strip().rstrip(".,;:!?，。；：！？）)]》」』")
         if not value or value in seen:
             continue
         seen.add(value)
@@ -175,11 +179,21 @@ def _dedupe_urls(urls: list[str]) -> list[str]:
 
 
 def _extract_urls(text: str) -> list[str]:
-    return _dedupe_urls(URL_RE.findall(str(text or "")))
+    raw = str(text or "")
+    urls: list[str] = list(URL_RE.findall(raw))
+    for match in SHORT_LINK_RE.finditer(raw):
+        value = str(match.group(0) or "").strip()
+        if not value:
+            continue
+        if not value.lower().startswith("http"):
+            value = f"https://{value}"
+        urls.append(value)
+    return _dedupe_urls(urls)
 
 
 def _strip_urls(text: str) -> str:
     cleaned = URL_RE.sub(" ", str(text or ""))
+    cleaned = SHORT_LINK_RE.sub(" ", cleaned)
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
