@@ -64,12 +64,13 @@ REPLY_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 BLOCKQUOTE_PREFIX_RE = re.compile(r"^\s*(?:[|｜>＞]+\s*)+")
+LEADING_BULLET_PREFIX_RE = re.compile(r"^\s*(?:[·•●▪▫◦○・\-*]+\s*)+")
 QUOTE_AT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?[@＠]\s*(?P<mention>[^:：，,\n]+?)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s*[^:：\n]{0,80}\s*[:：]\s*)?(?:[·•●▪▫◦○・\-*]+\s*)?[@＠]\s*(?P<mention>[^:：，,\n]+?)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
     re.IGNORECASE,
 )
 QUOTE_TEXT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:金句|quote)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s*[^:：\n]{0,80}\s*[:：]\s*)?(?:[·•●▪▫◦○・\-*]+\s*)?(?:金句|quote)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
     re.IGNORECASE,
 )
 
@@ -259,8 +260,9 @@ def _parse_quote_trigger(text: str) -> tuple[str, str]:
 
     # Feishu thread replies may prefix body with `鍥炲 鏌愭煇锛歚.
     normalized = raw
-    for _ in range(2):
+    for _ in range(3):
         normalized = BLOCKQUOTE_PREFIX_RE.sub("", normalized).lstrip()
+        normalized = LEADING_BULLET_PREFIX_RE.sub("", normalized).lstrip()
         prefix = REPLY_PREFIX_RE.match(normalized)
         if not prefix:
             break
@@ -268,6 +270,7 @@ def _parse_quote_trigger(text: str) -> tuple[str, str]:
 
     # Clients may still keep one leading quote marker after prefix stripping.
     normalized = BLOCKQUOTE_PREFIX_RE.sub("", normalized).lstrip()
+    normalized = LEADING_BULLET_PREFIX_RE.sub("", normalized).lstrip()
 
     matched = QUOTE_AT_PREFIX_RE.match(normalized)
     trigger = "at_prefix"
