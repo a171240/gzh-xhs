@@ -260,6 +260,7 @@ test -n "$DB_PATH" || { echo "[verify] FAIL: writer db missing under $REPO_PATH/
 test -f "$DB_PATH" || { echo "[verify] FAIL: writer db not a file: $DB_PATH"; exit 1; }
 
 python3 - "$DB_PATH" "$LATEST_EVENT_REF" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" <<'PY'
+import json
 import sqlite3
 import sys
 
@@ -294,21 +295,74 @@ try:
             print(row, file=sys.stderr)
         sys.exit(1)
 
+    def _safe_int(value, default=0):
+        try:
+            return int(value)
+        except Exception:
+            return int(default)
+
+    def _summary_from_result_json(raw):
+        if not raw:
+            return {}
+        try:
+            payload = json.loads(raw)
+        except Exception:
+            return {}
+        if not isinstance(payload, dict):
+            return {}
+        details = payload.get("details")
+        if not isinstance(details, dict):
+            return {}
+        summary = details.get("summary")
+        return summary if isinstance(summary, dict) else {}
+
     if require_content_success:
         cols = {r[1] for r in cur.execute("pragma table_info(requests)").fetchall()}
         needed = {"content_status", "content_chars", "is_test_url"}
         if needed.issubset(cols):
             rows = list(
                 cur.execute(
-                    "select event_ref,mode,content_status,content_chars,is_test_url,quality_reason from requests where event_ref like ? order by updated_at desc",
+                    "select event_ref,mode,content_status,content_chars,is_test_url,quality_reason,result_json from requests where event_ref like ? order by updated_at desc",
                     (prefix,),
                 )
             )
-            for ev, mode, c_status, c_chars, is_test, quality in rows:
+            for ev, mode, c_status, c_chars, is_test, quality, result_json in rows:
                 c_status = str(c_status or "")
-                c_chars = int(c_chars or 0)
+                c_chars = _safe_int(c_chars, 0)
                 is_test = bool(is_test)
                 mode = str(mode or "")
+                summary = _summary_from_result_json(result_json)
+
+                if c_status in {"", "none"}:
+                    summary_status = str(summary.get("link_content_status") or "")
+                    if summary_status:
+                        c_status = summary_status
+                    else:
+                        link_total = _safe_int(summary.get("link_total"), 0)
+                        link_content_success = _safe_int(
+                            summary.get("link_content_success_count"),
+                            _safe_int(summary.get("link_doc_saved_count"), 0),
+                        )
+                        link_content_failed = _safe_int(summary.get("link_content_failed_count"), 0)
+                        link_content_skipped_test = _safe_int(summary.get("link_content_skipped_test_count"), 0)
+                        if link_total <= 0:
+                            c_status = "none"
+                        elif link_content_failed > 0:
+                            c_status = "failed"
+                        elif link_content_success > 0:
+                            c_status = "success"
+                        elif link_content_skipped_test > 0:
+                            c_status = "skipped_test"
+                        else:
+                            c_status = "none"
+
+                if c_chars <= 0:
+                    c_chars = _safe_int(summary.get("link_content_chars_total"), c_chars)
+                if not is_test:
+                    is_test = bool(summary.get("link_is_test"))
+                if not quality:
+                    quality = str(summary.get("link_quality_reason") or "")
+
                 if mode not in {"link", "mixed"} and c_status in {"", "none"}:
                     continue
                 if allow_test_url_skip and c_status == "skipped_test":

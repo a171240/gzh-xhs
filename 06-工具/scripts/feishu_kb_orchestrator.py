@@ -1402,8 +1402,36 @@ def orchestrate_message(
         except Exception:
             return int(default)
 
+    link_total = _safe_int(summary.get("link_total"), 0)
+    link_route_success = _safe_int(
+        summary.get("link_route_success_count"),
+        default=_safe_int(summary.get("link_success"), 0),
+    )
+    link_content_success = _safe_int(
+        summary.get("link_content_success_count"),
+        default=_safe_int(summary.get("link_doc_saved_count"), 0),
+    )
+    link_content_failed = _safe_int(summary.get("link_content_failed_count"), 0)
+    link_content_skipped_test = _safe_int(summary.get("link_content_skipped_test_count"), 0)
+
     link_route_status = str(ingest_payload.get("link_route_status") or summary.get("link_route_status") or "")
+    if not link_route_status and link_total > 0:
+        link_route_status = "success" if link_route_success >= link_total else "partial"
+    elif not link_route_status:
+        link_route_status = "none"
+
     link_content_status = str(ingest_payload.get("link_content_status") or summary.get("link_content_status") or "")
+    if not link_content_status:
+        if link_total <= 0:
+            link_content_status = "none"
+        elif link_content_failed > 0:
+            link_content_status = "failed"
+        elif link_content_success > 0:
+            link_content_status = "success"
+        elif link_content_skipped_test > 0:
+            link_content_status = "skipped_test"
+        else:
+            link_content_status = "none"
     link_content_chars = _safe_int(
         ingest_payload.get("link_content_chars"),
         default=_safe_int(summary.get("link_content_chars_total"), 0),
