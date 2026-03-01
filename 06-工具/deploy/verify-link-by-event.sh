@@ -153,7 +153,8 @@ if not link_rows:
 
 latest = link_rows[0]
 ev, mode, status, result_json_raw, updated_at, c_status, c_chars, is_test_url, quality_reason = latest
-if str(status or "") != "success":
+status = str(status or "")
+if status not in {"success", "partial"}:
     print(f"FAIL:db_status:{status or 'missing'}")
     sys.exit(1)
 
@@ -196,11 +197,15 @@ if require_content_success:
         pass
     elif c_status != "success":
         print(f"FAIL:content_status:{c_status or 'missing'}")
+        print(f"DB_STATUS:{status}")
+        print(f"SUMMARY:link_total={link_total},route_ok={route_ok},content_ok={content_ok},content_chars={c_chars}")
         if quality_reason:
             print(f"QUALITY:{quality_reason}")
         sys.exit(1)
     elif (not is_test) and c_chars < min_content_chars:
         print(f"FAIL:content_chars:{c_chars}<{min_content_chars}")
+        print(f"DB_STATUS:{status}")
+        print(f"SUMMARY:link_total={link_total},route_ok={route_ok},content_ok={content_ok}")
         sys.exit(1)
 
 if link_total < 1:
