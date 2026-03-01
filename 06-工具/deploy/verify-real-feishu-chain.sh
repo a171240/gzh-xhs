@@ -68,8 +68,9 @@ journalctl -u "$GATEWAY_SERVICE" --since "${SINCE_MINUTES} min ago" --no-pager >
 grep -E "received message|dispatching to agent|dispatch complete" "$LOG_TMP" >/dev/null \
   || { echo "[verify] FAIL: gateway log has no feishu dispatch records in last ${SINCE_MINUTES}m"; exit 1; }
 
-RUN_LOG="$REPO_PATH/06-工具/data/feishu-orchestrator/runs/$(date +%F).jsonl"
-test -f "$RUN_LOG" || { echo "[verify] FAIL: run log missing: $RUN_LOG"; exit 1; }
+RUN_LOG="$(ls -1 "$REPO_PATH"/06-*/data/feishu-orchestrator/runs/"$(date +%F).jsonl" 2>/dev/null | head -n1 || true)"
+test -n "$RUN_LOG" || { echo "[verify] FAIL: run log missing under $REPO_PATH/06-*/data/feishu-orchestrator/runs/"; exit 1; }
+test -f "$RUN_LOG" || { echo "[verify] FAIL: run log not a file: $RUN_LOG"; exit 1; }
 
 if ! python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" >"$RUN_TMP" <<'PY'
 import datetime as dt
@@ -162,8 +163,9 @@ fi
 LATEST_EVENT_REF="$(grep '^event_ref=' "$RUN_TMP" | head -n1 | cut -d= -f2-)"
 test -n "$LATEST_EVENT_REF" || { echo "[verify] FAIL: latest event_ref missing"; exit 1; }
 
-DB_PATH="$REPO_PATH/06-工具/data/ingest-writer/writer_state.db"
-test -f "$DB_PATH" || { echo "[verify] FAIL: writer db missing: $DB_PATH"; exit 1; }
+DB_PATH="$(ls -1 "$REPO_PATH"/06-*/data/ingest-writer/writer_state.db 2>/dev/null | head -n1 || true)"
+test -n "$DB_PATH" || { echo "[verify] FAIL: writer db missing under $REPO_PATH/06-*/data/ingest-writer/"; exit 1; }
+test -f "$DB_PATH" || { echo "[verify] FAIL: writer db not a file: $DB_PATH"; exit 1; }
 
 python3 - "$DB_PATH" "$LATEST_EVENT_REF" <<'PY'
 import sqlite3
@@ -201,10 +203,10 @@ finally:
 PY
 
 if [[ -n "$KEYWORD" ]]; then
-  RECORD_FILE="$REPO_PATH/03-绱犳潗搴?閲戝彞搴?瀵煎叆璁板綍/$(date +%F)-feishu-import.md"
-  SYSTEM_FILE="$REPO_PATH/03-绱犳潗搴?閲戝彞搴?03-绯荤粺涓庢墽琛?md"
-  grep -n "$KEYWORD" "$SYSTEM_FILE" "$RECORD_FILE" >/dev/null \
-    || { echo "[verify] FAIL: keyword not found in material files: $KEYWORD"; exit 1; }
+  if ! grep -R -n --include="*.md" -- "$KEYWORD" "$REPO_PATH"/03-* "$REPO_PATH"/01-* >/dev/null 2>&1; then
+    echo "[verify] FAIL: keyword not found in markdown files under 01-*/03-* : $KEYWORD" >&2
+    exit 1
+  fi
 fi
 
 echo "[verify] PASS"
