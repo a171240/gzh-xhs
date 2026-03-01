@@ -117,6 +117,7 @@ DOUYIN_STOP_MARKERS = (
 )
 
 DEFAULT_MIN_CONTENT_CHARS = max(1, int(os.getenv("INGEST_LINK_MIN_CONTENT_CHARS", "120")))
+DEFAULT_MIN_CONTENT_CHARS_DOUYIN = max(1, int(os.getenv("INGEST_LINK_MIN_CONTENT_CHARS_DOUYIN", "40")))
 TEST_DOMAIN_HINTS = {
     "example.com",
     "raw.githubusercontent.com",
@@ -258,6 +259,12 @@ def _host_from_url(url: str) -> str:
 def _is_douyin_url(url: str) -> bool:
     host = _host_from_url(url)
     return ("douyin.com" in host) or ("iesdouyin.com" in host)
+
+
+def _effective_min_chars(*, url: str, min_chars: int) -> int:
+    if _is_douyin_url(url):
+        return max(1, int(DEFAULT_MIN_CONTENT_CHARS_DOUYIN))
+    return max(1, int(min_chars))
 
 
 def _is_test_link(url: str, *, source_ref: str) -> bool:
@@ -516,6 +523,30 @@ def _extract_douyin_publish_time(markdown: str) -> str:
     text = _repair_mojibake(markdown)
     m = re.search(r"发布时间[:：]\s*([0-9]{4}-[0-9]{2}-[0-9]{2}(?:\s+[0-9]{2}:[0-9]{2})?)", text)
     return str(m.group(1) if m else "").strip()
+
+
+def _provider_source_text_extract(source_text: str, *, url: str, title: str = "") -> tuple[str, str]:
+    raw = _repair_mojibake(str(source_text or "")).replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not raw:
+        return "", "source_text_empty"
+
+    cleaned = re.sub(r"https?://\S+", " ", raw, flags=re.IGNORECASE)
+    cleaned = re.sub(r"(?:^|\s)@[A-Za-z0-9_.\-\u4e00-\u9fff]+[:：]?", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        return "", "source_text_no_body"
+
+    body = _markdown_to_plain_text(cleaned, title=title, source_url="")
+    if _is_douyin_url(url):
+        caption = _extract_douyin_caption(cleaned, title=title)
+        if caption and len(caption) > len(body):
+            body = caption
+
+    body = re.sub(r"\bpage=app_code_link\b", " ", body, flags=re.IGNORECASE)
+    body = re.sub(r"\s+", " ", body).strip()
+    if not body:
+        return "", "source_text_no_body"
+    return body, ""
 
 
 def _markdown_to_plain_text(markdown: str, *, title: str = "", source_url: str = "") -> str:
@@ -803,7 +834,7 @@ def process_urls_to_quotes(
 
     for url in normalized_urls:
         is_test_url = bool(allow_test_url_skip and _is_test_link(url, source_ref=source_ref))
-        route_status = "success"
+        route_status = "failed"
         provider = "none"
         quality_reason = ""
         ok, result, combined = _run_single_url(py_cmd, url, output_dir)
@@ -836,7 +867,9 @@ def process_urls_to_quotes(
             ok = False
             error = "抓取成功但未返回正文文件"
 
-        if (not ok or (not is_test_url and body_chars < min_chars)) and _is_douyin_url(url):
+        min_chars_for_url = _effective_min_chars(url=url, min_chars=min_chars)
+
+        if (not ok or (not is_test_url and body_chars < min_chars_for_url)) and _is_douyin_url(url):
             f2_title, f2_body, f2_published, f2_err = _provider_f2_extract(url)
             if f2_body:
                 ok = True
@@ -850,7 +883,7 @@ def process_urls_to_quotes(
             elif f2_err and not error:
                 error = f2_err
 
-        if (not ok or (not is_test_url and body_chars < min_chars)):
+        if (not ok or (not is_test_url and body_chars < min_chars_for_url)):
             yt_title, yt_body, yt_published, yt_err = _provider_ytdlp_extract(url)
             if yt_body:
                 ok = True
@@ -890,6 +923,7 @@ def process_urls_to_quotes(
                 if not title:
                     title = _normalize_title(source_body[:30]) or title
                 error = ""
+        route_status = "success" if ok else "failed"
 
         content_status = "failed"
         if is_test_url:
@@ -898,9 +932,9 @@ def process_urls_to_quotes(
         elif not ok:
             content_status = "failed"
             quality_reason = "extract_failed"
-        elif body_chars < min_chars:
+        elif body_chars < min_chars_for_url:
             content_status = "failed"
-            quality_reason = f"content_too_short:{body_chars}<{min_chars}"
+            quality_reason = f"content_too_short:{body_chars}<{min_chars_for_url}"
         else:
             content_status = "success"
             quality_reason = ""
