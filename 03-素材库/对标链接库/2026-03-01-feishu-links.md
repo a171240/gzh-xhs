@@ -13,3 +13,16 @@
   - 金句入库：已禁用（链接仅入对标链接库）
   - 错误：content_too_short:0<120
 
+## 2026-03-01T13:54:27+08:00 run=link_20260301135432_1d58de3f
+- [failed] https://www.douyin.com/video/7590778338118077737?previous_page=app_code_link
+  - 路由状态：success
+  - 正文状态：failed
+  - 提取来源：http_fallback
+  - 测试链接：no
+  - 标题：7590778338118077737
+  - 日期：2026-03-01
+  - 正文字符：0
+  - 质量原因：content_too_short:0<120
+  - 金句入库：已禁用（链接仅入对标链接库）
+  - 错误：content_too_short:0<120
+
