@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Replay missing event_refs to Writer API and generate backfill audit report."""
+"""Replay event_refs to Writer API and generate backfill audit report."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def _load_event_refs(args: argparse.Namespace) -> list[str]:
             value = raw.strip()
             if value and not value.startswith("#"):
                 refs.append(value)
-    # dedupe while preserving order
+
     out: list[str] = []
     seen: set[str] = set()
     for item in refs:
@@ -70,17 +70,25 @@ def _load_event_refs(args: argparse.Namespace) -> list[str]:
     return out
 
 
+def _default_report_dir(repo_root: Path) -> Path:
+    candidates = sorted(path.parent for path in repo_root.glob("**/*-feishu-import.md"))
+    if candidates:
+        return candidates[0]
+    return repo_root / "06-工具" / "data" / "feishu-orchestrator" / "backfill-reports"
+
+
 def _append_report(*, report_path: Path, rows: list[dict[str, Any]]) -> None:
     report_path.parent.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
     if not report_path.exists():
-        lines.append("# 飞书离线补偿回放记录\n\n")
+        lines.append("# 飞书离线回补回放记录\n\n")
     lines.append(f"## {_now_iso()}\n")
     for row in rows:
         lines.append(f"- event_ref: `{row['event_ref']}`\n")
         lines.append(f"  - status: {row['status']}\n")
         lines.append(f"  - message: {row['message']}\n")
     lines.append("\n")
+
     original = report_path.read_text(encoding="utf-8") if report_path.exists() else ""
     report_path.write_text(original + "".join(lines), encoding="utf-8")
 
@@ -138,18 +146,23 @@ def main() -> int:
                 {
                     "event_ref": event_ref,
                     "status": result.get("status", "ok"),
-                    "message": f"added={result.get('added', 0)} skipped={result.get('skipped', 0)}",
+                    "message": (
+                        f"added={result.get('added', 0)} skipped={result.get('skipped', 0)} "
+                        f"route={result.get('link_route_status', '')} "
+                        f"content={result.get('link_content_status', '')} "
+                        f"chars={result.get('link_content_chars', 0)} "
+                        f"provider={result.get('link_provider', '')}"
+                    ).strip(),
                 }
             )
         except Exception as exc:
             rows.append({"event_ref": event_ref, "status": "error", "message": str(exc)})
 
     repo_root = _repo_root()
-    report_path = (
-        Path(args.report_file)
-        if args.report_file
-        else repo_root / "03-素材库" / "金句库" / "导入记录" / f"{_today()}-feishu-backfill.md"
-    )
+    if args.report_file:
+        report_path = Path(args.report_file)
+    else:
+        report_path = _default_report_dir(repo_root) / f"{_today()}-feishu-backfill.md"
     _append_report(report_path=report_path, rows=rows)
 
     for row in rows:

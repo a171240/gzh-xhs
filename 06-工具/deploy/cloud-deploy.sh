@@ -8,6 +8,7 @@ GATEWAY_SERVICE="${OPENCLAW_GATEWAY_SERVICE:-openclaw-gateway}"
 WRITER_SERVICE="${INGEST_WRITER_SERVICE:-ingest-writer-api}"
 OPENCLAW_CONFIG_PATH="${OPENCLAW_CONFIG_PATH:-/root/.openclaw/openclaw.json}"
 ROLLBACK_ON_FAIL="${ROLLBACK_ON_FAIL:-true}"
+INSTALL_EXTRACTORS="${INSTALL_EXTRACTORS:-true}"
 ROLLBACK_SHA=""
 WORKSPACE_DIR="/root/.openclaw/workspace"
 WORKSPACE_DIRS=()
@@ -19,6 +20,7 @@ while [[ $# -gt 0 ]]; do
     --branch) BRANCH="${2:?missing value for --branch}"; shift 2 ;;
     --gateway-service) GATEWAY_SERVICE="${2:?missing value for --gateway-service}"; shift 2 ;;
     --writer-service) WRITER_SERVICE="${2:?missing value for --writer-service}"; shift 2 ;;
+    --install-extractors) INSTALL_EXTRACTORS="${2:?missing value for --install-extractors}"; shift 2 ;;
     --rollback) ROLLBACK_SHA="${2:?missing value for --rollback}"; shift 2 ;;
     --rollback-on-fail) ROLLBACK_ON_FAIL="${2:?missing value for --rollback-on-fail}"; shift 2 ;;
     *) echo "[deploy] unknown argument: $1" >&2; exit 2 ;;
@@ -112,6 +114,19 @@ Environment=GIT_SYNC_AUTHOR_NAME=feishu-bot
 Environment=GIT_SYNC_AUTHOR_EMAIL=feishu-bot@local
 Environment=GIT_SYNC_MAX_RETRIES=2
 EOF
+}
+
+install_link_extractors() {
+  local installer="$DEPLOY_DIR/install-link-extractors.sh"
+  if [[ "$INSTALL_EXTRACTORS" != "true" ]]; then
+    echo "[deploy] skip extractor install (INSTALL_EXTRACTORS=$INSTALL_EXTRACTORS)"
+    return 0
+  fi
+  if [[ ! -f "$installer" ]]; then
+    echo "[deploy] extractor installer missing, skip: $installer"
+    return 0
+  fi
+  bash "$installer" --repo-path "$REPO_PATH" --python python3
 }
 apply_workspace_prompt() {
   local src="$DEPLOY_DIR/openclaw-feishu-routing-prompt.md"
@@ -224,6 +239,8 @@ set_env_kv /etc/openclaw/feishu.env FEISHU_SKILL_MODEL "gpt-5.3-codex"
 set_env_kv /etc/openclaw/feishu.env FEISHU_CHAT_MODEL "gpt-5.3-codex"
 set_env_kv /etc/openclaw/feishu.env FEISHU_PLAIN_TEXT_MODE "chat"
 set_env_kv /etc/openclaw/feishu.env FEISHU_REPLY_MAX_CHARS "1500"
+set_env_kv /etc/openclaw/feishu.env INGEST_LINK_MIN_CONTENT_CHARS "120"
+set_env_kv /etc/openclaw/feishu.env INGEST_LINK_ALLOW_TEST_SKIP "true"
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_ENABLED "true"
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_REPO_ROOT "$REPO_PATH"
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_REMOTE "$REMOTE"
@@ -236,6 +253,7 @@ set_env_kv /etc/openclaw/feishu.env GIT_SYNC_MAX_RETRIES "2"
 apply_workspace_prompt
 install_or_update_writer_service
 install_or_update_gateway_env
+install_link_extractors
 
 python3 -m py_compile \
   "$RUNTIME_DIR/feishu_ingest_router.py" \
@@ -257,4 +275,3 @@ bash "$SMOKE_SCRIPT" --repo-path "$REPO_PATH" --scripts-dir "$RUNTIME_DIR" --wri
 trap - ERR
 echo "[deploy] OK"
 echo "[deploy] now at commit: $(git rev-parse HEAD)"
-

@@ -26,7 +26,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from automation_maintenance_runner import run_maintenance
-from automation_state import get_task
+from automation_state import get_task, list_task_logs, list_tasks
 from feishu_ingest_router import process_message
 from media_task_runner import run_media_task
 from metrics_runner import run_metrics
@@ -59,6 +59,8 @@ class WriterSettings:
     auth_max_skew_seconds: int
     signature_required: bool
     allowed_source_kinds: set[str]
+    link_min_content_chars: int
+    link_allow_test_url_skip: bool
 
 
 def _repo_root() -> Path:
@@ -127,6 +129,8 @@ def _load_settings() -> WriterSettings:
         auth_max_skew_seconds=max(30, int(os.getenv("INGEST_AUTH_MAX_SKEW_SECONDS", "600"))),
         signature_required=_as_bool(os.getenv("INGEST_SIGNATURE_REQUIRED"), default=True),
         allowed_source_kinds=_split_csv(os.getenv("INGEST_ALLOWED_SOURCE_KINDS")),
+        link_min_content_chars=max(1, int(os.getenv("INGEST_LINK_MIN_CONTENT_CHARS", "120"))),
+        link_allow_test_url_skip=_as_bool(os.getenv("INGEST_LINK_ALLOW_TEST_SKIP"), default=True),
     )
 
 
@@ -141,6 +145,15 @@ STATE_DB = REPO_ROOT / "06-工具" / "data" / "ingest-writer" / "writer_state.db
 DB_LOCK = threading.Lock()
 DB_READY = False
 app = FastAPI(title="OpenClaw Ingest Writer API", version="1.0.0")
+
+REQUEST_EXTRA_COLUMNS: dict[str, str] = {
+    "route_status": "TEXT",
+    "content_status": "TEXT",
+    "content_chars": "INTEGER",
+    "provider": "TEXT",
+    "is_test_url": "INTEGER",
+    "quality_reason": "TEXT",
+}
 
 
 def _now_utc() -> dt.datetime:
@@ -249,6 +262,30 @@ def _verify_auth(request: Request, body: bytes) -> None:
             raise HTTPException(status_code=403, detail="invalid signature")
 
 
+def _ensure_request_columns(conn: sqlite3.Connection) -> None:
+    current = {
+        str(row[1]).strip()
+        for row in conn.execute("PRAGMA table_info(requests)").fetchall()
+        if len(row) >= 2 and str(row[1]).strip()
+    }
+    for name, dtype in REQUEST_EXTRA_COLUMNS.items():
+        if name in current:
+            continue
+        conn.execute(f"ALTER TABLE requests ADD COLUMN {name} {dtype}")
+
+
+def _link_fields_from_result(result: dict[str, Any] | None) -> dict[str, Any]:
+    payload = dict(result or {})
+    return {
+        "route_status": str(payload.get("link_route_status") or "").strip(),
+        "content_status": str(payload.get("link_content_status") or "").strip(),
+        "content_chars": int(payload.get("link_content_chars") or 0),
+        "provider": str(payload.get("link_provider") or "").strip(),
+        "is_test_url": 1 if bool(payload.get("link_is_test")) else 0,
+        "quality_reason": str(payload.get("link_quality_reason") or "").strip(),
+    }
+
+
 def _init_db() -> None:
     global DB_READY
     STATE_DB.parent.mkdir(parents=True, exist_ok=True)
@@ -278,6 +315,7 @@ def _init_db() -> None:
             )
             """
         )
+        _ensure_request_columns(conn)
         conn.commit()
     DB_READY = True
 
@@ -293,7 +331,8 @@ def _db_get(event_ref: str) -> dict[str, Any] | None:
     with DB_LOCK:
         with sqlite3.connect(STATE_DB) as conn:
             row = conn.execute(
-                "SELECT event_ref, mode, status, request_json, result_json, error_text, created_at, updated_at "
+                "SELECT event_ref, mode, status, request_json, result_json, error_text, created_at, updated_at, "
+                "route_status, content_status, content_chars, provider, is_test_url, quality_reason "
                 "FROM requests WHERE event_ref = ?",
                 (event_ref,),
             ).fetchone()
@@ -308,6 +347,12 @@ def _db_get(event_ref: str) -> dict[str, Any] | None:
         "error_text": row[5],
         "created_at": row[6],
         "updated_at": row[7],
+        "route_status": row[8],
+        "content_status": row[9],
+        "content_chars": row[10],
+        "provider": row[11],
+        "is_test_url": row[12],
+        "quality_reason": row[13],
     }
 
 
@@ -319,6 +364,12 @@ def _db_upsert(
     request_json: str,
     result_json: str = "",
     error_text: str = "",
+    route_status: str = "",
+    content_status: str = "",
+    content_chars: int = 0,
+    provider: str = "",
+    is_test_url: int = 0,
+    quality_reason: str = "",
 ) -> None:
     _ensure_db_ready()
     now = _now_iso()
@@ -326,17 +377,41 @@ def _db_upsert(
         with sqlite3.connect(STATE_DB) as conn:
             conn.execute(
                 """
-                INSERT INTO requests(event_ref, mode, status, request_json, result_json, error_text, created_at, updated_at)
-                VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO requests(
+                  event_ref, mode, status, request_json, result_json, error_text, created_at, updated_at,
+                  route_status, content_status, content_chars, provider, is_test_url, quality_reason
+                )
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(event_ref) DO UPDATE SET
                   mode=excluded.mode,
                   status=excluded.status,
                   request_json=excluded.request_json,
                   result_json=excluded.result_json,
                   error_text=excluded.error_text,
+                  route_status=excluded.route_status,
+                  content_status=excluded.content_status,
+                  content_chars=excluded.content_chars,
+                  provider=excluded.provider,
+                  is_test_url=excluded.is_test_url,
+                  quality_reason=excluded.quality_reason,
                   updated_at=excluded.updated_at
                 """,
-                (event_ref, mode, status, request_json, result_json, error_text, now, now),
+                (
+                    event_ref,
+                    mode,
+                    status,
+                    request_json,
+                    result_json,
+                    error_text,
+                    now,
+                    now,
+                    route_status,
+                    content_status,
+                    int(content_chars or 0),
+                    provider,
+                    int(is_test_url or 0),
+                    quality_reason,
+                ),
             )
             conn.commit()
 
@@ -363,6 +438,12 @@ def _make_result(
     touched_files: list[str] | None = None,
     errors: list[str] | None = None,
     details: dict[str, Any] | None = None,
+    link_route_status: str = "",
+    link_content_status: str = "",
+    link_content_chars: int = 0,
+    link_provider: str = "",
+    link_is_test: bool = False,
+    link_quality_reason: str = "",
 ) -> dict[str, Any]:
     return {
         "event_ref": event_ref,
@@ -374,6 +455,12 @@ def _make_result(
         "touched_files": sorted(set(touched_files or [])),
         "errors": errors or [],
         "details": details or {},
+        "link_route_status": link_route_status,
+        "link_content_status": link_content_status,
+        "link_content_chars": max(0, int(link_content_chars or 0)),
+        "link_provider": link_provider,
+        "link_is_test": bool(link_is_test),
+        "link_quality_reason": link_quality_reason,
     }
 
 
@@ -405,17 +492,29 @@ def _message_summary_to_result(event_ref: str, mode: str, summary: Any) -> dict[
             touched_files=summary.touched_files,
             errors=summary.errors,
             details={"summary": summary_dict},
+            link_route_status=summary.link_route_status,
+            link_content_status=summary.link_content_status,
+            link_content_chars=summary.link_content_chars_total,
+            link_provider=summary.link_provider,
+            link_is_test=summary.link_is_test,
+            link_quality_reason=summary.link_quality_reason,
         )
     return _make_result(
         event_ref=event_ref,
         mode=mode,
         status="success" if not summary.errors else "partial",
-        added=summary.link_doc_saved_count,
+        added=summary.link_content_success_count,
         near_dup=0,
-        skipped=summary.link_failed,
+        skipped=summary.link_content_failed_count + summary.link_content_skipped_test_count,
         touched_files=summary.touched_files,
         errors=summary.errors,
         details={"summary": summary_dict},
+        link_route_status=summary.link_route_status,
+        link_content_status=summary.link_content_status,
+        link_content_chars=summary.link_content_chars_total,
+        link_provider=summary.link_provider,
+        link_is_test=summary.link_is_test,
+        link_quality_reason=summary.link_quality_reason,
     )
 
 
@@ -447,6 +546,8 @@ def _process_quote(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]
         source_time=source_time,
         source_ref=source_ref,
         near_dup_threshold=max(0.1, min(0.99, SETTINGS.near_dup_threshold)),
+        min_content_chars=SETTINGS.link_min_content_chars,
+        allow_test_url_skip=SETTINGS.link_allow_test_url_skip,
     )
     return _message_summary_to_result(event_ref, "quote", summary)
 
@@ -481,6 +582,8 @@ def _process_link(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]:
         source_time=source_time,
         source_ref=source_ref,
         near_dup_threshold=max(0.1, min(0.99, SETTINGS.near_dup_threshold)),
+        min_content_chars=SETTINGS.link_min_content_chars,
+        allow_test_url_skip=SETTINGS.link_allow_test_url_skip,
     )
     return _message_summary_to_result(event_ref, "link", summary)
 
@@ -527,6 +630,8 @@ def _process_mixed(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]
             source_time=source_time,
             source_ref=f"{source_ref}#quote",
             near_dup_threshold=max(0.1, min(0.99, SETTINGS.near_dup_threshold)),
+            min_content_chars=SETTINGS.link_min_content_chars,
+            allow_test_url_skip=SETTINGS.link_allow_test_url_skip,
         )
         details["quote"] = dataclasses.asdict(quote_summary)
         touched_files.update(quote_summary.touched_files)
@@ -546,12 +651,14 @@ def _process_mixed(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]
             source_time=source_time,
             source_ref=f"{source_ref}#link",
             near_dup_threshold=max(0.1, min(0.99, SETTINGS.near_dup_threshold)),
+            min_content_chars=SETTINGS.link_min_content_chars,
+            allow_test_url_skip=SETTINGS.link_allow_test_url_skip,
         )
         details["link"] = dataclasses.asdict(link_summary)
         touched_files.update(link_summary.touched_files)
         errors.extend(link_summary.errors)
-        added += link_summary.link_doc_saved_count
-        skipped += link_summary.link_failed
+        added += link_summary.link_content_success_count
+        skipped += link_summary.link_content_failed_count + link_summary.link_content_skipped_test_count
 
     return _make_result(
         event_ref=event_ref,
@@ -563,6 +670,12 @@ def _process_mixed(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]
         touched_files=sorted(touched_files),
         errors=errors,
         details=details,
+        link_route_status=(details.get("link") or {}).get("link_route_status", ""),
+        link_content_status=(details.get("link") or {}).get("link_content_status", ""),
+        link_content_chars=int((details.get("link") or {}).get("link_content_chars_total", 0) or 0),
+        link_provider=str((details.get("link") or {}).get("link_provider") or ""),
+        link_is_test=bool((details.get("link") or {}).get("link_is_test")),
+        link_quality_reason=str((details.get("link") or {}).get("link_quality_reason") or ""),
     )
 
 
@@ -627,6 +740,7 @@ def _handle_ingest(mode: str, payload: dict[str, Any], *, allow_duplicate_skip: 
             status=str(result.get("status") or "unknown"),
             request_json=request_json,
             result_json=json.dumps(result, ensure_ascii=False),
+            **_link_fields_from_result(result),
         )
         return result
     except HTTPException:
@@ -640,6 +754,7 @@ def _handle_ingest(mode: str, payload: dict[str, Any], *, allow_duplicate_skip: 
             request_json=request_json,
             result_json="",
             error_text=error_text,
+            **_link_fields_from_result(None),
         )
         _db_dead_letter(event_ref, mode, error_text)
         raise HTTPException(status_code=500, detail=error_text) from exc
@@ -678,6 +793,18 @@ def _run_retro_runner(payload: dict[str, Any]) -> dict[str, Any]:
     return run_retro(payload, dry_run=_payload_bool(payload, "dry_run", default=False))
 
 
+def _run_metrics_backfill(payload: dict[str, Any]) -> dict[str, Any]:
+    data = dict(payload)
+    data.setdefault("action", "backfill")
+    return run_metrics(data, dry_run=_payload_bool(payload, "dry_run", default=False))
+
+
+def _run_retro_backfill(payload: dict[str, Any]) -> dict[str, Any]:
+    data = dict(payload)
+    data.setdefault("action", "backfill")
+    return run_retro(data, dry_run=_payload_bool(payload, "dry_run", default=False))
+
+
 def _run_maintenance_runner(payload: dict[str, Any]) -> dict[str, Any]:
     return run_maintenance(payload, dry_run=_payload_bool(payload, "dry_run", default=False))
 
@@ -697,6 +824,8 @@ def internal_healthz() -> dict[str, Any]:
         "signature_required": SETTINGS.signature_required,
         "auth_max_skew_seconds": SETTINGS.auth_max_skew_seconds,
         "allowed_source_kinds": sorted(SETTINGS.allowed_source_kinds),
+        "link_min_content_chars": SETTINGS.link_min_content_chars,
+        "link_allow_test_url_skip": SETTINGS.link_allow_test_url_skip,
     }
 
 
@@ -833,6 +962,28 @@ async def retro_run(request: Request) -> JSONResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@app.post("/internal/metrics/backfill")
+async def metrics_backfill(request: Request) -> JSONResponse:
+    body = await request.body()
+    _verify_auth(request, body)
+    payload = _json_body_or_400(body)
+    try:
+        return _automation_response(_run_metrics_backfill(payload))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/internal/retro/backfill")
+async def retro_backfill(request: Request) -> JSONResponse:
+    body = await request.body()
+    _verify_auth(request, body)
+    payload = _json_body_or_400(body)
+    try:
+        return _automation_response(_run_retro_backfill(payload))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @app.post("/internal/maintenance/run")
 async def maintenance_run(request: Request) -> JSONResponse:
     body = await request.body()
@@ -844,13 +995,73 @@ async def maintenance_run(request: Request) -> JSONResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+def _split_csv(text: str) -> list[str]:
+    return [item.strip() for item in str(text or "").replace(";", ",").split(",") if item.strip()]
+
+
+@app.get("/internal/tasks")
+async def list_task_items(
+    request: Request,
+    task_type: str = "",
+    status: str = "",
+    date: str = "",
+    biz_date: str = "",
+    platform: str = "",
+    account: str = "",
+    event_ref: str = "",
+    task_id: str = "",
+    dedupe_key: str = "",
+    limit: int = 100,
+) -> JSONResponse:
+    _verify_auth(request, b"")
+    tasks = list_tasks(
+        task_type=task_type.strip(),
+        statuses=_split_csv(status),
+        date_prefix=date.strip(),
+        biz_date=biz_date.strip(),
+        platform=platform.strip(),
+        account=account.strip(),
+        event_ref=event_ref.strip(),
+        task_id_like=task_id.strip(),
+        dedupe_key=dedupe_key.strip(),
+        limit=max(1, min(int(limit), 1000)),
+    )
+    return JSONResponse(content={"code": 0, "msg": "ok", "count": len(tasks), "tasks": tasks})
+
+
 @app.get("/internal/tasks/{task_id}")
-async def get_task_detail(task_id: str, request: Request) -> JSONResponse:
+async def get_task_detail(task_id: str, request: Request, include_logs: bool = True, log_limit: int = 50) -> JSONResponse:
     _verify_auth(request, b"")
     task = get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="task not found")
-    return JSONResponse(content={"code": 0, "msg": "ok", "task": task})
+    payload: dict[str, Any] = {"code": 0, "msg": "ok", "task": task}
+    if include_logs:
+        payload["task_logs"] = list_task_logs(task_id, limit=max(1, min(int(log_limit), 500)))
+    return JSONResponse(content=payload)
+
+
+@app.get("/internal/tasks/{task_id}/logs")
+async def get_task_detail_logs(task_id: str, request: Request, limit: int = 200) -> JSONResponse:
+    _verify_auth(request, b"")
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="task not found")
+    logs = list_task_logs(task_id, limit=max(1, min(int(limit), 2000)))
+    return JSONResponse(content={"code": 0, "msg": "ok", "task_id": task_id, "count": len(logs), "task_logs": logs})
+
+
+@app.post("/internal/tasks/retry")
+async def retry_task(request: Request) -> JSONResponse:
+    body = await request.body()
+    _verify_auth(request, body)
+    payload = _json_body_or_400(body)
+    if not str(payload.get("task_id") or "").strip():
+        raise HTTPException(status_code=400, detail="task_id is required")
+    try:
+        return _automation_response(_run_publish_approve({"action": "retry", **payload}))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 if __name__ == "__main__":

@@ -37,6 +37,8 @@ class ServerSettings:
     near_dup_threshold: float
     report_tz: str
     signature_strict: bool
+    link_min_content_chars: int
+    link_allow_test_url_skip: bool
 
 
 def _repo_root() -> Path:
@@ -77,6 +79,8 @@ def _load_settings() -> ServerSettings:
         near_dup_threshold=float(os.getenv("FEISHU_NEAR_DUP_THRESHOLD", "0.88")),
         report_tz=os.getenv("FEISHU_REPORT_DATE_TZ", "Asia/Shanghai").strip() or "Asia/Shanghai",
         signature_strict=_as_bool(os.getenv("FEISHU_SIGNATURE_STRICT"), default=False),
+        link_min_content_chars=max(1, int(os.getenv("INGEST_LINK_MIN_CONTENT_CHARS", "120"))),
+        link_allow_test_url_skip=_as_bool(os.getenv("INGEST_LINK_ALLOW_TEST_SKIP"), default=True),
     )
 
 
@@ -336,6 +340,8 @@ def _process_event_payload(payload: dict[str, Any], *, event_id: str) -> dict[st
         source_time=source_time,
         source_ref=event_id,
         near_dup_threshold=max(0.1, min(0.99, SETTINGS.near_dup_threshold)),
+        min_content_chars=SETTINGS.link_min_content_chars,
+        allow_test_url_skip=SETTINGS.link_allow_test_url_skip,
     )
 
     reply_text = build_short_reply(summary)
@@ -369,6 +375,8 @@ def healthz() -> dict[str, Any]:
         "db": STATE_DB.as_posix(),
         "apply_mode": SETTINGS.apply_mode,
         "reply_enabled": SETTINGS.reply_enabled,
+        "link_min_content_chars": SETTINGS.link_min_content_chars,
+        "link_allow_test_url_skip": SETTINGS.link_allow_test_url_skip,
     }
 
 

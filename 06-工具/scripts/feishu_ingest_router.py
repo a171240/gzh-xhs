@@ -69,9 +69,17 @@ class MessageProcessSummary:
     quote_near_dup_count: int
     quote_exact_dup_count: int
     link_total: int
-    link_success: int
-    link_failed: int
+    link_route_success_count: int
+    link_content_success_count: int
+    link_content_failed_count: int
+    link_content_skipped_test_count: int
     link_doc_saved_count: int
+    link_content_chars_total: int
+    link_route_status: str
+    link_content_status: str
+    link_provider: str
+    link_is_test: bool
+    link_quality_reason: str
     touched_files: list[str]
     errors: list[str]
     import_record_path: str
@@ -266,15 +274,24 @@ def _append_import_record(
             lines.append(f"  - {url}\n")
 
     if link_result is not None:
-        success = sum(1 for item in link_result.items if item.status == "success")
-        failed = len(link_result.items) - success
+        route_success = sum(1 for item in link_result.items if item.route_status == "success")
+        content_success = sum(1 for item in link_result.items if item.content_status == "success")
+        content_failed = sum(1 for item in link_result.items if item.content_status == "failed")
+        content_skipped_test = sum(1 for item in link_result.items if item.content_status == "skipped_test")
         saved_docs = sum(1 for item in link_result.items if item.body_file)
-        lines.append(f"- link_success: {success}\n")
-        lines.append(f"- link_failed: {failed}\n")
+        lines.append(f"- link_route_success: {route_success}/{len(link_result.items)}\n")
+        lines.append(f"- link_content_success: {content_success}\n")
+        lines.append(f"- link_content_failed: {content_failed}\n")
+        lines.append(f"- link_content_skipped_test: {content_skipped_test}\n")
         lines.append(f"- link_doc_saved: {saved_docs}\n")
         for item in link_result.items:
             if item.body_file:
                 lines.append(f"  - {item.url} -> {item.body_file}\n")
+            lines.append(
+                f"  - {item.url} route={item.route_status} content={item.content_status} provider={item.provider} chars={item.body_chars}\n"
+            )
+            if item.quality_reason:
+                lines.append(f"    quality_reason: {item.quality_reason}\n")
 
     if quote_result.near_dups:
         lines.append("- quote_near_dup_examples:\n")
@@ -303,6 +320,8 @@ def process_message(
     source_time: str,
     source_ref: str,
     near_dup_threshold: float = DEFAULT_NEAR_DUP_THRESHOLD,
+    min_content_chars: int = 120,
+    allow_test_url_skip: bool = True,
 ) -> MessageProcessSummary:
     routed = route_message_text(text)
     errors: list[str] = []
@@ -340,6 +359,8 @@ def process_message(
             source_ref=source_ref,
             near_dup_threshold=near_dup_threshold,
             link_log_path=link_log_path,
+            min_content_chars=max(1, int(min_content_chars)),
+            allow_test_url_skip=bool(allow_test_url_skip),
         )
         touched_files.update(path.as_posix() for path in link_result.touched_files)
         if link_result.link_log_path:
@@ -361,9 +382,42 @@ def process_message(
     touched_files.add(import_record_path.as_posix())
 
     link_total = len(link_result.items) if link_result is not None else 0
-    link_success = sum(1 for item in (link_result.items if link_result is not None else []) if item.status == "success")
-    link_failed = link_total - link_success
+    link_route_success_count = sum(
+        1 for item in (link_result.items if link_result is not None else []) if item.route_status == "success"
+    )
+    link_content_success_count = sum(
+        1 for item in (link_result.items if link_result is not None else []) if item.content_status == "success"
+    )
+    link_content_failed_count = sum(
+        1 for item in (link_result.items if link_result is not None else []) if item.content_status == "failed"
+    )
+    link_content_skipped_test_count = sum(
+        1 for item in (link_result.items if link_result is not None else []) if item.content_status == "skipped_test"
+    )
     link_doc_saved_count = sum(1 for item in (link_result.items if link_result is not None else []) if item.body_file)
+    link_content_chars_total = sum(int(item.body_chars or 0) for item in (link_result.items if link_result is not None else []))
+    providers = sorted(
+        {str(item.provider or "").strip() for item in (link_result.items if link_result is not None else []) if str(item.provider or "").strip()}
+    )
+    link_provider = ",".join(providers)
+    link_is_test = bool(link_total > 0 and all(bool(item.is_test_url) for item in (link_result.items if link_result is not None else [])))
+    if link_total <= 0:
+        link_route_status = "none"
+        link_content_status = "none"
+    else:
+        link_route_status = "success" if link_route_success_count == link_total else "partial"
+        if link_content_failed_count > 0:
+            link_content_status = "failed"
+        elif link_content_success_count > 0:
+            link_content_status = "success"
+        elif link_content_skipped_test_count > 0:
+            link_content_status = "skipped_test"
+        else:
+            link_content_status = "none"
+    failed_quality = next(
+        (str(item.quality_reason or "").strip() for item in (link_result.items if link_result is not None else []) if item.content_status == "failed"),
+        "",
+    )
 
     return MessageProcessSummary(
         mode=routed.mode,
@@ -371,9 +425,17 @@ def process_message(
         quote_near_dup_count=quote_result.near_dup_count,
         quote_exact_dup_count=quote_result.exact_dup_count,
         link_total=link_total,
-        link_success=link_success,
-        link_failed=link_failed,
+        link_route_success_count=link_route_success_count,
+        link_content_success_count=link_content_success_count,
+        link_content_failed_count=link_content_failed_count,
+        link_content_skipped_test_count=link_content_skipped_test_count,
         link_doc_saved_count=link_doc_saved_count,
+        link_content_chars_total=link_content_chars_total,
+        link_route_status=link_route_status,
+        link_content_status=link_content_status,
+        link_provider=link_provider,
+        link_is_test=link_is_test,
+        link_quality_reason=failed_quality,
         touched_files=sorted(touched_files),
         errors=errors,
         import_record_path=import_record_path.as_posix(),
@@ -384,7 +446,7 @@ def build_short_reply(summary: MessageProcessSummary) -> str:
     if summary.mode == "ignore":
         return "未识别可处理内容。"
 
-    if summary.errors and summary.quote_added_count <= 0 and summary.link_success <= 0:
+    if summary.errors and summary.quote_added_count <= 0 and summary.link_content_success_count <= 0:
         return f"处理失败：{summary.errors[0]}"
 
     if summary.mode == "quote_mode":
@@ -397,9 +459,11 @@ def build_short_reply(summary: MessageProcessSummary) -> str:
 
     if summary.link_total > 0:
         return (
-            "链接已入库："
-            f"成功{summary.link_success}/{summary.link_total}，"
-            f"正文{summary.link_doc_saved_count}"
+            "链接处理完成："
+            f"路由{summary.link_route_success_count}/{summary.link_total}，"
+            f"正文达标{summary.link_content_success_count}，"
+            f"失败{summary.link_content_failed_count}，"
+            f"测试跳过{summary.link_content_skipped_test_count}"
         )
 
     return "已处理。"

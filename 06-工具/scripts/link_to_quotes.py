@@ -12,7 +12,12 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import importlib.util
+import json
+import os
 import re
+import shutil
+import subprocess
 import sys
 import uuid
 from dataclasses import dataclass
@@ -111,11 +116,23 @@ DOUYIN_STOP_MARKERS = (
     "Web-Cross-Storage",
 )
 
+DEFAULT_MIN_CONTENT_CHARS = max(1, int(os.getenv("INGEST_LINK_MIN_CONTENT_CHARS", "120")))
+TEST_DOMAIN_HINTS = {
+    "example.com",
+    "raw.githubusercontent.com",
+    "localhost",
+    "127.0.0.1",
+}
+
 
 @dataclass(frozen=True)
 class LinkProcessItem:
     url: str
+    route_status: str
+    content_status: str
     status: str
+    provider: str
+    is_test_url: bool
     title: str
     published_date: str
     saved_md: str
@@ -123,6 +140,7 @@ class LinkProcessItem:
     body_chars: int
     added_count: int
     near_dup_count: int
+    quality_reason: str
     error: str
 
 
@@ -235,6 +253,137 @@ def _host_from_url(url: str) -> str:
 def _is_douyin_url(url: str) -> bool:
     host = _host_from_url(url)
     return ("douyin.com" in host) or ("iesdouyin.com" in host)
+
+
+def _is_test_link(url: str, *, source_ref: str) -> bool:
+    ref = str(source_ref or "").strip().lower()
+    if ref.startswith("cloud-smoke") or ref.startswith("smoke-") or "smoke" in ref:
+        return True
+    host = _host_from_url(url)
+    if not host:
+        return False
+    if host in TEST_DOMAIN_HINTS:
+        return True
+    return any(host.endswith(f".{item}") for item in TEST_DOMAIN_HINTS)
+
+
+def _extract_json_from_blob(blob: str) -> dict[str, Any] | None:
+    raw = str(blob or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+    first = raw.find("{")
+    last = raw.rfind("}")
+    if first >= 0 and last > first:
+        snippet = raw[first : last + 1]
+        try:
+            parsed = json.loads(snippet)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            return None
+    return None
+
+
+def _provider_f2_extract(url: str, *, timeout_sec: int = 30) -> tuple[str, str, str, str]:
+    exe = shutil.which("f2")
+    has_module = importlib.util.find_spec("f2") is not None
+    if not exe and not has_module:
+        return "", "", "", "f2_not_available"
+
+    command_candidates: list[list[str]] = []
+    if exe:
+        command_candidates.extend(
+            [
+                [exe, "--url", url, "--json"],
+                [exe, "douyin", "--url", url, "--json"],
+                [exe, "dy", "--url", url, "--json"],
+            ]
+        )
+    if has_module:
+        command_candidates.append([sys.executable, "-m", "f2", "--url", url, "--json"])
+
+    for cmd in command_candidates:
+        try:
+            cp = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=max(10, timeout_sec),
+            )
+        except Exception:
+            continue
+        if cp.returncode != 0:
+            continue
+
+        parsed = _extract_json_from_blob(cp.stdout or "")
+        if not parsed:
+            continue
+        title = _normalize_title(str(parsed.get("title") or ""))
+        body = str(
+            parsed.get("description")
+            or parsed.get("desc")
+            or parsed.get("text")
+            or parsed.get("content")
+            or ""
+        ).strip()
+        published = _normalize_date(str(parsed.get("published_at") or parsed.get("create_time") or ""))
+        if body:
+            return title, body, published, ""
+
+        aweme_detail = parsed.get("aweme_detail") if isinstance(parsed.get("aweme_detail"), dict) else {}
+        if aweme_detail:
+            title = title or _normalize_title(str(aweme_detail.get("desc") or ""))
+            body = str(aweme_detail.get("desc") or "").strip()
+            published = published or _normalize_date(str(aweme_detail.get("create_time") or ""))
+            if body:
+                return title, body, published, ""
+    return "", "", "", "f2_extract_failed"
+
+
+def _provider_ytdlp_extract(url: str, *, timeout_sec: int = 30) -> tuple[str, str, str, str]:
+    exe = shutil.which("yt-dlp")
+    if not exe:
+        return "", "", "", "yt_dlp_not_available"
+
+    try:
+        cp = subprocess.run(
+            [exe, "--skip-download", "--dump-single-json", "--no-warnings", "--", url],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=max(10, timeout_sec),
+        )
+    except Exception as exc:
+        return "", "", "", f"yt_dlp_error:{exc}"
+
+    if cp.returncode != 0:
+        message = (cp.stderr or cp.stdout or "").strip()
+        return "", "", "", f"yt_dlp_failed:{message or cp.returncode}"
+
+    parsed = _extract_json_from_blob(cp.stdout or "")
+    if not parsed:
+        return "", "", "", "yt_dlp_invalid_json"
+
+    title = _normalize_title(str(parsed.get("title") or parsed.get("fulltitle") or ""))
+    body = str(parsed.get("description") or "").strip()
+    upload_date = str(parsed.get("upload_date") or "").strip()
+    published = ""
+    if len(upload_date) == 8 and upload_date.isdigit():
+        published = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:8]}"
+    if not body and title:
+        body = title
+    if not body:
+        return title, "", published, "yt_dlp_empty_description"
+    return title, body, published, ""
 
 
 def _extract_front_matter(markdown: str) -> tuple[dict[str, str], str]:
@@ -532,6 +681,10 @@ def _append_link_log(path: Path, *, run_id: str, source_time: str, items: list[L
     lines.append(f"## {source_time} run={run_id}\n")
     for item in items:
         lines.append(f"- [{item.status}] {item.url}\n")
+        lines.append(f"  - 路由状态：{item.route_status}\n")
+        lines.append(f"  - 正文状态：{item.content_status}\n")
+        lines.append(f"  - 提取来源：{item.provider or '-'}\n")
+        lines.append(f"  - 测试链接：{'yes' if item.is_test_url else 'no'}\n")
         lines.append(f"  - 标题：{item.title or '-'}\n")
         lines.append(f"  - 日期：{item.published_date or '-'}\n")
         if item.saved_md:
@@ -539,6 +692,8 @@ def _append_link_log(path: Path, *, run_id: str, source_time: str, items: list[L
         if item.body_file:
             lines.append(f"  - 正文文件：`{item.body_file}`\n")
         lines.append(f"  - 正文字符：{item.body_chars}\n")
+        if item.quality_reason:
+            lines.append(f"  - 质量原因：{item.quality_reason}\n")
         lines.append("  - 金句入库：已禁用（链接仅入对标链接库）\n")
         if item.error:
             lines.append(f"  - 错误：{item.error}\n")
@@ -558,6 +713,8 @@ def process_urls_to_quotes(
     source_ref: str,
     near_dup_threshold: float = DEFAULT_NEAR_DUP_THRESHOLD,
     link_log_path: Path | None = None,
+    min_content_chars: int = DEFAULT_MIN_CONTENT_CHARS,
+    allow_test_url_skip: bool = True,
 ) -> LinkToQuotesResult:
     # Keep signature for compatibility with existing callers.
     _ = (quote_dir, topic_pool_path, near_dup_threshold)
@@ -570,7 +727,11 @@ def process_urls_to_quotes(
         items = [
             LinkProcessItem(
                 url=url,
+                route_status="failed",
+                content_status="failed",
                 status="failed",
+                provider="none",
+                is_test_url=False,
                 title="",
                 published_date=_normalize_date(source_time) or _today(),
                 saved_md="",
@@ -578,6 +739,7 @@ def process_urls_to_quotes(
                 body_chars=0,
                 added_count=0,
                 near_dup_count=0,
+                quality_reason="python_unavailable",
                 error="未找到可用 Python，无法执行 URL 抓取",
             )
             for url in normalized_urls
@@ -605,8 +767,13 @@ def process_urls_to_quotes(
     benchmark_root = _repo_root() / "03-素材库" / "对标链接库"
     items: list[LinkProcessItem] = []
     touched_files: list[Path] = []
+    min_chars = max(1, int(min_content_chars))
 
     for url in normalized_urls:
+        is_test_url = bool(allow_test_url_skip and _is_test_link(url, source_ref=source_ref))
+        route_status = "success"
+        provider = "none"
+        quality_reason = ""
         ok, result, combined = _run_single_url(py_cmd, url, output_dir)
         save_info = result.get("save") if isinstance(result, dict) else {}
         if not isinstance(save_info, dict):
@@ -618,6 +785,7 @@ def process_urls_to_quotes(
         body_file = ""
         body_chars = 0
         error = ""
+        body_plain = ""
 
         if ok and md_file and Path(md_file).exists():
             markdown = _repair_mojibake(Path(md_file).read_text(encoding="utf-8", errors="ignore"))
@@ -631,25 +799,44 @@ def process_urls_to_quotes(
                     publish_time = _extract_douyin_publish_time(body_markdown)
                     body_plain = caption if not publish_time else f"{caption}\n发布时间：{publish_time}"
             body_chars = len(body_plain)
-
-            if apply_mode:
-                body_doc = _write_body_doc(
-                    benchmark_root=benchmark_root,
-                    source_time=source_time,
-                    url=url,
-                    title=title,
-                    body_text=body_plain,
-                )
-                body_file = body_doc.as_posix()
-                touched_files.append(body_doc)
+            provider = "url_reader"
         elif ok:
             ok = False
             error = "抓取成功但未返回正文文件"
+
+        if (not ok or (not is_test_url and body_chars < min_chars)) and _is_douyin_url(url):
+            f2_title, f2_body, f2_published, f2_err = _provider_f2_extract(url)
+            if f2_body:
+                ok = True
+                provider = "f2"
+                title = _normalize_title(f2_title or title)
+                body_plain = _markdown_to_plain_text(f2_body, title=title, source_url=url)
+                body_chars = len(body_plain)
+                if f2_published:
+                    published_date = _normalize_date(f2_published) or published_date
+                error = ""
+            elif f2_err and not error:
+                error = f2_err
+
+        if (not ok or (not is_test_url and body_chars < min_chars)):
+            yt_title, yt_body, yt_published, yt_err = _provider_ytdlp_extract(url)
+            if yt_body:
+                ok = True
+                provider = "yt_dlp"
+                title = _normalize_title(yt_title or title)
+                body_plain = _markdown_to_plain_text(yt_body, title=title, source_url=url)
+                body_chars = len(body_plain)
+                if yt_published:
+                    published_date = _normalize_date(yt_published) or published_date
+                error = ""
+            elif yt_err and not error:
+                error = yt_err
 
         if not ok:
             fallback_text, fallback_err = _fallback_fetch_plain_text(url)
             if fallback_text:
                 ok = True
+                provider = "http_fallback"
                 error = ""
                 if not title:
                     path_name = Path(urlparse(url).path).name
@@ -657,18 +844,33 @@ def process_urls_to_quotes(
                 published_date = _normalize_date(source_time) or _today()
                 body_plain = _markdown_to_plain_text(fallback_text, title=title, source_url=url)
                 body_chars = len(body_plain)
-                if apply_mode:
-                    body_doc = _write_body_doc(
-                        benchmark_root=benchmark_root,
-                        source_time=source_time,
-                        url=url,
-                        title=title,
-                        body_text=body_plain,
-                    )
-                    body_file = body_doc.as_posix()
-                    touched_files.append(body_doc)
             elif fallback_err and not error:
                 error = fallback_err
+
+        content_status = "failed"
+        if is_test_url:
+            content_status = "skipped_test"
+            quality_reason = "test_url_skip"
+        elif not ok:
+            content_status = "failed"
+            quality_reason = "extract_failed"
+        elif body_chars < min_chars:
+            content_status = "failed"
+            quality_reason = f"content_too_short:{body_chars}<{min_chars}"
+        else:
+            content_status = "success"
+            quality_reason = ""
+
+        if apply_mode and body_plain.strip():
+            body_doc = _write_body_doc(
+                benchmark_root=benchmark_root,
+                source_time=source_time,
+                url=url,
+                title=title,
+                body_text=body_plain,
+            )
+            body_file = body_doc.as_posix()
+            touched_files.append(body_doc)
 
         if not ok:
             errors: list[str] = []
@@ -678,11 +880,17 @@ def process_urls_to_quotes(
                 errors.append(str(result.get("error")))
             if not error:
                 error = " | ".join(errors) or combined or "抓取失败"
+        elif content_status == "failed" and not error:
+            error = quality_reason
 
         items.append(
             LinkProcessItem(
                 url=url,
-                status="success" if ok else "failed",
+                route_status=route_status,
+                content_status=content_status,
+                status="success" if content_status in {"success", "skipped_test"} else "failed",
+                provider=provider or "none",
+                is_test_url=is_test_url,
                 title=title,
                 published_date=published_date,
                 saved_md=md_file,
@@ -690,6 +898,7 @@ def process_urls_to_quotes(
                 body_chars=body_chars,
                 added_count=0,
                 near_dup_count=0,
+                quality_reason=quality_reason,
                 error=error,
             )
         )
@@ -713,20 +922,33 @@ def process_urls_to_quotes(
 
 
 def _render_cli_report(result: LinkToQuotesResult) -> str:
+    route_success = sum(1 for item in result.items if item.route_status == "success")
+    content_success = sum(1 for item in result.items if item.content_status == "success")
+    content_failed = sum(1 for item in result.items if item.content_status == "failed")
+    content_skipped_test = sum(1 for item in result.items if item.content_status == "skipped_test")
     lines = [
         f"run_id={result.run_id}",
         f"apply_mode={result.apply_mode}",
         f"url_total={len(result.items)}",
+        f"route_success={route_success}",
+        f"content_success={content_success}",
+        f"content_failed={content_failed}",
+        f"content_skipped_test={content_skipped_test}",
         f"doc_saved={sum(1 for item in result.items if item.body_file)}",
     ]
     for item in result.items:
-        lines.append(f"[{item.status}] {item.url} body_chars={item.body_chars}")
+        lines.append(
+            f"[{item.status}] {item.url} route={item.route_status} content={item.content_status} "
+            f"provider={item.provider} body_chars={item.body_chars}"
+        )
         if item.title:
             lines.append(f"  title={item.title}")
         if item.published_date:
             lines.append(f"  date={item.published_date}")
         if item.body_file:
             lines.append(f"  body_file={item.body_file}")
+        if item.quality_reason:
+            lines.append(f"  quality_reason={item.quality_reason}")
         if item.error:
             lines.append(f"  error={item.error}")
     if result.link_log_path:
@@ -754,6 +976,23 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default="",
         help="Optional link log path. Defaults to 03-素材库/对标链接库/YYYY-MM-DD-feishu-links.md",
     )
+    parser.add_argument(
+        "--min-content-chars",
+        type=int,
+        default=DEFAULT_MIN_CONTENT_CHARS,
+        help="Minimum content chars for non-test URL to be marked content_success.",
+    )
+    parser.add_argument(
+        "--allow-test-url-skip",
+        action="store_true",
+        default=True,
+        help="Treat known smoke/test links as content_status=skipped_test.",
+    )
+    parser.add_argument(
+        "--disallow-test-url-skip",
+        action="store_true",
+        help="Disable skipped_test behavior and enforce quality for all links.",
+    )
     return parser.parse_args(argv)
 
 
@@ -779,6 +1018,8 @@ def main(argv: list[str]) -> int:
         source_ref=args.source_ref,
         near_dup_threshold=args.near_dup_threshold,
         link_log_path=link_log_path,
+        min_content_chars=max(1, int(args.min_content_chars)),
+        allow_test_url_skip=bool(args.allow_test_url_skip and not args.disallow_test_url_skip),
     )
     sys.stdout.write(_render_cli_report(result) + "\n")
     return 0

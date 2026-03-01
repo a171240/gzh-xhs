@@ -1,0 +1,4 @@
+# Link extractor dependency lock
+# Keep this file separate from project-level dependencies to avoid cross-pipeline conflicts.
+yt-dlp==2026.2.21
+f2==0.0.1.7

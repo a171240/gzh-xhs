@@ -10,6 +10,9 @@ EVENT_REF_CONTAINS=""
 KEYWORD=""
 EXPECT_INGEST=true
 REQUIRE_GIT_SYNC=true
+REQUIRE_CONTENT_SUCCESS=false
+ALLOW_TEST_URL_SKIP=true
+MIN_CONTENT_CHARS=120
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -22,6 +25,9 @@ while [[ $# -gt 0 ]]; do
     --keyword) KEYWORD="${2:?missing value for --keyword}"; shift 2 ;;
     --expect-ingest) EXPECT_INGEST="${2:?missing value for --expect-ingest}"; shift 2 ;;
     --require-git-sync) REQUIRE_GIT_SYNC="${2:?missing value for --require-git-sync}"; shift 2 ;;
+    --require-content-success) REQUIRE_CONTENT_SUCCESS="${2:?missing value for --require-content-success}"; shift 2 ;;
+    --allow-test-url-skip) ALLOW_TEST_URL_SKIP="${2:?missing value for --allow-test-url-skip}"; shift 2 ;;
+    --min-content-chars) MIN_CONTENT_CHARS="${2:?missing value for --min-content-chars}"; shift 2 ;;
     *) echo "[verify] unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -72,7 +78,7 @@ RUN_LOG="$(ls -1 "$REPO_PATH"/06-*/data/feishu-orchestrator/runs/"$(date +%F).js
 test -n "$RUN_LOG" || { echo "[verify] FAIL: run log missing under $REPO_PATH/06-*/data/feishu-orchestrator/runs/"; exit 1; }
 test -f "$RUN_LOG" || { echo "[verify] FAIL: run log not a file: $RUN_LOG"; exit 1; }
 
-if ! python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" >"$RUN_TMP" <<'PY'
+if ! python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" >"$RUN_TMP" <<'PY'
 import datetime as dt
 import json
 import pathlib
@@ -83,6 +89,9 @@ since_minutes = int(sys.argv[2])
 event_ref_contains = sys.argv[3].strip()
 expect_ingest = sys.argv[4].strip().lower() in {"1", "true", "yes", "y", "on"}
 require_git_sync = sys.argv[5].strip().lower() in {"1", "true", "yes", "y", "on"}
+require_content_success = sys.argv[6].strip().lower() in {"1", "true", "yes", "y", "on"}
+allow_test_url_skip = sys.argv[7].strip().lower() in {"1", "true", "yes", "y", "on"}
+min_content_chars = max(1, int(sys.argv[8]))
 
 cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=since_minutes)
 
@@ -123,6 +132,12 @@ ingest = bool(intent.get("ingest"))
 trigger = str(intent.get("ingest_trigger") or latest.get("ingest_trigger") or "")
 git_sync_status = latest.get("git_sync_status")
 git_sync_commit = str(latest.get("git_sync_commit") or "")
+link_route_status = str(latest.get("link_route_status") or "")
+link_content_status = str(latest.get("link_content_status") or "")
+link_content_chars = int(latest.get("link_content_chars") or 0)
+link_provider = str(latest.get("link_provider") or "")
+link_is_test = bool(latest.get("link_is_test"))
+link_quality_reason = str(latest.get("link_quality_reason") or "")
 
 if status not in {"success", "partial"}:
     print(f"FAIL:bad_status:{status}")
@@ -140,6 +155,22 @@ if require_git_sync and ingest:
         print("FAIL:git_sync_error")
         sys.exit(1)
 
+if require_content_success and ingest:
+    has_link_flow = (
+        str(trigger).lower() == "url"
+        or link_route_status in {"success", "partial"}
+        or link_content_status not in {"", "none"}
+    )
+    if has_link_flow:
+        if allow_test_url_skip and link_content_status == "skipped_test":
+            pass
+        elif link_content_status != "success":
+            print(f"FAIL:content_not_success:{link_content_status or 'missing'}")
+            sys.exit(1)
+        elif (not link_is_test) and link_content_chars < min_content_chars:
+            print(f"FAIL:content_chars_too_low:{link_content_chars}<{min_content_chars}")
+            sys.exit(1)
+
 print("OK")
 print(f"event_ref={latest.get('event_ref')}")
 print(f"status={status}")
@@ -147,6 +178,12 @@ print(f"ingest={ingest}")
 print(f"trigger={trigger}")
 print(f"git_sync_status={git_sync_status}")
 print(f"git_sync_commit={git_sync_commit}")
+print(f"link_route_status={link_route_status}")
+print(f"link_content_status={link_content_status}")
+print(f"link_content_chars={link_content_chars}")
+print(f"link_provider={link_provider}")
+print(f"link_is_test={link_is_test}")
+print(f"link_quality_reason={link_quality_reason}")
 PY
 then
   cat "$RUN_TMP" >&2 || true
@@ -167,12 +204,15 @@ DB_PATH="$(ls -1 "$REPO_PATH"/06-*/data/ingest-writer/writer_state.db 2>/dev/nul
 test -n "$DB_PATH" || { echo "[verify] FAIL: writer db missing under $REPO_PATH/06-*/data/ingest-writer/"; exit 1; }
 test -f "$DB_PATH" || { echo "[verify] FAIL: writer db not a file: $DB_PATH"; exit 1; }
 
-python3 - "$DB_PATH" "$LATEST_EVENT_REF" <<'PY'
+python3 - "$DB_PATH" "$LATEST_EVENT_REF" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" <<'PY'
 import sqlite3
 import sys
 
 db_path = sys.argv[1]
 event_ref = sys.argv[2]
+require_content_success = sys.argv[3].strip().lower() in {"1", "true", "yes", "y", "on"}
+allow_test_url_skip = sys.argv[4].strip().lower() in {"1", "true", "yes", "y", "on"}
+min_content_chars = max(1, int(sys.argv[5]))
 prefix = f"{event_ref}#%"
 
 conn = sqlite3.connect(db_path)
@@ -198,6 +238,32 @@ try:
         ):
             print(row, file=sys.stderr)
         sys.exit(1)
+
+    if require_content_success:
+        cols = {r[1] for r in cur.execute("pragma table_info(requests)").fetchall()}
+        needed = {"content_status", "content_chars", "is_test_url"}
+        if needed.issubset(cols):
+            rows = list(
+                cur.execute(
+                    "select event_ref,mode,content_status,content_chars,is_test_url,quality_reason from requests where event_ref like ? order by updated_at desc",
+                    (prefix,),
+                )
+            )
+            for ev, mode, c_status, c_chars, is_test, quality in rows:
+                c_status = str(c_status or "")
+                c_chars = int(c_chars or 0)
+                is_test = bool(is_test)
+                mode = str(mode or "")
+                if mode not in {"link", "mixed"} and c_status in {"", "none"}:
+                    continue
+                if allow_test_url_skip and c_status == "skipped_test":
+                    continue
+                if c_status and c_status != "success":
+                    print(f"[verify] FAIL: content_status not success for {ev}: {c_status} ({quality or ''})", file=sys.stderr)
+                    sys.exit(1)
+                if (not is_test) and c_status == "success" and c_chars < min_content_chars:
+                    print(f"[verify] FAIL: content_chars too low for {ev}: {c_chars}<{min_content_chars}", file=sys.stderr)
+                    sys.exit(1)
 finally:
     conn.close()
 PY

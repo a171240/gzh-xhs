@@ -54,7 +54,10 @@ MEDIA_COMMAND_RE = re.compile(r"^\s*/media\s+generate\b", re.IGNORECASE)
 PUBLISH_PREPARE_RE = re.compile(r"^\s*/publish\s+prepare\b", re.IGNORECASE)
 PUBLISH_RETRY_RE = re.compile(r"^\s*/publish\s+retry\b", re.IGNORECASE)
 METRICS_COMMAND_RE = re.compile(r"^\s*/metrics\s+run\b", re.IGNORECASE)
+METRICS_BACKFILL_RE = re.compile(r"^\s*/metrics\s+backfill\b", re.IGNORECASE)
 RETRO_COMMAND_RE = re.compile(r"^\s*/retro\s+run\b", re.IGNORECASE)
+RETRO_BACKFILL_RE = re.compile(r"^\s*/retro\s+backfill\b", re.IGNORECASE)
+OPS_TASK_RE = re.compile(r"^\s*/ops\s+task\b", re.IGNORECASE)
 APPROVE_COMMAND_RE = re.compile(r"(?:任务|task)\s*[=:：]\s*([A-Za-z0-9._:-]+)", re.IGNORECASE)
 PLATFORM_KV_RE = re.compile(r"(?:平台|platform)\s*[=:：]\s*([^\s,，]+)", re.IGNORECASE)
 BRIEF_KV_RE = re.compile(r"(?:需求|brief|prompt)\s*[=:：]\s*(.+)$", re.IGNORECASE)
@@ -422,9 +425,37 @@ def _detect_automation_intent(text: str, *, meta: dict[str, Any] | None = None) 
         payload = {**meta_payload, "date": _extract_token(raw, ["日期", "date"]) or "today"}
         return AutomationIntent(kind="metrics_run", payload=payload)
 
+    if METRICS_BACKFILL_RE.search(raw):
+        payload = {**meta_payload, "date": _extract_token(raw, ["日期", "date"]) or "today"}
+        return AutomationIntent(kind="metrics_backfill", payload=payload)
+
     if RETRO_COMMAND_RE.search(raw):
         payload = {**meta_payload, "date": _extract_token(raw, ["日期", "date"]) or "today"}
         return AutomationIntent(kind="retro_run", payload=payload)
+
+    if RETRO_BACKFILL_RE.search(raw):
+        payload = {**meta_payload, "date": _extract_token(raw, ["日期", "date"]) or "today"}
+        return AutomationIntent(kind="retro_backfill", payload=payload)
+
+    if OPS_TASK_RE.search(raw):
+        payload: dict[str, Any] = {**meta_payload}
+        query_value = _extract_token(raw, ["查询", "query"])
+        if query_value:
+            if re.match(r"^\d{4}-\d{2}-\d{2}$", query_value):
+                payload["date"] = query_value
+            elif re.match(r"^[a-z]+-\d{8}\d{6}-[0-9a-f]{8}$", query_value, re.IGNORECASE):
+                payload["task_id"] = query_value
+            elif query_value in {"running", "pending_approval", "waiting_manual_publish", "success", "error", "retry_pending"}:
+                payload["status"] = query_value
+            else:
+                payload["task_id"] = query_value
+        payload["task_id"] = _extract_token(raw, ["任务", "task"]) or str(payload.get("task_id") or "")
+        payload["date"] = _extract_token(raw, ["日期", "date"]) or str(payload.get("date") or "")
+        payload["status"] = _extract_token(raw, ["状态", "status"]) or str(payload.get("status") or "")
+        payload["task_type"] = _extract_token(raw, ["类型", "type"])
+        payload["platform"] = _extract_token(raw, ["平台", "platform"])
+        payload["limit"] = _extract_token(raw, ["数量", "limit"]) or "20"
+        return AutomationIntent(kind="ops_task_query", payload=payload)
 
     return None
 
@@ -543,20 +574,37 @@ def _writer_headers(settings: OrchestratorSettings, body: bytes) -> dict[str, st
     }
 
 
-def _call_writer(settings: OrchestratorSettings, endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _call_writer(
+    settings: OrchestratorSettings,
+    endpoint: str,
+    payload: dict[str, Any],
+    *,
+    method: str = "POST",
+) -> dict[str, Any]:
     if not settings.ingest_shared_token:
         raise RuntimeError("INGEST_SHARED_TOKEN is empty")
     if not settings.ingest_hmac_secret:
         raise RuntimeError("INGEST_HMAC_SECRET is empty")
 
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    response = requests.post(
-        f"{settings.writer_base_url}{endpoint}",
-        headers=_writer_headers(settings, body),
-        data=body,
-        timeout=settings.ingest_timeout_sec,
-        verify=settings.ingest_verify_ssl,
-    )
+    method_upper = str(method or "POST").strip().upper()
+    if method_upper == "GET":
+        body = b""
+        response = requests.get(
+            f"{settings.writer_base_url}{endpoint}",
+            headers=_writer_headers(settings, body),
+            params=payload,
+            timeout=settings.ingest_timeout_sec,
+            verify=settings.ingest_verify_ssl,
+        )
+    else:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        response = requests.post(
+            f"{settings.writer_base_url}{endpoint}",
+            headers=_writer_headers(settings, body),
+            data=body,
+            timeout=settings.ingest_timeout_sec,
+            verify=settings.ingest_verify_ssl,
+        )
     if response.status_code >= 400:
         raise RuntimeError(f"writer api {response.status_code}: {response.text}")
     data = response.json()
@@ -715,19 +763,38 @@ def _run_automation_intent(
     source_user: str,
     dry_run: bool,
 ) -> dict[str, Any]:
-    endpoint_map = {
-        "media_generate": "/internal/media/generate",
-        "publish_prepare": "/internal/publish/prepare",
-        "publish_approve": "/internal/publish/approve",
-        "metrics_run": "/internal/metrics/run",
-        "retro_run": "/internal/retro/run",
+    endpoint_map: dict[str, tuple[str, str]] = {
+        "media_generate": ("POST", "/internal/media/generate"),
+        "publish_prepare": ("POST", "/internal/publish/prepare"),
+        "publish_approve": ("POST", "/internal/publish/approve"),
+        "metrics_run": ("POST", "/internal/metrics/run"),
+        "metrics_backfill": ("POST", "/internal/metrics/backfill"),
+        "retro_run": ("POST", "/internal/retro/run"),
+        "retro_backfill": ("POST", "/internal/retro/backfill"),
     }
-    endpoint = endpoint_map.get(intent.kind)
-    if not endpoint:
+    if intent.kind == "ops_task_query":
+        payload = dict(intent.payload or {})
+        task_id_for_detail = str(payload.get("task_id") or "").strip()
+        if task_id_for_detail:
+            route = ("GET", f"/internal/tasks/{task_id_for_detail}")
+        else:
+            route = ("GET", "/internal/tasks")
+    else:
+        route = endpoint_map.get(intent.kind)
+    if not route:
         raise RuntimeError(f"unsupported automation intent: {intent.kind}")
+    method, endpoint = route
 
     payload = dict(intent.payload or {})
-    payload.setdefault("event_ref", f"{event_ref}#{intent.kind}")
+    if intent.kind == "ops_task_query":
+        task_id_for_detail = str(payload.get("task_id") or "").strip()
+        if task_id_for_detail:
+            payload = {
+                "include_logs": "true",
+                "log_limit": str(payload.get("limit") or "50"),
+            }
+    if method != "GET":
+        payload.setdefault("event_ref", f"{event_ref}#{intent.kind}")
     payload.setdefault("source_ref", source_ref)
     payload.setdefault("source_time", source_time)
     if source_user:
@@ -750,8 +817,10 @@ def _run_automation_intent(
                 "raw": {"code": 0, "msg": "dry_run_skip_writer"},
             }
 
-    data = _call_writer(settings, endpoint, payload)
+    data = _call_writer(settings, endpoint, payload, method=method)
     result = data.get("result") or {}
+    if method == "GET":
+        result = {"status": "success", **data}
     status = str(result.get("status") or ("success" if int(data.get("code") or 0) == 0 else "error"))
     return {
         "status": status,
@@ -801,7 +870,7 @@ def _compose_automation_reply(auto_result: dict[str, Any], *, max_chars: int) ->
         else:
             err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
             lines.append(f"发布审批失败：{err}")
-    elif kind == "metrics_run":
+    elif kind in {"metrics_run", "metrics_backfill"}:
         if status == "success":
             date = str(
                 (result.get("date") if isinstance(result, dict) else "")
@@ -809,11 +878,12 @@ def _compose_automation_reply(auto_result: dict[str, Any], *, max_chars: int) ->
                 or (payload.get("date") if isinstance(payload, dict) else "")
                 or ""
             )
-            lines.append(f"抓数完成 date={date or '-'} task={task_id or '-'}")
+            prefix = "抓数回填完成" if kind == "metrics_backfill" else "抓数完成"
+            lines.append(f"{prefix} date={date or '-'} task={task_id or '-'}")
         else:
             err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
             lines.append(f"抓数失败：{err}")
-    elif kind == "retro_run":
+    elif kind in {"retro_run", "retro_backfill"}:
         if status == "success":
             date = str(
                 (result.get("date") if isinstance(result, dict) else "")
@@ -821,10 +891,28 @@ def _compose_automation_reply(auto_result: dict[str, Any], *, max_chars: int) ->
                 or (payload.get("date") if isinstance(payload, dict) else "")
                 or ""
             )
-            lines.append(f"复盘完成 date={date or '-'} task={task_id or '-'}")
+            prefix = "复盘回填完成" if kind == "retro_backfill" else "复盘完成"
+            lines.append(f"{prefix} date={date or '-'} task={task_id or '-'}")
         else:
             err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
             lines.append(f"复盘失败：{err}")
+    elif kind == "ops_task_query":
+        if status == "success":
+            count = int(result.get("count") or 0)
+            lines.append(f"任务查询完成，共 {count} 条。")
+            tasks = result.get("tasks") if isinstance(result, dict) else []
+            if isinstance(tasks, list) and tasks:
+                top = tasks[0]
+                lines.append(
+                    "最近任务: {task_id} {task_type} {status}".format(
+                        task_id=str(top.get("task_id") or "-"),
+                        task_type=str(top.get("task_type") or "-"),
+                        status=str(top.get("status") or "-"),
+                    )
+                )
+        else:
+            err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
+            lines.append(f"任务查询失败：{err}")
     else:
         lines.append(f"已处理命令 kind={kind} status={status}")
 
@@ -1015,13 +1103,22 @@ def _ingest_reply_line(ingest: dict[str, Any]) -> str:
         added = int(result.get("added") or 0)
         skipped = int(result.get("skipped") or 0)
         total = int(detail_summary.get("link_total") or (added + skipped))
-        success = int(detail_summary.get("link_success") or max(0, total - skipped))
-        if total > 0 and success <= 0:
+        route_success = int(detail_summary.get("link_route_success_count") or 0)
+        content_success = int(detail_summary.get("link_content_success_count") or 0)
+        content_failed = int(detail_summary.get("link_content_failed_count") or 0)
+        content_skipped_test = int(detail_summary.get("link_content_skipped_test_count") or 0)
+        if total > 0 and route_success <= 0:
             errors = result.get("errors") or ingest.get("errors") or []
             if errors:
                 return f"链接入库失败：{errors[0]}"
-            return f"链接入库失败：成功{success}/{total}，正文保存{added}"
-        return f"链接入库完成：成功{success}/{total}，正文保存{added}"
+            return f"链接入库失败：路由{route_success}/{total}"
+        return (
+            "链接处理完成："
+            f"路由{route_success}/{total}，"
+            f"正文达标{content_success}，"
+            f"失败{content_failed}，"
+            f"测试跳过{content_skipped_test}"
+        )
 
     added = int(result.get("added") or 0)
     near_dup = int(result.get("near_dup") or 0)
@@ -1342,9 +1439,14 @@ def orchestrate_message(
         if not ingest_err:
             result_summary = ((ingest_result.get("result") or {}).get("details") or {}).get("summary") or {}
             link_total = int(result_summary.get("link_total") or 0)
-            link_success = int(result_summary.get("link_success") or 0)
-            if link_total > 0 and link_success <= 0:
-                errors.append(f"链接抓取失败：成功{link_success}/{link_total}")
+            route_success = int(result_summary.get("link_route_success_count") or 0)
+            content_success = int(result_summary.get("link_content_success_count") or 0)
+            if link_total > 0 and route_success <= 0:
+                errors.append(f"链接抓取失败：路由{route_success}/{link_total}")
+            elif link_total > 0 and content_success <= 0:
+                quality = str((ingest_result.get("result") or {}).get("link_quality_reason") or "").strip()
+                if quality:
+                    errors.append(f"链接正文不达标：{quality}")
     if skill_result and skill_result.get("status") == "error":
         skill_err = (skill_result.get("result") or {}).get("errors") or skill_result.get("errors") or []
         errors.extend(skill_err)
@@ -1389,6 +1491,7 @@ def orchestrate_message(
     }
 
     run_log = RUN_LOG_DIR / f"{_today()}.jsonl"
+    ingest_payload = (ingest_result or {}).get("result") or {}
     _append_jsonl(
         run_log,
         {
@@ -1400,6 +1503,12 @@ def orchestrate_message(
             "plain_chat_fallback_used": plain_chat_fallback_used,
             "git_sync_status": (git_sync_result or {}).get("status"),
             "git_sync_commit": (git_sync_result or {}).get("commit", ""),
+            "link_route_status": ingest_payload.get("link_route_status"),
+            "link_content_status": ingest_payload.get("link_content_status"),
+            "link_content_chars": ingest_payload.get("link_content_chars"),
+            "link_provider": ingest_payload.get("link_provider"),
+            "link_is_test": ingest_payload.get("link_is_test"),
+            "link_quality_reason": ingest_payload.get("link_quality_reason"),
             "elapsed_ms": elapsed_ms,
             "errors": errors,
         },
