@@ -361,6 +361,7 @@ def process_message(
             link_log_path=link_log_path,
             min_content_chars=max(1, int(min_content_chars)),
             allow_test_url_skip=bool(allow_test_url_skip),
+            source_text=routed.original_text,
         )
         touched_files.update(path.as_posix() for path in link_result.touched_files)
         if link_result.link_log_path:

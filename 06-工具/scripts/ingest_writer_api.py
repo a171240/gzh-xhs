@@ -588,8 +588,9 @@ def _process_link(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]:
     import_record_path = IMPORT_RECORD_DIR / f"{_extract_date(source_time)}-feishu-import.md"
     link_log_path = LINK_LOG_DIR / f"{_extract_date(source_time)}-feishu-links.md"
 
+    link_input_text = text.strip() or "\n".join(urls)
     summary = process_message(
-        text="\n".join(urls),
+        text=link_input_text,
         quote_dir=QUOTE_DIR,
         topic_pool_path=TOPIC_POOL_PATH,
         import_record_path=import_record_path,
@@ -657,8 +658,9 @@ def _process_mixed(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]
         skipped += quote_summary.quote_exact_dup_count
 
     if urls:
+        link_input_text = text.strip() or "\n".join(urls)
         link_summary = process_message(
-            text="\n".join(urls),
+            text=link_input_text,
             quote_dir=QUOTE_DIR,
             topic_pool_path=TOPIC_POOL_PATH,
             import_record_path=import_record_path,
