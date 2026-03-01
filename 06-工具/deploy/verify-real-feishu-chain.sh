@@ -124,52 +124,103 @@ if not rows:
     print("FAIL:no_non_smoke_event")
     sys.exit(1)
 
-rows.sort(key=lambda item: item[0])
-latest_ts, latest = rows[-1]
-intent = latest.get("intent") or {}
-status = str(latest.get("status") or "")
-ingest = bool(intent.get("ingest"))
-trigger = str(intent.get("ingest_trigger") or latest.get("ingest_trigger") or "")
-git_sync_status = latest.get("git_sync_status")
-git_sync_commit = str(latest.get("git_sync_commit") or "")
-link_route_status = str(latest.get("link_route_status") or "")
-link_content_status = str(latest.get("link_content_status") or "")
-link_content_chars = int(latest.get("link_content_chars") or 0)
-link_provider = str(latest.get("link_provider") or "")
-link_is_test = bool(latest.get("link_is_test"))
-link_quality_reason = str(latest.get("link_quality_reason") or "")
+def row_meta(row):
+    intent = row.get("intent") or {}
+    status = str(row.get("status") or "")
+    ingest = bool(intent.get("ingest"))
+    trigger = str(intent.get("ingest_trigger") or row.get("ingest_trigger") or "")
+    git_sync_status = row.get("git_sync_status")
+    git_sync_commit = str(row.get("git_sync_commit") or "")
+    link_route_status = str(row.get("link_route_status") or "")
+    link_content_status = str(row.get("link_content_status") or "")
+    link_content_chars = int(row.get("link_content_chars") or 0)
+    link_provider = str(row.get("link_provider") or "")
+    link_is_test = bool(row.get("link_is_test"))
+    link_quality_reason = str(row.get("link_quality_reason") or "")
+    return {
+        "intent": intent,
+        "status": status,
+        "ingest": ingest,
+        "trigger": trigger,
+        "git_sync_status": git_sync_status,
+        "git_sync_commit": git_sync_commit,
+        "link_route_status": link_route_status,
+        "link_content_status": link_content_status,
+        "link_content_chars": link_content_chars,
+        "link_provider": link_provider,
+        "link_is_test": link_is_test,
+        "link_quality_reason": link_quality_reason,
+    }
 
-if status not in {"success", "partial"}:
-    print(f"FAIL:bad_status:{status}")
+def row_failures(row, meta):
+    fails = []
+    status = meta["status"]
+    ingest = meta["ingest"]
+    trigger = meta["trigger"]
+    git_sync_status = meta["git_sync_status"]
+    link_route_status = meta["link_route_status"]
+    link_content_status = meta["link_content_status"]
+    link_content_chars = meta["link_content_chars"]
+    link_is_test = meta["link_is_test"]
+
+    if status not in {"success", "partial"}:
+        fails.append(f"bad_status:{status or 'missing'}")
+    if expect_ingest and not ingest:
+        fails.append("ingest_not_triggered")
+    if require_git_sync and ingest:
+        if git_sync_status in {None, "", "None"}:
+            fails.append("git_sync_status_missing")
+        elif str(git_sync_status) == "error":
+            fails.append("git_sync_error")
+
+    if require_content_success and ingest:
+        has_link_flow = (
+            str(trigger).lower() == "url"
+            or link_route_status in {"success", "partial"}
+            or link_content_status not in {"", "none"}
+        )
+        if has_link_flow:
+            if allow_test_url_skip and link_content_status == "skipped_test":
+                pass
+            elif link_content_status != "success":
+                fails.append(f"content_not_success:{link_content_status or 'missing'}")
+            elif (not link_is_test) and link_content_chars < min_content_chars:
+                fails.append(f"content_chars_too_low:{link_content_chars}<{min_content_chars}")
+    return fails
+
+rows.sort(key=lambda item: item[0], reverse=True)
+selected = None
+failed = []
+for ts, row in rows:
+    meta = row_meta(row)
+    fails = row_failures(row, meta)
+    if not fails:
+        selected = (ts, row, meta)
+        break
+    failed.append((ts, row, meta, fails))
+
+if selected is None:
+    latest_ts, latest_row, latest_meta, latest_fails = failed[0]
+    print("FAIL:no_qualified_event")
+    print(f"LAST_FAIL:event_ref={latest_row.get('event_ref')}")
+    print(f"LAST_FAIL:status={latest_meta['status']}")
+    print(f"LAST_FAIL:ingest={latest_meta['ingest']}")
+    print(f"LAST_FAIL:trigger={latest_meta['trigger']}")
+    print(f"LAST_FAIL:reasons={','.join(latest_fails)}")
     sys.exit(1)
 
-if expect_ingest and not ingest:
-    print("FAIL:ingest_not_triggered")
-    sys.exit(1)
-
-if require_git_sync and ingest:
-    if git_sync_status in {None, "", "None"}:
-        print("FAIL:git_sync_status_missing")
-        sys.exit(1)
-    if str(git_sync_status) == "error":
-        print("FAIL:git_sync_error")
-        sys.exit(1)
-
-if require_content_success and ingest:
-    has_link_flow = (
-        str(trigger).lower() == "url"
-        or link_route_status in {"success", "partial"}
-        or link_content_status not in {"", "none"}
-    )
-    if has_link_flow:
-        if allow_test_url_skip and link_content_status == "skipped_test":
-            pass
-        elif link_content_status != "success":
-            print(f"FAIL:content_not_success:{link_content_status or 'missing'}")
-            sys.exit(1)
-        elif (not link_is_test) and link_content_chars < min_content_chars:
-            print(f"FAIL:content_chars_too_low:{link_content_chars}<{min_content_chars}")
-            sys.exit(1)
+latest_ts, latest, meta = selected
+status = meta["status"]
+ingest = meta["ingest"]
+trigger = meta["trigger"]
+git_sync_status = meta["git_sync_status"]
+git_sync_commit = meta["git_sync_commit"]
+link_route_status = meta["link_route_status"]
+link_content_status = meta["link_content_status"]
+link_content_chars = meta["link_content_chars"]
+link_provider = meta["link_provider"]
+link_is_test = meta["link_is_test"]
+link_quality_reason = meta["link_quality_reason"]
 
 print("OK")
 print(f"event_ref={latest.get('event_ref')}")
