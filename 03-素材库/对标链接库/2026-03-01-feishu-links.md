@@ -48,3 +48,16 @@
   - 正文字符：0
   - 金句入库：已禁用（链接仅入对标链接库）
 
+## 2026-03-01T20:55:09+08:00 run=link_20260301205516_9950a09a
+- [failed] https://www.douyin.com/video/7401507931113475363?previous_page=app_code_link
+  - 路由状态：success
+  - 正文状态：failed
+  - 提取来源：http_fallback
+  - 测试链接：no
+  - 标题：7401507931113475363
+  - 日期：2026-03-01
+  - 正文字符：0
+  - 质量原因：content_too_short:0<120
+  - 金句入库：已禁用（链接仅入对标链接库）
+  - 错误：content_too_short:0<120
+
