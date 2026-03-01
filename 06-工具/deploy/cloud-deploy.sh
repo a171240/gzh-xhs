@@ -100,33 +100,42 @@ EOF
 
 install_or_update_gateway_env() {
   mkdir -p "/etc/systemd/system/${GATEWAY_SERVICE}.service.d"
-  cat >"/etc/systemd/system/${GATEWAY_SERVICE}.service.d/10-feishu-env.conf" <<'EOF'
+  cat >"/etc/systemd/system/${GATEWAY_SERVICE}.service.d/10-feishu-env.conf" <<EOF
 [Service]
 EnvironmentFile=-/etc/openclaw/feishu.env
+Environment=GIT_SYNC_ENABLED=true
+Environment=GIT_SYNC_REPO_ROOT=${REPO_PATH}
+Environment=GIT_SYNC_REMOTE=${REMOTE}
+Environment=GIT_SYNC_BRANCH=${BRANCH}
+Environment=GIT_SYNC_INCLUDE_PATHS=02-内容生产,03-素材库,01-选题管理
+Environment=GIT_SYNC_AUTHOR_NAME=feishu-bot
+Environment=GIT_SYNC_AUTHOR_EMAIL=feishu-bot@local
+Environment=GIT_SYNC_MAX_RETRIES=2
 EOF
 }
-
 apply_workspace_prompt() {
   local src="$DEPLOY_DIR/openclaw-feishu-routing-prompt.md"
   local orch_py="$RUNTIME_DIR/feishu_kb_orchestrator.py"
+  local runner_sh="$RUNTIME_DIR/run-feishu-kb-orchestrator.sh"
   local ws
   for ws in "${WORKSPACE_DIRS[@]}"; do
     [[ -n "$ws" ]] || continue
     mkdir -p "$ws"
     cp -f "$src" "$ws/FEISHU_ROUTING_PROMPT.md"
-    # Use absolute orchestrator path to avoid gateway cwd drift.
-    sed -i "s#python 06-工具/scripts/feishu_kb_orchestrator.py#python3 ${orch_py}#g" "$ws/FEISHU_ROUTING_PROMPT.md"
+    # Use absolute wrapper path to ensure env injection and avoid gateway cwd drift.
+    sed -i "s#06-工具/scripts/run-feishu-kb-orchestrator.sh#${runner_sh}#g" "$ws/FEISHU_ROUTING_PROMPT.md"
+    sed -i "s#python 06-工具/scripts/feishu_kb_orchestrator.py#${runner_sh}#g" "$ws/FEISHU_ROUTING_PROMPT.md"
+    sed -i "s#python3 ${orch_py}#${runner_sh}#g" "$ws/FEISHU_ROUTING_PROMPT.md"
     cat >"$ws/AGENTS.md" <<EOF
 # AGENTS.md (Managed)
 Feishu router mode.
 Treat FEISHU_ROUTING_PROMPT.md as highest priority.
-Always call: python3 ${orch_py} --text "<incoming_feishu_text>" --event-ref "<event_id_or_hash>" --source-ref "<source_ref>" --source-time "<iso8601>".
+Always call: ${runner_sh} --text "<incoming_feishu_text>" --event-ref "<event_id_or_hash>" --source-ref "<source_ref>" --source-time "<iso8601>".
 Do not free-form reply from model memory.
 Only return orchestrator output: reply_segments (in order) or reply.
 EOF
   done
 }
-
 resolve_workspace_dirs() {
   local cfg="${OPENCLAW_CONFIG_PATH}"
   local detected_raw
@@ -235,7 +244,7 @@ python3 -m py_compile \
   "$RUNTIME_DIR/link_to_quotes.py" \
   "$RUNTIME_DIR/git_sync_after_write.py"
 
-chmod +x "$SMOKE_SCRIPT"
+chmod +x "$SMOKE_SCRIPT" "$RUNTIME_DIR/run-feishu-kb-orchestrator.sh"
 
 systemctl daemon-reload
 systemctl restart "$WRITER_SERVICE"
@@ -248,3 +257,4 @@ bash "$SMOKE_SCRIPT" --repo-path "$REPO_PATH" --scripts-dir "$RUNTIME_DIR" --wri
 trap - ERR
 echo "[deploy] OK"
 echo "[deploy] now at commit: $(git rev-parse HEAD)"
+

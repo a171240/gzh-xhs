@@ -75,9 +75,24 @@ QUOTE_TEXT_PREFIX_RE = re.compile(
 )
 
 ENV_FALLBACKS = (
+    Path("/etc/openclaw/feishu.env"),
     REPO_ROOT / "06-工具" / "scripts" / ".env.ingest-writer.local",
     REPO_ROOT / "06-工具" / "scripts" / ".env.ingest-writer",
     REPO_ROOT / "06-工具" / "scripts" / ".env.feishu",
+)
+
+ENV_REQUIRED_KEYS = (
+    "INGEST_WRITER_BASE_URL",
+    "INGEST_SHARED_TOKEN",
+    "INGEST_HMAC_SECRET",
+    "GIT_SYNC_ENABLED",
+    "GIT_SYNC_REPO_ROOT",
+    "GIT_SYNC_REMOTE",
+    "GIT_SYNC_BRANCH",
+    "GIT_SYNC_INCLUDE_PATHS",
+    "GIT_SYNC_AUTHOR_NAME",
+    "GIT_SYNC_AUTHOR_EMAIL",
+    "GIT_SYNC_MAX_RETRIES",
 )
 
 
@@ -156,7 +171,7 @@ def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _load_env_fallbacks() -> None:
-    keys = {"INGEST_WRITER_BASE_URL", "INGEST_SHARED_TOKEN", "INGEST_HMAC_SECRET"}
+    keys = ENV_REQUIRED_KEYS
     missing = [k for k in keys if not (os.getenv(k) or "").strip()]
     if not missing:
         return
@@ -170,6 +185,8 @@ def _load_env_fallbacks() -> None:
                 continue
             key, value = line.split("=", 1)
             key = key.strip()
+            if key.lower().startswith("export "):
+                key = key[7:].strip()
             value = value.strip().strip('"').strip("'")
             if key and value and not (os.getenv(key) or "").strip():
                 os.environ[key] = value
