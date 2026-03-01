@@ -123,6 +123,11 @@ TEST_DOMAIN_HINTS = {
     "localhost",
     "127.0.0.1",
 }
+URL_INLINE_RE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
+SHORT_URL_INLINE_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:v\.douyin\.com|xhslink\.com|b23\.tv)/[A-Za-z0-9_-]+/?(?:\?[^\s<>\"'`]+)?",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -626,6 +631,32 @@ def _expand_short_url(url: str) -> str:
     return raw
 
 
+def _extract_body_from_source_text(source_text: str, *, url: str, title: str) -> str:
+    raw = str(source_text or "").strip()
+    if not raw:
+        return ""
+
+    text = _repair_mojibake(raw)
+    # Remove explicit URLs and short-link forms first.
+    text = text.replace(str(url or "").strip(), " ")
+    text = URL_INLINE_RE.sub(" ", text)
+    text = SHORT_URL_INLINE_RE.sub(" ", text)
+
+    # Remove common share wrappers/noise around copied Douyin text.
+    text = text.replace("复制打开抖音，看看", " ")
+    text = re.sub(r"【[^】]{1,80}的作品】", " ", text)
+    text = re.sub(r"\b[A-Za-z]@\S+\s+\S+:/\s*\d{1,2}/\d{1,2}\b", " ", text)
+    text = re.sub(r"\bpage=[A-Za-z0-9_/-]+\b", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"^\s*\d+(?:\.\d+)?\s*", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Reuse existing cleaner to drop platform UI noise while preserving正文.
+    body = _markdown_to_plain_text(text, title=title, source_url=url)
+    if len(body.strip()) >= 8:
+        return body.strip()
+    return ""
+
+
 def _write_body_doc(
     *,
     benchmark_root: Path,
@@ -715,6 +746,7 @@ def process_urls_to_quotes(
     link_log_path: Path | None = None,
     min_content_chars: int = DEFAULT_MIN_CONTENT_CHARS,
     allow_test_url_skip: bool = True,
+    source_text: str = "",
 ) -> LinkToQuotesResult:
     # Keep signature for compatibility with existing callers.
     _ = (quote_dir, topic_pool_path, near_dup_threshold)
@@ -846,6 +878,18 @@ def process_urls_to_quotes(
                 body_chars = len(body_plain)
             elif fallback_err and not error:
                 error = fallback_err
+
+        # Final fallback: use user-provided source text (often contains preview caption in Feishu card copy).
+        if (not is_test_url) and body_chars < min_chars and source_text.strip():
+            source_body = _extract_body_from_source_text(source_text, url=url, title=title)
+            if source_body:
+                ok = True
+                provider = "source_text"
+                body_plain = source_body
+                body_chars = len(source_body)
+                if not title:
+                    title = _normalize_title(source_body[:30]) or title
+                error = ""
 
         content_status = "failed"
         if is_test_url:

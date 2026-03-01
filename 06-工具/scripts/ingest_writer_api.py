@@ -472,7 +472,7 @@ def _process_link(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]:
     link_log_path = LINK_LOG_DIR / f"{_extract_date(source_time)}-feishu-links.md"
 
     summary = process_message(
-        text="\n".join(urls),
+        text=text,
         quote_dir=QUOTE_DIR,
         topic_pool_path=TOPIC_POOL_PATH,
         import_record_path=import_record_path,
@@ -537,7 +537,7 @@ def _process_mixed(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]
 
     if urls:
         link_summary = process_message(
-            text="\n".join(urls),
+            text=text,
             quote_dir=QUOTE_DIR,
             topic_pool_path=TOPIC_POOL_PATH,
             import_record_path=import_record_path,

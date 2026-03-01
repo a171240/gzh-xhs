@@ -340,6 +340,7 @@ def process_message(
             source_ref=source_ref,
             near_dup_threshold=near_dup_threshold,
             link_log_path=link_log_path,
+            source_text=routed.original_text,
         )
         touched_files.update(path.as_posix() for path in link_result.touched_files)
         if link_result.link_log_path:
