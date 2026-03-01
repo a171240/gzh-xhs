@@ -5,6 +5,9 @@ REPO_PATH="${CLOUD_DEPLOY_PATH:-/root/gzh-xhs}"
 SCRIPTS_DIR=""
 GATEWAY_SERVICE="${OPENCLAW_GATEWAY_SERVICE:-openclaw-gateway}"
 WRITER_SERVICE="${INGEST_WRITER_SERVICE:-ingest-writer-api}"
+WRITER_HEALTH_URL="${INGEST_WRITER_HEALTH_URL:-http://127.0.0.1:8790/internal/healthz}"
+WRITER_HEALTH_RETRIES="${INGEST_WRITER_HEALTH_RETRIES:-20}"
+WRITER_HEALTH_RETRY_INTERVAL_SEC="${INGEST_WRITER_HEALTH_RETRY_INTERVAL_SEC:-1}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -15,6 +18,24 @@ while [[ $# -gt 0 ]]; do
     *) echo "[smoke] unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+
+wait_for_writer_health() {
+  local retries interval i
+  retries="${WRITER_HEALTH_RETRIES}"
+  interval="${WRITER_HEALTH_RETRY_INTERVAL_SEC}"
+
+  for ((i=1; i<=retries; i++)); do
+    if systemctl is-active --quiet "$WRITER_SERVICE" && curl -fsS "$WRITER_HEALTH_URL" >/dev/null; then
+      return 0
+    fi
+    sleep "$interval"
+  done
+
+  echo "[smoke] FAIL: writer health check timeout after ${retries} retries (${WRITER_HEALTH_URL})" >&2
+  systemctl status "$WRITER_SERVICE" --no-pager -l || true
+  journalctl -u "$WRITER_SERVICE" -n 60 --no-pager || true
+  return 1
+}
 
 if [[ -z "$SCRIPTS_DIR" ]]; then
   if [[ -f "$REPO_PATH/06-工具/scripts/feishu_kb_orchestrator.py" ]]; then
@@ -48,7 +69,7 @@ python3 -m py_compile \
 
 systemctl is-active --quiet "$WRITER_SERVICE"
 systemctl is-active --quiet "$GATEWAY_SERVICE"
-curl -fsS "http://127.0.0.1:8790/internal/healthz" >/dev/null
+wait_for_writer_health
 
 python3 - "$ORCH" <<'PY'
 import json
