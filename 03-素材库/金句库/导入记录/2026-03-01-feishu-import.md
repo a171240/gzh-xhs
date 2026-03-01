@@ -90,3 +90,15 @@
 - link_doc_saved: 1
   - https://www.douyin.com/video/7401507931113475363?previous_page=app_code_link -> /root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-01/7401507931113475363-2026-03-01.md
 
+## 2026-03-01T15:51:43+08:00 event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `link_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- links: 1
+  - https://v.douyin.com/AqyYDLnc6dg/
+- link_success: 1
+- link_failed: 0
+- link_doc_saved: 1
+  - https://www.douyin.com/video/7590403619493629190?previous_page=app_code_link -> /root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-01/7590403619493629190-2026-03-01.md
+
