@@ -71,7 +71,7 @@ grep -E "received message|dispatching to agent|dispatch complete" "$LOG_TMP" >/d
 RUN_LOG="$REPO_PATH/06-工具/data/feishu-orchestrator/runs/$(date +%F).jsonl"
 test -f "$RUN_LOG" || { echo "[verify] FAIL: run log missing: $RUN_LOG"; exit 1; }
 
-python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" >"$RUN_TMP" <<'PY'
+if ! python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" >"$RUN_TMP" <<'PY'
 import datetime as dt
 import json
 import pathlib
@@ -147,6 +147,11 @@ print(f"trigger={trigger}")
 print(f"git_sync_status={git_sync_status}")
 print(f"git_sync_commit={git_sync_commit}")
 PY
+then
+  cat "$RUN_TMP" >&2 || true
+  echo "[verify] FAIL: run log validation failed" >&2
+  exit 1
+fi
 
 if ! grep -q '^OK$' "$RUN_TMP"; then
   cat "$RUN_TMP" >&2
@@ -196,8 +201,8 @@ finally:
 PY
 
 if [[ -n "$KEYWORD" ]]; then
-  RECORD_FILE="$REPO_PATH/03-素材库/金句库/导入记录/$(date +%F)-feishu-import.md"
-  SYSTEM_FILE="$REPO_PATH/03-素材库/金句库/03-系统与执行.md"
+  RECORD_FILE="$REPO_PATH/03-绱犳潗搴?閲戝彞搴?瀵煎叆璁板綍/$(date +%F)-feishu-import.md"
+  SYSTEM_FILE="$REPO_PATH/03-绱犳潗搴?閲戝彞搴?03-绯荤粺涓庢墽琛?md"
   grep -n "$KEYWORD" "$SYSTEM_FILE" "$RECORD_FILE" >/dev/null \
     || { echo "[verify] FAIL: keyword not found in material files: $KEYWORD"; exit 1; }
 fi
