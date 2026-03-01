@@ -26,13 +26,29 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from automation_maintenance_runner import run_maintenance
-from automation_state import get_task, list_task_logs, list_tasks
+import automation_state as _automation_state
 from feishu_ingest_router import process_message
 from media_task_runner import run_media_task
 from metrics_runner import run_metrics
 from publish_action_runner import approve_publish, prepare_publish, retry_publish_task
 from quote_ingest_core import DEFAULT_NEAR_DUP_THRESHOLD
 from retro_runner import run_retro
+
+get_task = _automation_state.get_task
+
+
+def _list_tasks_safe(**kwargs: Any) -> list[dict[str, Any]]:
+    fn = getattr(_automation_state, "list_tasks", None)
+    if callable(fn):
+        return fn(**kwargs)
+    return []
+
+
+def _list_task_logs_safe(task_id: str, *, limit: int = 100) -> list[dict[str, Any]]:
+    fn = getattr(_automation_state, "list_task_logs", None)
+    if callable(fn):
+        return fn(task_id, limit=limit)
+    return []
 
 URL_RE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
 SHORT_LINK_RE = re.compile(
@@ -1014,7 +1030,7 @@ async def list_task_items(
     limit: int = 100,
 ) -> JSONResponse:
     _verify_auth(request, b"")
-    tasks = list_tasks(
+    tasks = _list_tasks_safe(
         task_type=task_type.strip(),
         statuses=_split_csv(status),
         date_prefix=date.strip(),
@@ -1037,7 +1053,7 @@ async def get_task_detail(task_id: str, request: Request, include_logs: bool = T
         raise HTTPException(status_code=404, detail="task not found")
     payload: dict[str, Any] = {"code": 0, "msg": "ok", "task": task}
     if include_logs:
-        payload["task_logs"] = list_task_logs(task_id, limit=max(1, min(int(log_limit), 500)))
+        payload["task_logs"] = _list_task_logs_safe(task_id, limit=max(1, min(int(log_limit), 500)))
     return JSONResponse(content=payload)
 
 
@@ -1047,7 +1063,7 @@ async def get_task_detail_logs(task_id: str, request: Request, limit: int = 200)
     task = get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="task not found")
-    logs = list_task_logs(task_id, limit=max(1, min(int(limit), 2000)))
+    logs = _list_task_logs_safe(task_id, limit=max(1, min(int(limit), 2000)))
     return JSONResponse(content={"code": 0, "msg": "ok", "task_id": task_id, "count": len(logs), "task_logs": logs})
 
 
