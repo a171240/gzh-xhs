@@ -1305,12 +1305,17 @@ def orchestrate_message(
         statuses = [item for item in [ingest_status, skill_status] if item]
         if not statuses:
             status = "ignored"
-        elif all(item == "success" for item in statuses):
-            status = "success"
-        elif any(item == "success" for item in statuses):
-            status = "partial"
         else:
-            status = "error"
+            success_like = {"success", "partial", "duplicate", "ignored"}
+            hard_success = {"success", "duplicate", "ignored"}
+            if all(item in hard_success for item in statuses):
+                status = "success"
+            elif all(item in success_like for item in statuses):
+                status = "partial"
+            elif any(item in success_like for item in statuses):
+                status = "partial"
+            else:
+                status = "error"
 
     git_paths: list[str] = []
     ingest_success = bool(ingest_result) and str((ingest_result or {}).get("status") or "") in {"success", "partial"}
