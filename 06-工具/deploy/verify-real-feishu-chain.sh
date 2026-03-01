@@ -182,6 +182,10 @@ def row_failures(row, meta):
         if has_link_flow:
             if allow_test_url_skip and link_content_status == "skipped_test":
                 pass
+            elif link_content_status in {"", "none"}:
+                # Backward compatibility: older run logs may miss link_content_status.
+                # DB-level content_status check remains mandatory later in this script.
+                pass
             elif link_content_status != "success":
                 fails.append(f"content_not_success:{link_content_status or 'missing'}")
             elif (not link_is_test) and link_content_chars < min_content_chars:

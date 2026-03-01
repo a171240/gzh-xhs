@@ -1393,6 +1393,25 @@ def orchestrate_message(
         "elapsed_ms": elapsed_ms,
     }
 
+    ingest_payload = (ingest_result or {}).get("result") or {}
+    summary = (ingest_payload.get("details") or {}).get("summary") or {}
+
+    def _safe_int(value: Any, default: int = 0) -> int:
+        try:
+            return int(value)
+        except Exception:
+            return int(default)
+
+    link_route_status = str(ingest_payload.get("link_route_status") or summary.get("link_route_status") or "")
+    link_content_status = str(ingest_payload.get("link_content_status") or summary.get("link_content_status") or "")
+    link_content_chars = _safe_int(
+        ingest_payload.get("link_content_chars"),
+        default=_safe_int(summary.get("link_content_chars_total"), 0),
+    )
+    link_provider = str(ingest_payload.get("link_provider") or summary.get("link_provider") or "")
+    link_is_test = bool(ingest_payload.get("link_is_test")) if ingest_payload.get("link_is_test") is not None else bool(summary.get("link_is_test"))
+    link_quality_reason = str(ingest_payload.get("link_quality_reason") or summary.get("link_quality_reason") or "")
+
     run_log = RUN_LOG_DIR / f"{_today()}.jsonl"
     _append_jsonl(
         run_log,
@@ -1405,6 +1424,12 @@ def orchestrate_message(
             "plain_chat_fallback_used": plain_chat_fallback_used,
             "git_sync_status": (git_sync_result or {}).get("status"),
             "git_sync_commit": (git_sync_result or {}).get("commit", ""),
+            "link_route_status": link_route_status,
+            "link_content_status": link_content_status,
+            "link_content_chars": link_content_chars,
+            "link_provider": link_provider,
+            "link_is_test": link_is_test,
+            "link_quality_reason": link_quality_reason,
             "elapsed_ms": elapsed_ms,
             "errors": errors,
         },
