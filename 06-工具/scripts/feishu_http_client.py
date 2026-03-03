@@ -162,6 +162,18 @@ def _extract_video_id(url: str) -> str:
     return str(matched.group(1) if matched else "").strip()
 
 
+def _build_link_candidates(raw_url: str, normalized_url: str, video_id: str) -> list[str]:
+    out: list[str] = []
+    for item in (
+        str(raw_url or "").strip(),
+        str(normalized_url or "").strip(),
+        (f"https://www.douyin.com/video/{video_id}" if video_id else ""),
+    ):
+        if item and item not in out:
+            out.append(item)
+    return out
+
+
 def search_bitable_records(
     *,
     app_token: str,
@@ -261,21 +273,35 @@ def ensure_bitable_link_record(
                     "match": "video_id",
                 }
 
-    fields: dict[str, Any] = {str(link_field or "视频链接"): raw_url}
-    data = add_bitable_record(
-        app_token=app_token,
-        table_id=table_id,
-        fields=fields,
-        settings=s,
-    )
-    record = data.get("record") if isinstance(data, dict) else {}
-    record_id = str((record or {}).get("record_id") or data.get("record_id") or "").strip()
-    return {
-        "ok": True,
-        "record_id": record_id,
-        "created": True,
-        "match": "created",
-    }
+    link_key = str(link_field or "视频链接")
+    last_error = ""
+    for candidate in _build_link_candidates(raw_url, normalized, video_id):
+        payload_variants: list[Any] = [
+            candidate,
+            {"text": candidate, "link": candidate},
+        ]
+        for value in payload_variants:
+            try:
+                data = add_bitable_record(
+                    app_token=app_token,
+                    table_id=table_id,
+                    fields={link_key: value},
+                    settings=s,
+                )
+                record = data.get("record") if isinstance(data, dict) else {}
+                record_id = str((record or {}).get("record_id") or data.get("record_id") or "").strip()
+                return {
+                    "ok": True,
+                    "record_id": record_id,
+                    "created": True,
+                    "match": "created",
+                }
+            except Exception as exc:
+                last_error = str(exc)
+                # URL fields occasionally reject one representation; keep trying.
+                continue
+
+    return {"ok": False, "error": last_error or "bitable_create_failed"}
 
 
 def send_text_message(
