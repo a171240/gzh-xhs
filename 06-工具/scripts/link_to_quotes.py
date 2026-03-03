@@ -729,24 +729,8 @@ def _bitable_search_douyin_text(url: str, source_text: str = "") -> tuple[str, s
     if not video_ids and not match_urls:
         return "", "", "bitable_no_query_key"
 
-    source_seed = _normalize_douyin_candidate_line(_extract_douyin_share_text_body(source_text))
-
-    def _text_overlap_score(a: str, b: str) -> int:
-        left = str(a or "").strip()
-        right = str(b or "").strip()
-        if not left or not right:
-            return 0
-        # Coarse but stable overlap metric for long Chinese text: substring contain + unique char set.
-        score = 0
-        if left in right or right in left:
-            score += 50
-        left_chars = {c for c in left if "\u4e00" <= c <= "\u9fff"}
-        right_chars = {c for c in right if "\u4e00" <= c <= "\u9fff"}
-        inter = left_chars & right_chars
-        score += min(40, len(inter))
-        # Boost with prefix overlap.
-        score += min(20, len(os.path.commonprefix([left, right])))
-        return score
+    # In strict bitable mode we only trust exact link/video-id matching.
+    # Do not use text-overlap fallback to avoid cross-video false matches.
 
     def fetch_records(*, with_view: bool) -> list[dict[str, Any]]:
         payload: dict[str, Any] = {}
@@ -777,7 +761,6 @@ def _bitable_search_douyin_text(url: str, source_text: str = "") -> tuple[str, s
 
     saw_any_record = False
     saw_matched_record = False
-    text_only_candidates: list[tuple[int, str, str]] = []  # (score, record_id, text)
     for with_view in search_scopes:
         items = fetch_records(with_view=with_view)
         if not isinstance(items, list) or not items:
@@ -808,8 +791,7 @@ def _bitable_search_douyin_text(url: str, source_text: str = "") -> tuple[str, s
             link_text_norm_candidates = {
                 x for x in {_normalize_match_url(link_text), _normalize_match_url(link_text_expanded)} if x
             }
-            matched = False
-            if any(
+            matched_by_video_id = any(
                 video_id
                 and (
                     video_id in id_text
@@ -817,10 +799,10 @@ def _bitable_search_douyin_text(url: str, source_text: str = "") -> tuple[str, s
                     or video_id in link_text_expanded
                 )
                 for video_id in video_ids
-            ):
-                matched = True
-            if (not matched) and match_urls:
-                matched = any(
+            )
+            matched_by_url = False
+            if match_urls:
+                matched_by_url = any(
                     match_url
                     and (
                         any(match_url in candidate for candidate in link_text_norm_candidates)
@@ -828,21 +810,20 @@ def _bitable_search_douyin_text(url: str, source_text: str = "") -> tuple[str, s
                     )
                     for match_url in match_urls
                 )
+
+            # Link-first strategy:
+            # 1) if request has URL key, prefer URL match;
+            # 2) only when record has no usable link text, allow video-id fallback.
+            if match_urls:
+                matched = matched_by_url or (not link_text_norm_candidates and matched_by_video_id)
+            else:
+                matched = matched_by_video_id
             text = _bitable_pick_text(fields)
             if not matched:
-                if text:
-                    score = _text_overlap_score(source_seed, text) if source_seed else 1
-                    text_only_candidates.append((score, str(item.get("record_id") or "").strip(), text))
                 continue
             saw_matched_record = True
             if text:
                 return text, str(item.get("record_id") or "").strip(), ""
-
-    # Fallback 1: if source_text exists, use highest-overlap non-empty record text.
-    if text_only_candidates and source_seed:
-        best = sorted(text_only_candidates, key=lambda x: (-x[0], -len(x[2])))[0]
-        if best[0] >= 10:
-            return best[2], best[1], ""
 
     if not saw_any_record:
         return "", "", "bitable_no_record"
@@ -1824,6 +1805,8 @@ def _write_body_doc(
     output_dir = benchmark_root / "提取正文" / date_str
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{slug}-{date_str}.md"
+    current_url_norm = _normalize_match_url(url)
+    current_video_id = _extract_douyin_video_id(url)
 
     # Keep required naming as 标题+提取日期; add hash suffix only when name collision is for another link.
     if output_path.exists():
@@ -1831,7 +1814,17 @@ def _write_body_doc(
             existing_text = output_path.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             existing_text = ""
-        if f"- 原文链接：{url}" not in existing_text:
+        same_doc = f"- 原文链接：{url}" in existing_text
+        if not same_doc:
+            matched = re.search(r"^- 原文链接：(.+)$", existing_text, flags=re.MULTILINE)
+            existing_url = str(matched.group(1) if matched else "").strip()
+            existing_url_norm = _normalize_match_url(existing_url)
+            existing_video_id = _extract_douyin_video_id(existing_url)
+            same_doc = bool(
+                (current_url_norm and existing_url_norm and current_url_norm == existing_url_norm)
+                or (current_video_id and existing_video_id and current_video_id == existing_video_id)
+            )
+        if not same_doc:
             output_path = output_dir / f"{slug}-{date_str}-{digest}.md"
 
     lines = [
