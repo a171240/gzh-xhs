@@ -46,3 +46,18 @@
   - 金句入库：已禁用（链接仅入对标链接库）
   - 错误：bitable_write_failed:bitable request failed: NumberFieldConvFail
 
+## 2026-03-03T16:04:15+08:00 run=link_20260303160507_823b4ba4
+- [success] https://www.iesdouyin.com/share/video/7591878323370741046/?region=CN&mid=7591878497910147891&u_code=el0igj1g4m570c&did=MS4wLjABAAAA2dQOupVUDYr0dDzTIB0l_dm93s_XYALlhZjlfW5KDqL_jcZ0jZMlsjScbr0bnlcC&iid=MS4wLjABAAAANwkJuWIRFOzg5uCpDRpMj4OX-QryoDgn-yYlXQnRwQQ&with_sec_did=1&video_share_track_ver=&titleType=title&share_sign=N1qv14gZhQemsT4Z_AQq2tYGVM4XPUTk0W4_SkbeDMM-&share_version=290100&ts=1772517929&from_aid=6383&from_ssr=1&share_track_info=%7B%22link_description_type%22%3A%22%22%7D&from=web_code_link
+  - 路由状态：success
+  - 正文状态：success
+  - 提取来源：bitable
+  - 测试链接：no
+  - 标题：-
+  - 日期：2026-03-03
+  - 正文文件：`/root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-03/2026年-作者提出三个实现财富自由的基础行动-每天写作-拍视频和反思复盘-2026-03-03-1b2d3ccd.md`
+  - 正文字符：3107
+  - summary_detected：false
+  - text_source：bitable
+  - 金句入库：已禁用（链接仅入对标链接库）
+  - 错误：bitable_write_failed:bitable request failed: NumberFieldConvFail
+
