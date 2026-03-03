@@ -8,6 +8,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from link_to_quotes import LinkToQuotesResult, process_urls_to_quotes
 from quote_ingest_core import (
@@ -80,6 +81,9 @@ class MessageProcessSummary:
     link_provider: str
     link_is_test: bool
     link_quality_reason: str
+    link_summary_detected: bool
+    link_text_source: str
+    link_reject_reason: str
     touched_files: list[str]
     errors: list[str]
     import_record_path: str
@@ -96,7 +100,49 @@ def parse_feishu_text_content(content: str) -> str:
         return raw
 
     if isinstance(data, dict):
-        return str(data.get("text") or "").strip()
+        # Standard text payload.
+        text_value = str(data.get("text") or "").strip()
+        if text_value:
+            return text_value
+
+        # Rich payload fallback (e.g. post message) – flatten text and href/url.
+        chunks: list[str] = []
+        seen: set[str] = set()
+
+        def _append(value: str) -> None:
+            item = str(value or "").strip()
+            if not item or item in seen:
+                return
+            seen.add(item)
+            chunks.append(item)
+
+        def _walk(node: Any) -> None:
+            if node is None:
+                return
+            if isinstance(node, str):
+                _append(node)
+                return
+            if isinstance(node, list):
+                for item in node:
+                    _walk(item)
+                return
+            if isinstance(node, dict):
+                for link_key in ("href", "url", "link", "share_url"):
+                    link_value = node.get(link_key)
+                    if isinstance(link_value, str):
+                        _append(link_value)
+                for text_key in ("text", "title", "content"):
+                    text_part = node.get(text_key)
+                    if isinstance(text_part, str):
+                        _append(text_part)
+                for key, item in node.items():
+                    # Skip control/meta keys that only add parser noise.
+                    if key in {"tag", "type", "style", "un_escape", "token"}:
+                        continue
+                    _walk(item)
+
+        _walk(data)
+        return " ".join(chunks).strip()
     return raw
 
 
@@ -284,6 +330,7 @@ def _append_import_record(
         lines.append(f"- link_content_failed: {content_failed}\n")
         lines.append(f"- link_content_skipped_test: {content_skipped_test}\n")
         lines.append(f"- link_doc_saved: {saved_docs}\n")
+        lines.append(f"- link_summary_detected: {'true' if any(item.summary_detected for item in link_result.items) else 'false'}\n")
         for item in link_result.items:
             if item.body_file:
                 lines.append(f"  - {item.url} -> {item.body_file}\n")
@@ -292,6 +339,10 @@ def _append_import_record(
             )
             if item.quality_reason:
                 lines.append(f"    quality_reason: {item.quality_reason}\n")
+            if item.text_source:
+                lines.append(f"    text_source: {item.text_source}\n")
+            if item.reject_reason:
+                lines.append(f"    reject_reason: {item.reject_reason}\n")
 
     if quote_result.near_dups:
         lines.append("- quote_near_dup_examples:\n")
@@ -419,6 +470,28 @@ def process_message(
         (str(item.quality_reason or "").strip() for item in (link_result.items if link_result is not None else []) if item.content_status == "failed"),
         "",
     )
+    summary_detected = any(bool(item.summary_detected) for item in (link_result.items if link_result is not None else []))
+    link_text_source = next(
+        (
+            str(item.text_source or "").strip()
+            for item in (link_result.items if link_result is not None else [])
+            if item.content_status == "success" and str(item.text_source or "").strip()
+        ),
+        "",
+    )
+    if not link_text_source:
+        link_text_source = next(
+            (str(item.text_source or "").strip() for item in (link_result.items if link_result is not None else []) if str(item.text_source or "").strip()),
+            "",
+        )
+    link_reject_reason = next(
+        (
+            str(item.reject_reason or "").strip()
+            for item in (link_result.items if link_result is not None else [])
+            if item.content_status == "failed" and str(item.reject_reason or "").strip()
+        ),
+        "",
+    )
 
     return MessageProcessSummary(
         mode=routed.mode,
@@ -437,6 +510,9 @@ def process_message(
         link_provider=link_provider,
         link_is_test=link_is_test,
         link_quality_reason=failed_quality,
+        link_summary_detected=summary_detected,
+        link_text_source=link_text_source,
+        link_reject_reason=link_reject_reason,
         touched_files=sorted(touched_files),
         errors=errors,
         import_record_path=import_record_path.as_posix(),

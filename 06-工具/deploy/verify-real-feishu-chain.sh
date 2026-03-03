@@ -13,6 +13,8 @@ REQUIRE_GIT_SYNC=true
 REQUIRE_CONTENT_SUCCESS=false
 ALLOW_TEST_URL_SKIP=true
 MIN_CONTENT_CHARS=120
+WAIT_ASYNC_SECONDS=0
+REQUIRE_TEXT_SOURCE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -28,6 +30,8 @@ while [[ $# -gt 0 ]]; do
     --require-content-success) REQUIRE_CONTENT_SUCCESS="${2:?missing value for --require-content-success}"; shift 2 ;;
     --allow-test-url-skip) ALLOW_TEST_URL_SKIP="${2:?missing value for --allow-test-url-skip}"; shift 2 ;;
     --min-content-chars) MIN_CONTENT_CHARS="${2:?missing value for --min-content-chars}"; shift 2 ;;
+    --wait-async-seconds) WAIT_ASYNC_SECONDS="${2:?missing value for --wait-async-seconds}"; shift 2 ;;
+    --require-text-source) REQUIRE_TEXT_SOURCE="${2:?missing value for --require-text-source}"; shift 2 ;;
     *) echo "[verify] unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -78,7 +82,8 @@ RUN_LOG="$(ls -1 "$REPO_PATH"/06-*/data/feishu-orchestrator/runs/"$(date +%F).js
 test -n "$RUN_LOG" || { echo "[verify] FAIL: run log missing under $REPO_PATH/06-*/data/feishu-orchestrator/runs/"; exit 1; }
 test -f "$RUN_LOG" || { echo "[verify] FAIL: run log not a file: $RUN_LOG"; exit 1; }
 
-if ! python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" >"$RUN_TMP" <<'PY'
+validate_run_log() {
+python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" >"$RUN_TMP" <<'PY'
 import datetime as dt
 import json
 import pathlib
@@ -92,6 +97,7 @@ require_git_sync = sys.argv[5].strip().lower() in {"1", "true", "yes", "y", "on"
 require_content_success = sys.argv[6].strip().lower() in {"1", "true", "yes", "y", "on"}
 allow_test_url_skip = sys.argv[7].strip().lower() in {"1", "true", "yes", "y", "on"}
 min_content_chars = max(1, int(sys.argv[8]))
+require_text_source = sys.argv[9].strip().lower()
 
 cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=since_minutes)
 
@@ -137,6 +143,9 @@ def row_meta(row):
     link_provider = str(row.get("link_provider") or "")
     link_is_test = bool(row.get("link_is_test"))
     link_quality_reason = str(row.get("link_quality_reason") or "")
+    link_summary_detected = bool(row.get("link_summary_detected"))
+    link_text_source = str(row.get("link_text_source") or "")
+    link_reject_reason = str(row.get("link_reject_reason") or "")
     return {
         "intent": intent,
         "status": status,
@@ -150,6 +159,9 @@ def row_meta(row):
         "link_provider": link_provider,
         "link_is_test": link_is_test,
         "link_quality_reason": link_quality_reason,
+        "link_summary_detected": link_summary_detected,
+        "link_text_source": link_text_source,
+        "link_reject_reason": link_reject_reason,
     }
 
 def row_failures(row, meta):
@@ -162,6 +174,8 @@ def row_failures(row, meta):
     link_content_status = meta["link_content_status"]
     link_content_chars = meta["link_content_chars"]
     link_is_test = meta["link_is_test"]
+    link_summary_detected = meta["link_summary_detected"]
+    link_text_source = str(meta["link_text_source"] or "").strip().lower()
 
     if status not in {"success", "partial"}:
         fails.append(f"bad_status:{status or 'missing'}")
@@ -184,8 +198,16 @@ def row_failures(row, meta):
                 pass
             elif link_content_status != "success":
                 fails.append(f"content_not_success:{link_content_status or 'missing'}")
+            elif link_summary_detected:
+                fails.append("content_summary_detected:true")
             elif (not link_is_test) and link_content_chars < min_content_chars:
                 fails.append(f"content_chars_too_low:{link_content_chars}<{min_content_chars}")
+            elif require_text_source:
+                accepted = {require_text_source}
+                if require_text_source == "bitable":
+                    accepted.add("bitable_text")
+                if link_text_source not in accepted:
+                    fails.append(f"text_source_not_match:{link_text_source or 'missing'}!={require_text_source}")
     return fails
 
 rows.sort(key=lambda item: item[0], reverse=True)
@@ -221,6 +243,9 @@ link_content_chars = meta["link_content_chars"]
 link_provider = meta["link_provider"]
 link_is_test = meta["link_is_test"]
 link_quality_reason = meta["link_quality_reason"]
+link_summary_detected = meta["link_summary_detected"]
+link_text_source = meta["link_text_source"]
+link_reject_reason = meta["link_reject_reason"]
 
 print("OK")
 print(f"event_ref={latest.get('event_ref')}")
@@ -235,12 +260,36 @@ print(f"link_content_chars={link_content_chars}")
 print(f"link_provider={link_provider}")
 print(f"link_is_test={link_is_test}")
 print(f"link_quality_reason={link_quality_reason}")
+print(f"link_summary_detected={link_summary_detected}")
+print(f"link_text_source={link_text_source}")
+print(f"link_reject_reason={link_reject_reason}")
 PY
-then
-  cat "$RUN_TMP" >&2 || true
-  echo "[verify] FAIL: run log validation failed" >&2
-  exit 1
+}
+
+DEADLINE_EPOCH=0
+if [[ "$WAIT_ASYNC_SECONDS" =~ ^[0-9]+$ ]] && (( WAIT_ASYNC_SECONDS > 0 )); then
+  DEADLINE_EPOCH=$(( $(date +%s) + WAIT_ASYNC_SECONDS ))
 fi
+
+while true; do
+  if validate_run_log; then
+    if grep -q '^OK$' "$RUN_TMP"; then
+      break
+    fi
+  fi
+
+  if (( DEADLINE_EPOCH <= 0 )); then
+    cat "$RUN_TMP" >&2 || true
+    echo "[verify] FAIL: run log validation failed" >&2
+    exit 1
+  fi
+  if (( $(date +%s) >= DEADLINE_EPOCH )); then
+    cat "$RUN_TMP" >&2 || true
+    echo "[verify] FAIL: run log validation failed (async wait timeout after ${WAIT_ASYNC_SECONDS}s)" >&2
+    exit 1
+  fi
+  sleep 5
+done
 
 if ! grep -q '^OK$' "$RUN_TMP"; then
   cat "$RUN_TMP" >&2
@@ -255,7 +304,7 @@ DB_PATH="$(ls -1 "$REPO_PATH"/06-*/data/ingest-writer/writer_state.db 2>/dev/nul
 test -n "$DB_PATH" || { echo "[verify] FAIL: writer db missing under $REPO_PATH/06-*/data/ingest-writer/"; exit 1; }
 test -f "$DB_PATH" || { echo "[verify] FAIL: writer db not a file: $DB_PATH"; exit 1; }
 
-python3 - "$DB_PATH" "$LATEST_EVENT_REF" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" <<'PY'
+python3 - "$DB_PATH" "$LATEST_EVENT_REF" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" <<'PY'
 import sqlite3
 import sys
 
@@ -264,6 +313,7 @@ event_ref = sys.argv[2]
 require_content_success = sys.argv[3].strip().lower() in {"1", "true", "yes", "y", "on"}
 allow_test_url_skip = sys.argv[4].strip().lower() in {"1", "true", "yes", "y", "on"}
 min_content_chars = max(1, int(sys.argv[5]))
+require_text_source = sys.argv[6].strip().lower()
 prefix = f"{event_ref}#%"
 
 conn = sqlite3.connect(db_path)
@@ -296,15 +346,18 @@ try:
         if needed.issubset(cols):
             rows = list(
                 cur.execute(
-                    "select event_ref,mode,content_status,content_chars,is_test_url,quality_reason from requests where event_ref like ? order by updated_at desc",
+                    "select event_ref,mode,content_status,content_chars,is_test_url,quality_reason,"
+                    "coalesce(summary_detected,0),coalesce(text_source,''),coalesce(reject_reason,'') "
+                    "from requests where event_ref like ? order by updated_at desc",
                     (prefix,),
                 )
             )
-            for ev, mode, c_status, c_chars, is_test, quality in rows:
+            for ev, mode, c_status, c_chars, is_test, quality, summary_detected, text_source, reject_reason in rows:
                 c_status = str(c_status or "")
                 c_chars = int(c_chars or 0)
                 is_test = bool(is_test)
                 mode = str(mode or "")
+                summary_detected = bool(summary_detected)
                 if mode not in {"link", "mixed"} and c_status in {"", "none"}:
                     continue
                 if allow_test_url_skip and c_status == "skipped_test":
@@ -312,6 +365,20 @@ try:
                 if c_status and c_status != "success":
                     print(f"[verify] FAIL: content_status not success for {ev}: {c_status} ({quality or ''})", file=sys.stderr)
                     sys.exit(1)
+                if c_status == "success" and summary_detected:
+                    print(f"[verify] FAIL: summary_detected=true for {ev} source={text_source} reason={reject_reason or quality}", file=sys.stderr)
+                    sys.exit(1)
+                if c_status == "success" and require_text_source:
+                    actual_text_source = str(text_source or "").strip().lower()
+                    accepted = {require_text_source}
+                    if require_text_source == "bitable":
+                        accepted.add("bitable_text")
+                    if actual_text_source not in accepted:
+                        print(
+                            f"[verify] FAIL: text_source not match for {ev}: {text_source or 'missing'}!={require_text_source}",
+                            file=sys.stderr,
+                        )
+                        sys.exit(1)
                 if (not is_test) and c_status == "success" and c_chars < min_content_chars:
                     print(f"[verify] FAIL: content_chars too low for {ev}: {c_chars}<{min_content_chars}", file=sys.stderr)
                     sys.exit(1)

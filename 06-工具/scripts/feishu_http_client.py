@@ -119,6 +119,67 @@ def add_bitable_record(
     return data.get("data") or {}
 
 
+def send_text_message(
+    *,
+    receive_id: str,
+    text: str,
+    receive_id_type: str = "chat_id",
+    settings: FeishuHttpSettings | None = None,
+) -> dict[str, Any]:
+    rid = str(receive_id or "").strip()
+    body_text = str(text or "").strip()
+    if not rid:
+        raise RuntimeError("receive_id is empty")
+    if not body_text:
+        raise RuntimeError("text is empty")
+    id_type = str(receive_id_type or "chat_id").strip() or "chat_id"
+
+    s = settings or load_feishu_settings()
+    token = get_tenant_access_token(s)
+    payload = {
+        "receive_id": rid,
+        "msg_type": "text",
+        "content": json.dumps({"text": body_text}, ensure_ascii=False),
+    }
+    data = _request_json(
+        settings=s,
+        method="POST",
+        path=f"/open-apis/im/v1/messages?receive_id_type={id_type}",
+        token=token,
+        payload=payload,
+    )
+    return data.get("data") or {}
+
+
+def reply_message(
+    *,
+    message_id: str,
+    text: str,
+    settings: FeishuHttpSettings | None = None,
+) -> dict[str, Any]:
+    mid = str(message_id or "").strip()
+    body_text = str(text or "").strip()
+    if not mid:
+        raise RuntimeError("message_id is empty")
+    if not body_text:
+        raise RuntimeError("text is empty")
+
+    s = settings or load_feishu_settings()
+    token = get_tenant_access_token(s)
+    payload = {
+        "msg_type": "text",
+        "content": json.dumps({"text": body_text}, ensure_ascii=False),
+    }
+    data = _request_json(
+        settings=s,
+        method="POST",
+        path=f"/open-apis/im/v1/messages/{mid}/reply",
+        token=token,
+        payload=payload,
+    )
+    return data.get("data") or {}
+
+
 def append_doc_markdown_summary(
     *,
     document_id: str,
@@ -145,9 +206,21 @@ def append_doc_markdown_summary(
         path=f"/open-apis/docx/v1/documents/{document_id}",
         token=token,
     )
-    root_id = str((doc_meta.get("data") or {}).get("document") or "")
+    data = doc_meta.get("data") if isinstance(doc_meta, dict) else {}
+    if not isinstance(data, dict):
+        data = {}
+    document_obj = data.get("document")
+    root_id = ""
+    if isinstance(document_obj, dict):
+        for key in ("root_id", "document_id", "block_id"):
+            value = str(document_obj.get(key) or "").strip()
+            if value:
+                root_id = value
+                break
+    elif isinstance(document_obj, str):
+        root_id = document_obj.strip()
     if not root_id:
-        root_id = str((doc_meta.get("data") or {}).get("document_id") or document_id)
+        root_id = str(data.get("document_id") or "").strip() or str(document_id)
 
     paragraph = {
         "children": [

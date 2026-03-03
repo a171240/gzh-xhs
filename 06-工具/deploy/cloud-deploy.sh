@@ -6,6 +6,7 @@ REMOTE="${CLOUD_DEPLOY_REMOTE:-origin}"
 BRANCH="${CLOUD_DEPLOY_BRANCH:-main}"
 GATEWAY_SERVICE="${OPENCLAW_GATEWAY_SERVICE:-openclaw-gateway}"
 WRITER_SERVICE="${INGEST_WRITER_SERVICE:-ingest-writer-api}"
+ASYNC_WORKER_SERVICE="${BITABLE_LINK_WORKER_SERVICE:-bitable-link-worker}"
 OPENCLAW_CONFIG_PATH="${OPENCLAW_CONFIG_PATH:-/root/.openclaw/openclaw.json}"
 ROLLBACK_ON_FAIL="${ROLLBACK_ON_FAIL:-true}"
 INSTALL_EXTRACTORS="${INSTALL_EXTRACTORS:-true}"
@@ -20,6 +21,7 @@ while [[ $# -gt 0 ]]; do
     --branch) BRANCH="${2:?missing value for --branch}"; shift 2 ;;
     --gateway-service) GATEWAY_SERVICE="${2:?missing value for --gateway-service}"; shift 2 ;;
     --writer-service) WRITER_SERVICE="${2:?missing value for --writer-service}"; shift 2 ;;
+    --async-worker-service) ASYNC_WORKER_SERVICE="${2:?missing value for --async-worker-service}"; shift 2 ;;
     --install-extractors) INSTALL_EXTRACTORS="${2:?missing value for --install-extractors}"; shift 2 ;;
     --rollback) ROLLBACK_SHA="${2:?missing value for --rollback}"; shift 2 ;;
     --rollback-on-fail) ROLLBACK_ON_FAIL="${2:?missing value for --rollback-on-fail}"; shift 2 ;;
@@ -116,6 +118,46 @@ Environment=GIT_SYNC_MAX_RETRIES=2
 EOF
 }
 
+install_or_update_async_worker() {
+  local service_file="/etc/systemd/system/${ASYNC_WORKER_SERVICE}.service"
+  local timer_file="/etc/systemd/system/${ASYNC_WORKER_SERVICE}.timer"
+  local app_dir="$RUNTIME_DIR"
+  local worker_py="$RUNTIME_DIR/bitable_link_worker.py"
+
+  test -f "$worker_py" || { echo "[deploy] async worker missing: $worker_py" >&2; exit 1; }
+
+  cat >"$service_file" <<EOF
+[Unit]
+Description=OpenClaw Bitable Link Async Worker
+After=network.target ${WRITER_SERVICE}.service
+Requires=${WRITER_SERVICE}.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=${app_dir}
+EnvironmentFile=-/etc/openclaw/feishu.env
+ExecStart=/usr/bin/python3 ${worker_py} --once --limit 5
+EOF
+
+  cat >"$timer_file" <<EOF
+[Unit]
+Description=Run ${ASYNC_WORKER_SERVICE} every minute
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Unit=${ASYNC_WORKER_SERVICE}.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  systemctl enable "${ASYNC_WORKER_SERVICE}.timer" >/dev/null 2>&1 || true
+}
+
 install_link_extractors() {
   local installer="$DEPLOY_DIR/install-link-extractors.sh"
   if [[ "$INSTALL_EXTRACTORS" != "true" ]]; then
@@ -145,7 +187,7 @@ apply_workspace_prompt() {
 # AGENTS.md (Managed)
 Feishu router mode.
 Treat FEISHU_ROUTING_PROMPT.md as highest priority.
-Always call: ${runner_sh} --text "<incoming_feishu_text>" --event-ref "<event_id_or_hash>" --source-ref "<source_ref>" --source-time "<iso8601>".
+Always call: ${runner_sh} --text "<incoming_feishu_text>" --event-ref "<event_id_or_hash>" --source-ref "<source_ref>" --source-time "<iso8601>" --meta-json "<meta_json_or_empty>".
 Do not free-form reply from model memory.
 Only return orchestrator output: reply_segments (in order) or reply.
 EOF
@@ -205,6 +247,7 @@ rollback() {
     systemctl daemon-reload || true
     systemctl restart "$WRITER_SERVICE" || true
     systemctl restart "$GATEWAY_SERVICE" || true
+    systemctl restart "${ASYNC_WORKER_SERVICE}.timer" || true
   fi
 }
 trap rollback ERR
@@ -241,6 +284,23 @@ set_env_kv /etc/openclaw/feishu.env FEISHU_PLAIN_TEXT_MODE "chat"
 set_env_kv /etc/openclaw/feishu.env FEISHU_REPLY_MAX_CHARS "1500"
 set_env_kv /etc/openclaw/feishu.env INGEST_LINK_MIN_CONTENT_CHARS "120"
 set_env_kv /etc/openclaw/feishu.env INGEST_LINK_ALLOW_TEST_SKIP "true"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_STRICT_FULL_TEXT "true"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_SUMMARY_BLOCK "true"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_MIN_SENTENCES "3"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_SOURCE_MODE "bitable_only"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_ENABLED "true"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_READ_FIRST "true"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_FALLBACK_FULL_SCAN "true"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_WRITE_BACK "true"
+set_env_kv /etc/openclaw/feishu.env BITABLE_APP_TOKEN "${BITABLE_APP_TOKEN:-UrwobWA3JadzAcsLqJbc6CThnRd}"
+set_env_kv /etc/openclaw/feishu.env BITABLE_TABLE_ID "${BITABLE_TABLE_ID:-tblr1mvEh1bFsUAS}"
+set_env_kv /etc/openclaw/feishu.env BITABLE_VIEW_ID "${BITABLE_VIEW_ID:-vew5Oj8RIj}"
+set_env_kv /etc/openclaw/feishu.env BITABLE_TEXT_FIELD "${BITABLE_TEXT_FIELD:-文案整理}"
+set_env_kv /etc/openclaw/feishu.env BITABLE_TEXT_FALLBACK_FIELD "${BITABLE_TEXT_FALLBACK_FIELD:-文案出参}"
+set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_ENABLED "true"
+set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_POLL_INTERVAL_SEC "60"
+set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_TIMEOUT_MIN "20"
+set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_BATCH "5"
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_ENABLED "true"
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_REPO_ROOT "$REPO_PATH"
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_REMOTE "$REMOTE"
@@ -253,22 +313,35 @@ set_env_kv /etc/openclaw/feishu.env GIT_SYNC_MAX_RETRIES "2"
 apply_workspace_prompt
 install_or_update_writer_service
 install_or_update_gateway_env
+install_or_update_async_worker
 install_link_extractors
 
 python3 -m py_compile \
   "$RUNTIME_DIR/feishu_ingest_router.py" \
   "$RUNTIME_DIR/feishu_kb_orchestrator.py" \
   "$RUNTIME_DIR/feishu_skill_runner.py" \
+  "$RUNTIME_DIR/feishu_http_client.py" \
+  "$RUNTIME_DIR/link_async_jobs.py" \
+  "$RUNTIME_DIR/bitable_link_worker.py" \
   "$RUNTIME_DIR/link_to_quotes.py" \
   "$RUNTIME_DIR/git_sync_after_write.py"
 
 chmod +x "$SMOKE_SCRIPT" "$RUNTIME_DIR/run-feishu-kb-orchestrator.sh"
+if [[ -f "$DEPLOY_DIR/verify-real-feishu-chain.sh" ]]; then
+  chmod +x "$DEPLOY_DIR/verify-real-feishu-chain.sh"
+fi
+if [[ -f "$DEPLOY_DIR/verify-link-by-event.sh" ]]; then
+  chmod +x "$DEPLOY_DIR/verify-link-by-event.sh"
+fi
 
 systemctl daemon-reload
 systemctl restart "$WRITER_SERVICE"
 systemctl restart "$GATEWAY_SERVICE"
+systemctl restart "${ASYNC_WORKER_SERVICE}.timer"
+systemctl start "${ASYNC_WORKER_SERVICE}.service" || true
 systemctl is-active --quiet "$WRITER_SERVICE"
 systemctl is-active --quiet "$GATEWAY_SERVICE"
+systemctl is-active --quiet "${ASYNC_WORKER_SERVICE}.timer"
 
 bash "$SMOKE_SCRIPT" --repo-path "$REPO_PATH" --scripts-dir "$RUNTIME_DIR" --writer-service "$WRITER_SERVICE" --gateway-service "$GATEWAY_SERVICE"
 

@@ -31,11 +31,20 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 
 from codex_commander import execute_tasks
-from feishu_skill_runner import DEFAULT_MODEL, build_skill_registry, resolve_codex_cli, resolve_skill
+from feishu_skill_runner import (
+    DEFAULT_MODEL,
+    build_skill_context_plan,
+    build_skill_registry,
+    resolve_codex_cli,
+    resolve_skill,
+)
+from link_async_jobs import enqueue_job as enqueue_link_async_job
+from link_async_jobs import ensure_schema as ensure_link_async_schema
 from topic_pipeline import run_pipeline_daemon, run_pipeline_once
 
 
@@ -123,6 +132,9 @@ class OrchestratorSettings:
     git_sync_author_email: str
     git_sync_max_retries: int
     approval_open_ids: tuple[str, ...]
+    link_async_enabled: bool
+    link_async_poll_interval_sec: int
+    link_async_timeout_min: int
 
 
 @dataclasses.dataclass(frozen=True)
@@ -232,6 +244,9 @@ def _load_settings() -> OrchestratorSettings:
             os.getenv("FEISHU_APPROVAL_OPEN_IDS"),
             default=(),
         ),
+        link_async_enabled=_as_bool(os.getenv("FEISHU_LINK_ASYNC_ENABLED"), default=False),
+        link_async_poll_interval_sec=max(10, int(os.getenv("FEISHU_LINK_ASYNC_POLL_INTERVAL_SEC", "60"))),
+        link_async_timeout_min=max(1, int(os.getenv("FEISHU_LINK_ASYNC_TIMEOUT_MIN", "20"))),
     )
 
 
@@ -265,6 +280,146 @@ def _extract_urls(text: str) -> list[str]:
             value = f"https://{value}"
         urls.append(value)
     return _dedupe_urls(urls)
+
+
+def _extract_urls_from_node(node: Any) -> list[str]:
+    urls: list[str] = []
+
+    def _walk(value: Any) -> None:
+        if value is None:
+            return
+        if isinstance(value, str):
+            urls.extend(_extract_urls(value))
+            return
+        if isinstance(value, list):
+            for item in value:
+                _walk(item)
+            return
+        if isinstance(value, dict):
+            for key in ("href", "url", "link", "share_url"):
+                raw = value.get(key)
+                if isinstance(raw, str):
+                    urls.extend(_extract_urls(raw))
+            for item in value.values():
+                _walk(item)
+
+    _walk(node)
+    return _dedupe_urls(urls)
+
+
+def _extract_urls_from_meta(meta: dict[str, Any], source_ref: str = "") -> list[str]:
+    urls = _extract_urls_from_node(meta)
+    raw_ref = str(source_ref or "").strip()
+    if raw_ref.startswith("{") and raw_ref.endswith("}"):
+        try:
+            payload = json.loads(raw_ref)
+        except Exception:
+            payload = None
+        if isinstance(payload, dict):
+            urls.extend(_extract_urls_from_node(payload))
+    return _dedupe_urls(urls)
+
+
+def _normalize_async_url(url: str) -> str:
+    raw = str(url or "").strip()
+    if not raw:
+        return ""
+    try:
+        p = urlparse(raw)
+    except Exception:
+        return raw.lower()
+    scheme = (p.scheme or "https").lower()
+    host = (p.netloc or "").lower()
+    if not host:
+        return raw.lower()
+    path = re.sub(r"/+", "/", p.path or "/")
+    return f"{scheme}://{host}{path}".rstrip("/")
+
+
+def _is_douyin_url(url: str) -> bool:
+    try:
+        host = (urlparse(str(url or "")).netloc or "").lower()
+    except Exception:
+        host = ""
+    return bool(host) and (
+        host.endswith("douyin.com")
+        or host.endswith("iesdouyin.com")
+        or host.endswith("v.douyin.com")
+    )
+
+
+def _extract_message_meta_from_source_ref(source_ref: str) -> dict[str, str]:
+    raw = str(source_ref or "").strip()
+    if not raw:
+        return {"message_id": "", "chat_id": ""}
+
+    message_id = ""
+    chat_id = ""
+
+    # Optional JSON payload embedded in source_ref.
+    if raw.startswith("{") and raw.endswith("}"):
+        try:
+            payload = json.loads(raw)
+        except Exception:
+            payload = {}
+        if isinstance(payload, dict):
+            message_id = str(payload.get("message_id") or payload.get("msg_id") or "").strip()
+            chat_id = str(payload.get("chat_id") or payload.get("open_chat_id") or "").strip()
+            if message_id or chat_id:
+                return {"message_id": message_id, "chat_id": chat_id}
+
+    # K/V style fallback: message_id=..., chat_id=...
+    mid = re.search(r"(?:^|[\s,;|])(?:message_id|msg_id)\s*[:=]\s*([A-Za-z0-9_-]+)", raw, re.IGNORECASE)
+    cid = re.search(r"(?:^|[\s,;|])(?:chat_id|open_chat_id)\s*[:=]\s*([A-Za-z0-9_-]+)", raw, re.IGNORECASE)
+    if mid:
+        message_id = str(mid.group(1) or "").strip()
+    if cid:
+        chat_id = str(cid.group(1) or "").strip()
+
+    return {"message_id": message_id, "chat_id": chat_id}
+
+
+def _enqueue_async_jobs(
+    *,
+    settings: OrchestratorSettings,
+    event_ref: str,
+    urls: list[str],
+    text: str,
+    source_ref: str,
+    source_time: str,
+    source_user: str,
+    meta: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    ensure_link_async_schema()
+    source_meta = _extract_message_meta_from_source_ref(source_ref)
+    message_id = str((meta or {}).get("message_id") or (meta or {}).get("msg_id") or source_meta.get("message_id") or "").strip()
+    chat_id = str((meta or {}).get("chat_id") or source_meta.get("chat_id") or "").strip()
+    out: list[dict[str, Any]] = []
+    for idx, url in enumerate(urls):
+        normalized_url = _normalize_async_url(url)
+        job = enqueue_link_async_job(
+            job_id=f"{event_ref}#async#{idx + 1}",
+            event_ref=event_ref,
+            url=url,
+            normalized_url=normalized_url,
+            message_id=message_id,
+            chat_id=chat_id,
+            source_ref=source_ref,
+            source_time=source_time,
+            source_user=source_user,
+            timeout_minutes=settings.link_async_timeout_min,
+            meta={
+                "text": text,
+                "urls": urls,
+                "message_id": message_id,
+                "chat_id": chat_id,
+                "source_ref": source_ref,
+                "source_time": source_time,
+                "source_user": source_user,
+            },
+        )
+        out.append(job)
+    return out
 
 
 def _strip_urls(text: str) -> str:
@@ -698,21 +853,32 @@ def _run_skill(
     source_time: str,
     dry_run: bool,
 ) -> dict[str, Any]:
-    context_files: list[str] = []
+    explicit_context_files: list[str] = []
     nextday_brief = _latest_nextday_brief()
     if nextday_brief:
-        context_files.append(nextday_brief)
+        explicit_context_files.append(nextday_brief)
+
+    context_plan = build_skill_context_plan(
+        skill_id=skill_intent.skill_id,
+        brief=skill_intent.brief,
+        platform=skill_intent.platform,
+        context_files=explicit_context_files,
+    )
+    merged_context_files = list(context_plan.get("context_files_merged") or [])
 
     task = {
         "task_id": f"{event_ref}#skill",
         "event_ref": f"{event_ref}#skill",
         "source_ref": source_ref,
         "source_time": source_time,
-        "skill_id": skill_intent.skill_id,
+        "skill_id": context_plan.get("skill_id") or skill_intent.skill_id,
         "brief": skill_intent.brief,
-        "platform": skill_intent.platform,
+        "platform": context_plan.get("platform") or skill_intent.platform,
         "model": settings.codex_model,
-        "context_files": context_files,
+        "context_files": explicit_context_files,
+        "context_files_planned": merged_context_files,
+        "context_files_auto": context_plan.get("context_files_auto") or [],
+        "context_warnings": context_plan.get("context_warnings") or [],
     }
 
     if dry_run:
@@ -725,10 +891,13 @@ def _run_skill(
             "brief": skill_intent.brief,
             "result": {
                 "status": "success",
-                "skill_id": skill_intent.skill_id,
-                "platform": skill_intent.platform,
+                "skill_id": task["skill_id"],
+                "platform": task["platform"],
                 "saved_files": [],
                 "full_text": "",
+                "context_files_used": merged_context_files,
+                "context_files_auto": context_plan.get("context_files_auto") or [],
+                "context_warnings": context_plan.get("context_warnings") or [],
                 "errors": [],
             },
             "commander": {"task": task},
@@ -1329,7 +1498,9 @@ def orchestrate_message(
         return output
 
     registry = build_skill_registry()
-    urls = _extract_urls(message_text)
+    text_urls = _extract_urls(message_text)
+    meta_urls = _extract_urls_from_meta(meta_payload, source_ref_value)
+    urls = _dedupe_urls(text_urls + meta_urls)
     quote_trigger, quote_text = _parse_quote_trigger(message_text)
     quote_trigger_hit = quote_trigger != "none"
     skill_intent = _detect_skill_intent(
@@ -1342,6 +1513,14 @@ def orchestrate_message(
     ingest_trigger = "url" if urls else quote_trigger
     will_ingest = bool(urls) or quote_trigger_hit
     will_skill = skill_intent is not None
+    async_douyin_ingest = (
+        settings.link_async_enabled
+        and will_ingest
+        and bool(urls)
+        and all(_is_douyin_url(url) for url in urls)
+        and not will_skill
+        and not dry_run
+    )
 
     ingest_result: dict[str, Any] | None = None
     skill_result: dict[str, Any] | None = None
@@ -1349,6 +1528,87 @@ def orchestrate_message(
     plain_chat_fallback_used = False
     git_sync_result: dict[str, Any] | None = None
     errors: list[str] = []
+
+    if async_douyin_ingest:
+        queued_jobs = _enqueue_async_jobs(
+            settings=settings,
+            event_ref=event_ref_value,
+            urls=urls,
+            text=message_text,
+            source_ref=source_ref_value,
+            source_time=source_time_value,
+            source_user=source_user_value,
+            meta=meta_payload,
+        )
+        elapsed_ms = int((time.time() - started) * 1000)
+        timeout_min = settings.link_async_timeout_min
+        poll_sec = settings.link_async_poll_interval_sec
+        reply = (
+            f"链接已接收：{len(queued_jobs)}/{len(urls)}，"
+            f"正在等待多维表文案（轮询{poll_sec}s，超时{timeout_min}分钟），完成后自动回帖。"
+        )
+        output = {
+            "status": "queued",
+            "event_ref": event_ref_value,
+            "source_ref": source_ref_value,
+            "source_time": source_time_value,
+            "source_user": source_user_value,
+            "intent": {
+                "automation": False,
+                "automation_kind": "",
+                "ingest": True,
+                "skill": False,
+                "urls": urls,
+                "skill_id": "",
+                "skill_platform": "",
+                "skill_trigger": "",
+                "ingest_trigger": "url",
+            },
+            "ingest_trigger": "url",
+            "plain_chat_fallback_used": False,
+            "ingest": {
+                "status": "queued",
+                "mode": "link_async",
+                "event_ref": event_ref_value,
+                "result": {"queued_jobs": queued_jobs, "queued_count": len(queued_jobs)},
+            },
+            "skill": None,
+            "plain_chat": None,
+            "git_sync": None,
+            "reply": reply,
+            "reply_segments": [reply],
+            "errors": [],
+            "elapsed_ms": elapsed_ms,
+            "async": {"enabled": True, "queued_jobs": queued_jobs},
+        }
+        run_log = RUN_LOG_DIR / f"{_today()}.jsonl"
+        _append_jsonl(
+            run_log,
+            {
+                "ts": _now_iso(),
+                "event_ref": event_ref_value,
+                "status": "queued",
+                "intent": output["intent"],
+                "ingest_trigger": "url",
+                "plain_chat_fallback_used": False,
+                "git_sync_status": "",
+                "git_sync_commit": "",
+                "link_route_status": "pending_async",
+                "link_content_status": "pending_async",
+                "link_content_chars": 0,
+                "link_provider": "bitable_async",
+                "link_is_test": False,
+                "link_quality_reason": "pending_async",
+                "link_summary_detected": False,
+                "link_text_source": "",
+                "link_reject_reason": "",
+                "elapsed_ms": elapsed_ms,
+                "errors": [],
+                "async_job_count": len(queued_jobs),
+            },
+        )
+        output["run_log"] = run_log.relative_to(REPO_ROOT).as_posix()
+        return output
 
     if not will_ingest and not will_skill:
         plain_chat_fallback_used = True
@@ -1509,6 +1769,9 @@ def orchestrate_message(
             "link_provider": ingest_payload.get("link_provider"),
             "link_is_test": ingest_payload.get("link_is_test"),
             "link_quality_reason": ingest_payload.get("link_quality_reason"),
+            "link_summary_detected": ingest_payload.get("link_summary_detected"),
+            "link_text_source": ingest_payload.get("link_text_source"),
+            "link_reject_reason": ingest_payload.get("link_reject_reason"),
             "elapsed_ms": elapsed_ms,
             "errors": errors,
         },
@@ -1618,7 +1881,7 @@ def main(argv: list[str]) -> int:
             dry_run=args.dry_run,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0 if result.get("status") in {"success", "partial", "ignored"} else 1
+        return 0 if result.get("status") in {"success", "partial", "ignored", "queued"} else 1
     except KeyboardInterrupt:
         print(json.dumps({"status": "stopped", "reason": "keyboard_interrupt"}, ensure_ascii=False, indent=2))
         return 0

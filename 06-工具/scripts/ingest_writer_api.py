@@ -169,6 +169,9 @@ REQUEST_EXTRA_COLUMNS: dict[str, str] = {
     "provider": "TEXT",
     "is_test_url": "INTEGER",
     "quality_reason": "TEXT",
+    "summary_detected": "INTEGER",
+    "text_source": "TEXT",
+    "reject_reason": "TEXT",
 }
 
 
@@ -218,6 +221,20 @@ def _extract_urls(text: str) -> list[str]:
             value = f"https://{value}"
         urls.append(value)
     return _dedupe_urls(urls)
+
+
+def _build_link_input_text(text: str, urls: list[str]) -> str:
+    """
+    Keep original message text, but always include at least one raw URL line.
+    This prevents link-mode from being downgraded to ignore when rich messages
+    provide URLs in metadata/payload only.
+    """
+    base = str(text or "").strip()
+    if not base:
+        return "\n".join(urls)
+    if _extract_urls(base):
+        return base
+    return f"{base}\n" + "\n".join(urls)
 
 
 def _strip_urls(text: str) -> str:
@@ -299,6 +316,9 @@ def _link_fields_from_result(result: dict[str, Any] | None) -> dict[str, Any]:
         "provider": str(payload.get("link_provider") or "").strip(),
         "is_test_url": 1 if bool(payload.get("link_is_test")) else 0,
         "quality_reason": str(payload.get("link_quality_reason") or "").strip(),
+        "summary_detected": 1 if bool(payload.get("link_summary_detected")) else 0,
+        "text_source": str(payload.get("link_text_source") or "").strip(),
+        "reject_reason": str(payload.get("link_reject_reason") or "").strip(),
     }
 
 
@@ -348,7 +368,8 @@ def _db_get(event_ref: str) -> dict[str, Any] | None:
         with sqlite3.connect(STATE_DB) as conn:
             row = conn.execute(
                 "SELECT event_ref, mode, status, request_json, result_json, error_text, created_at, updated_at, "
-                "route_status, content_status, content_chars, provider, is_test_url, quality_reason "
+                "route_status, content_status, content_chars, provider, is_test_url, quality_reason, "
+                "summary_detected, text_source, reject_reason "
                 "FROM requests WHERE event_ref = ?",
                 (event_ref,),
             ).fetchone()
@@ -369,6 +390,9 @@ def _db_get(event_ref: str) -> dict[str, Any] | None:
         "provider": row[11],
         "is_test_url": row[12],
         "quality_reason": row[13],
+        "summary_detected": row[14],
+        "text_source": row[15],
+        "reject_reason": row[16],
     }
 
 
@@ -386,6 +410,9 @@ def _db_upsert(
     provider: str = "",
     is_test_url: int = 0,
     quality_reason: str = "",
+    summary_detected: int = 0,
+    text_source: str = "",
+    reject_reason: str = "",
 ) -> None:
     _ensure_db_ready()
     now = _now_iso()
@@ -395,9 +422,10 @@ def _db_upsert(
                 """
                 INSERT INTO requests(
                   event_ref, mode, status, request_json, result_json, error_text, created_at, updated_at,
-                  route_status, content_status, content_chars, provider, is_test_url, quality_reason
+                  route_status, content_status, content_chars, provider, is_test_url, quality_reason,
+                  summary_detected, text_source, reject_reason
                 )
-                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(event_ref) DO UPDATE SET
                   mode=excluded.mode,
                   status=excluded.status,
@@ -410,6 +438,9 @@ def _db_upsert(
                   provider=excluded.provider,
                   is_test_url=excluded.is_test_url,
                   quality_reason=excluded.quality_reason,
+                  summary_detected=excluded.summary_detected,
+                  text_source=excluded.text_source,
+                  reject_reason=excluded.reject_reason,
                   updated_at=excluded.updated_at
                 """,
                 (
@@ -427,6 +458,9 @@ def _db_upsert(
                     provider,
                     int(is_test_url or 0),
                     quality_reason,
+                    int(summary_detected or 0),
+                    text_source,
+                    reject_reason,
                 ),
             )
             conn.commit()
@@ -460,6 +494,9 @@ def _make_result(
     link_provider: str = "",
     link_is_test: bool = False,
     link_quality_reason: str = "",
+    link_summary_detected: bool = False,
+    link_text_source: str = "",
+    link_reject_reason: str = "",
 ) -> dict[str, Any]:
     return {
         "event_ref": event_ref,
@@ -477,6 +514,9 @@ def _make_result(
         "link_provider": link_provider,
         "link_is_test": bool(link_is_test),
         "link_quality_reason": link_quality_reason,
+        "link_summary_detected": bool(link_summary_detected),
+        "link_text_source": link_text_source,
+        "link_reject_reason": link_reject_reason,
     }
 
 
@@ -514,6 +554,9 @@ def _message_summary_to_result(event_ref: str, mode: str, summary: Any) -> dict[
             link_provider=summary.link_provider,
             link_is_test=summary.link_is_test,
             link_quality_reason=summary.link_quality_reason,
+            link_summary_detected=summary.link_summary_detected,
+            link_text_source=summary.link_text_source,
+            link_reject_reason=summary.link_reject_reason,
         )
     return _make_result(
         event_ref=event_ref,
@@ -531,6 +574,9 @@ def _message_summary_to_result(event_ref: str, mode: str, summary: Any) -> dict[
         link_provider=summary.link_provider,
         link_is_test=summary.link_is_test,
         link_quality_reason=summary.link_quality_reason,
+        link_summary_detected=summary.link_summary_detected,
+        link_text_source=summary.link_text_source,
+        link_reject_reason=summary.link_reject_reason,
     )
 
 
@@ -588,7 +634,7 @@ def _process_link(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]:
     import_record_path = IMPORT_RECORD_DIR / f"{_extract_date(source_time)}-feishu-import.md"
     link_log_path = LINK_LOG_DIR / f"{_extract_date(source_time)}-feishu-links.md"
 
-    link_input_text = text.strip() or "\n".join(urls)
+    link_input_text = _build_link_input_text(text, urls)
     summary = process_message(
         text=link_input_text,
         quote_dir=QUOTE_DIR,
@@ -658,7 +704,7 @@ def _process_mixed(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]
         skipped += quote_summary.quote_exact_dup_count
 
     if urls:
-        link_input_text = text.strip() or "\n".join(urls)
+        link_input_text = _build_link_input_text(text, urls)
         link_summary = process_message(
             text=link_input_text,
             quote_dir=QUOTE_DIR,
@@ -694,6 +740,9 @@ def _process_mixed(*, event_ref: str, payload: dict[str, Any]) -> dict[str, Any]
         link_provider=str((details.get("link") or {}).get("link_provider") or ""),
         link_is_test=bool((details.get("link") or {}).get("link_is_test")),
         link_quality_reason=str((details.get("link") or {}).get("link_quality_reason") or ""),
+        link_summary_detected=bool((details.get("link") or {}).get("link_summary_detected")),
+        link_text_source=str((details.get("link") or {}).get("link_text_source") or ""),
+        link_reject_reason=str((details.get("link") or {}).get("link_reject_reason") or ""),
     )
 
 
