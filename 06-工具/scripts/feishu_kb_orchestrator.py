@@ -38,11 +38,30 @@ import requests
 from codex_commander import execute_tasks
 from feishu_skill_runner import (
     DEFAULT_MODEL,
-    build_skill_context_plan,
     build_skill_registry,
     resolve_codex_cli,
     resolve_skill,
 )
+try:
+    from feishu_skill_runner import build_skill_context_plan
+except ImportError:
+    # Backward compatibility for clouds that still run older feishu_skill_runner.py
+    # without build_skill_context_plan. Keep skill flow usable with a no-op plan.
+    def build_skill_context_plan(
+        *,
+        skill_id: str,
+        brief: str,
+        platform: str = "",
+        context_files: list[str] | None = None,
+    ) -> dict[str, Any]:
+        merged = list(context_files or [])
+        return {
+            "skill_id": skill_id,
+            "platform": platform,
+            "context_files_merged": merged,
+            "context_files_auto": [],
+            "context_warnings": [],
+        }
 from link_async_jobs import enqueue_job as enqueue_link_async_job
 from link_async_jobs import ensure_schema as ensure_link_async_schema
 from topic_pipeline import run_pipeline_daemon, run_pipeline_once
