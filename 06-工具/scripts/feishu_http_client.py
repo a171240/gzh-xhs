@@ -265,7 +265,12 @@ def ensure_bitable_link_record(
                     "created": False,
                     "match": "url",
                 }
-            if video_id and (video_id == vid_text or video_id in link_text):
+            # Link-first strategy: only use video-id match when this row has no usable link.
+            if (
+                video_id
+                and (not link_norm)
+                and (video_id == vid_text or video_id in link_text)
+            ):
                 return {
                     "ok": True,
                     "record_id": str(item.get("record_id") or "").strip(),
