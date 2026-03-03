@@ -356,6 +356,27 @@ def _normalize_async_url(url: str) -> str:
     return f"{scheme}://{host}{path}".rstrip("/")
 
 
+def _extract_douyin_video_id(url: str) -> str:
+    raw = str(url or "")
+    match = re.search(r"/(?:video|share/video)/(\d{8,32})(?:\D|$)", raw, re.IGNORECASE)
+    if match:
+        return str(match.group(1) or "").strip()
+    return ""
+
+
+def _build_async_dedup_key(url: str) -> str:
+    video_id = _extract_douyin_video_id(url)
+    if video_id:
+        return f"dy-{video_id}"
+    normalized = _normalize_async_url(url)
+    if not normalized:
+        normalized = str(url or "").strip()
+    if not normalized:
+        return ""
+    digest = hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:12]
+    return f"url-{digest}"
+
+
 def _is_douyin_url(url: str) -> bool:
     try:
         host = (urlparse(str(url or "")).netloc or "").lower()
@@ -424,6 +445,7 @@ def _enqueue_async_jobs(
     out: list[dict[str, Any]] = []
     for idx, url in enumerate(urls):
         normalized_url = _normalize_async_url(url)
+        dedup_key = _build_async_dedup_key(url)
         bitable_seed: dict[str, Any] = {}
         if bitable_app_token and bitable_table_id:
             try:
@@ -449,16 +471,19 @@ def _enqueue_async_jobs(
             source_ref=source_ref,
             source_time=source_time,
             source_user=source_user,
+            dedup_key=dedup_key,
             timeout_minutes=settings.link_async_timeout_min,
             meta={
                 "text": text,
                 "urls": urls,
+                "pipeline_mode": str(os.getenv("INGEST_DOUYIN_PIPELINE_MODE") or "asr_primary").strip().lower(),
                 "message_id": message_id,
                 "chat_id": chat_id,
                 "source_ref": source_ref,
                 "source_time": source_time,
                 "source_user": source_user,
                 "bitable_seed": bitable_seed,
+                "dedup_key": dedup_key,
             },
         )
         out.append(job)
@@ -1544,6 +1569,7 @@ def orchestrate_message(
     text_urls = _extract_urls(message_text)
     meta_urls = _extract_urls_from_meta(meta_payload, source_ref_value)
     urls = _dedupe_urls(text_urls + meta_urls)
+    douyin_urls = [url for url in urls if _is_douyin_url(url)]
     quote_trigger, quote_text = _parse_quote_trigger(message_text)
     quote_trigger_hit = quote_trigger != "none"
     skill_intent = _detect_skill_intent(
@@ -1558,9 +1584,7 @@ def orchestrate_message(
     will_skill = skill_intent is not None
     async_douyin_ingest = (
         settings.link_async_enabled
-        and will_ingest
-        and bool(urls)
-        and all(_is_douyin_url(url) for url in urls)
+        and bool(douyin_urls)
         and not will_skill
         and not dry_run
     )
@@ -1573,10 +1597,13 @@ def orchestrate_message(
     errors: list[str] = []
 
     if async_douyin_ingest:
+        pipeline_mode = str(os.getenv("INGEST_DOUYIN_PIPELINE_MODE") or "asr_primary").strip().lower()
+        if pipeline_mode not in {"asr_primary", "bitable_primary", "bitable_only"}:
+            pipeline_mode = "asr_primary"
         queued_jobs = _enqueue_async_jobs(
             settings=settings,
             event_ref=event_ref_value,
-            urls=urls,
+            urls=douyin_urls,
             text=message_text,
             source_ref=source_ref_value,
             source_time=source_time_value,
@@ -1586,10 +1613,16 @@ def orchestrate_message(
         elapsed_ms = int((time.time() - started) * 1000)
         timeout_min = settings.link_async_timeout_min
         poll_sec = settings.link_async_poll_interval_sec
-        reply = (
-            f"链接已接收：{len(queued_jobs)}/{len(urls)}，"
-            f"正在等待多维表文案（轮询{poll_sec}s，超时{timeout_min}分钟），完成后自动回帖。"
-        )
+        if pipeline_mode == "bitable_only":
+            waiting_text = "正在等待多维表文案"
+            provider = "bitable_async"
+        elif pipeline_mode == "bitable_primary":
+            waiting_text = "正在提取文案（多维表优先，ASR 兜底）"
+            provider = "bitable_primary_async"
+        else:
+            waiting_text = "正在提取文案（ASR 优先，多维表补充）"
+            provider = "asr_primary_async"
+        reply = f"链接已接收：{len(queued_jobs)}/{len(douyin_urls)}，{waiting_text}（轮询{poll_sec}s，超时{timeout_min}分钟），完成后自动回帖。"
         output = {
             "status": "queued",
             "event_ref": event_ref_value,
@@ -1623,6 +1656,7 @@ def orchestrate_message(
             "errors": [],
             "elapsed_ms": elapsed_ms,
             "async": {"enabled": True, "queued_jobs": queued_jobs},
+            "douyin_pipeline_mode": pipeline_mode,
         }
         run_log = RUN_LOG_DIR / f"{_today()}.jsonl"
         _append_jsonl(
@@ -1639,7 +1673,7 @@ def orchestrate_message(
                 "link_route_status": "pending_async",
                 "link_content_status": "pending_async",
                 "link_content_chars": 0,
-                "link_provider": "bitable_async",
+                "link_provider": provider,
                 "link_is_test": False,
                 "link_quality_reason": "pending_async",
                 "link_summary_detected": False,

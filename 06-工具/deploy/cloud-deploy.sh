@@ -287,11 +287,18 @@ set_env_kv /etc/openclaw/feishu.env INGEST_LINK_ALLOW_TEST_SKIP "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_STRICT_FULL_TEXT "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_SUMMARY_BLOCK "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_MIN_SENTENCES "3"
-set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_SOURCE_MODE "bitable_only"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_SOURCE_MODE "${INGEST_DOUYIN_SOURCE_MODE:-hybrid}"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_PIPELINE_MODE "${INGEST_DOUYIN_PIPELINE_MODE:-asr_primary}"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_ENABLED "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_READ_FIRST "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_FALLBACK_FULL_SCAN "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_WRITE_BACK "true"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_ENABLED "${INGEST_DOUYIN_ASR_ENABLED:-true}"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_API_KEY "${INGEST_DOUYIN_ASR_API_KEY:-${API_KEY:-}}"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_TIMEOUT_SEC "${INGEST_DOUYIN_ASR_TIMEOUT_SEC:-600}"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_DEDUP_KEY_MODE "${INGEST_DOUYIN_DEDUP_KEY_MODE:-video_or_canonical_url}"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_WRITE_SUMMARY "${INGEST_DOUYIN_WRITE_SUMMARY:-true}"
+set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_WRITE_KEYPOINTS "${INGEST_DOUYIN_WRITE_KEYPOINTS:-true}"
 set_env_kv /etc/openclaw/feishu.env BITABLE_APP_TOKEN "${BITABLE_APP_TOKEN:-UrwobWA3JadzAcsLqJbc6CThnRd}"
 set_env_kv /etc/openclaw/feishu.env BITABLE_TABLE_ID "${BITABLE_TABLE_ID:-tblr1mvEh1bFsUAS}"
 set_env_kv /etc/openclaw/feishu.env BITABLE_VIEW_ID "${BITABLE_VIEW_ID:-vew5Oj8RIj}"
@@ -327,6 +334,9 @@ python3 -m py_compile \
   "$RUNTIME_DIR/bitable_link_worker.py" \
   "$RUNTIME_DIR/link_to_quotes.py" \
   "$RUNTIME_DIR/git_sync_after_write.py"
+if [[ -f "$RUNTIME_DIR/douyin_asr_extractor.py" ]]; then
+  python3 -m py_compile "$RUNTIME_DIR/douyin_asr_extractor.py"
+fi
 
 chmod +x "$SMOKE_SCRIPT" "$RUNTIME_DIR/run-feishu-kb-orchestrator.sh"
 if [[ -f "$DEPLOY_DIR/verify-real-feishu-chain.sh" ]]; then

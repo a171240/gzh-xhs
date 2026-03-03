@@ -29,6 +29,7 @@ from link_async_jobs import (
     get_job,
     is_expired,
     mark_job_pending,
+    update_notify_status,
 )
 
 
@@ -46,6 +47,7 @@ RETRYABLE_REASONS = {
     "content_not_success",
 }
 BITABLE_SOURCES = {"bitable", "bitable_text"}
+ASR_SOURCES = {"asr"}
 
 
 def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
@@ -113,16 +115,32 @@ def _pick_ingest_meta(ingest: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _is_success(meta: dict[str, Any]) -> bool:
+def _current_pipeline_mode() -> str:
+    mode = str(os.getenv("INGEST_DOUYIN_PIPELINE_MODE") or "asr_primary").strip().lower()
+    if mode not in {"asr_primary", "bitable_primary", "bitable_only"}:
+        return "asr_primary"
+    return mode
+
+
+def _allowed_sources_for_mode(pipeline_mode: str) -> set[str]:
+    if pipeline_mode == "bitable_only":
+        return set(BITABLE_SOURCES)
+    if pipeline_mode in {"bitable_primary", "asr_primary"}:
+        return set(BITABLE_SOURCES | ASR_SOURCES)
+    return set(BITABLE_SOURCES | ASR_SOURCES)
+
+
+def _is_success(meta: dict[str, Any], *, pipeline_mode: str) -> bool:
+    allowed_sources = _allowed_sources_for_mode(pipeline_mode)
     return (
         str(meta.get("content_status") or "") == "success"
-        and str(meta.get("text_source") or "").lower() in BITABLE_SOURCES
+        and str(meta.get("text_source") or "").lower() in allowed_sources
         and not bool(meta.get("summary_detected"))
     )
 
 
-def _is_retryable(meta: dict[str, Any], ingest_status: str) -> bool:
-    if _is_success(meta):
+def _is_retryable(meta: dict[str, Any], ingest_status: str, *, pipeline_mode: str) -> bool:
+    if _is_success(meta, pipeline_mode=pipeline_mode):
         return False
     reason = str(meta.get("reject_reason") or meta.get("quality_reason") or "").lower()
     if reason:
@@ -258,6 +276,7 @@ def _append_run_log(job: dict[str, Any], *, status: str, ingest: dict[str, Any],
 
 def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
     settings = _load_settings()
+    pipeline_mode = _current_pipeline_mode()
     job_id = str(job.get("job_id") or "").strip()
     event_ref = str(job.get("event_ref") or "").strip()
     source_ref = str(job.get("source_ref") or "").strip() or "feishu-async-worker"
@@ -278,13 +297,14 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
     prev_git_sync = (previous_result or {}).get("git_sync") if isinstance((previous_result or {}).get("git_sync"), dict) else {}
     if prev_status in {"notify_pending", "success", "partial"} and prev_ingest:
         prev_meta = _pick_ingest_meta(prev_ingest)
-        if _is_success(prev_meta):
+        if _is_success(prev_meta, pipeline_mode=pipeline_mode):
             ok, _ = _safe_reply(job, _compose_success_reply(prev_meta, prev_git_sync))
             if ok:
                 complete_job_success(
                     job_id,
                     result={"ingest": prev_ingest, "git_sync": prev_git_sync, "status": "success"},
                 )
+                update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
             else:
                 mark_job_pending(
                     job_id,
@@ -292,6 +312,7 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
                     error="notify_retry",
                     result={"ingest": prev_ingest, "git_sync": prev_git_sync, "status": "notify_pending"},
                 )
+                update_notify_status(job_id, notify_state="pending", notify_error="notify_retry", increment_try=True)
             return
 
     # Best-effort safeguard: if async entry was queued but Bitable row is missing,
@@ -316,7 +337,11 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
     if is_expired(job):
         reason = "timeout_waiting_bitable_text"
         complete_job_failed(job_id, error=reason, state=STATE_TIMEOUT)
-        _safe_reply(job, _compose_fail_reply(reason, timeout=True))
+        notify_ok, notify_errors = _safe_reply(job, _compose_fail_reply(reason, timeout=True))
+        if notify_ok:
+            update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
+        else:
+            update_notify_status(job_id, notify_state="pending", notify_error="; ".join(notify_errors), increment_try=True)
         return
 
     ingest = _run_ingest(
@@ -331,7 +356,7 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
     ingest_status = str(ingest.get("status") or "").strip().lower()
     meta_info = _pick_ingest_meta(ingest)
 
-    if _is_success(meta_info):
+    if _is_success(meta_info, pipeline_mode=pipeline_mode):
         touched = ((ingest.get("result") or {}).get("touched_files") or [])
         git_sync: dict[str, Any] | None = None
         if not dry_run:
@@ -359,9 +384,12 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
                 error="; ".join(notify_errors),
                 result={**result_payload, "status": "notify_pending", "notify_errors": notify_errors},
             )
+            update_notify_status(job_id, notify_state="pending", notify_error="; ".join(notify_errors), increment_try=True)
+        else:
+            update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
         return
 
-    if _is_retryable(meta_info, ingest_status):
+    if _is_retryable(meta_info, ingest_status, pipeline_mode=pipeline_mode):
         if is_expired(job):
             reason = str(meta_info.get("reject_reason") or meta_info.get("quality_reason") or "timeout_waiting_bitable_text")
             complete_job_failed(
@@ -371,7 +399,11 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
                 state=STATE_TIMEOUT,
             )
             _append_run_log(job, status="error", ingest=ingest, git_sync=None, errors=[reason])
-            _safe_reply(job, _compose_fail_reply(reason, timeout=True))
+            notify_ok, notify_errors = _safe_reply(job, _compose_fail_reply(reason, timeout=True))
+            if notify_ok:
+                update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
+            else:
+                update_notify_status(job_id, notify_state="pending", notify_error="; ".join(notify_errors), increment_try=True)
             return
 
         mark_job_pending(
@@ -380,6 +412,7 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
             error=str(meta_info.get("reject_reason") or meta_info.get("quality_reason") or "waiting_bitable_text"),
             result={"ingest": ingest, "status": "pending"},
         )
+        update_notify_status(job_id, notify_state="pending", notify_error="", increment_try=False)
         return
 
     reason = str(meta_info.get("reject_reason") or meta_info.get("quality_reason") or "content_not_success").strip()
@@ -390,7 +423,11 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
         state="failed",
     )
     _append_run_log(job, status="error", ingest=ingest, git_sync=None, errors=[reason])
-    _safe_reply(job, _compose_fail_reply(reason))
+    notify_ok, notify_errors = _safe_reply(job, _compose_fail_reply(reason))
+    if notify_ok:
+        update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
+    else:
+        update_notify_status(job_id, notify_state="pending", notify_error="; ".join(notify_errors), increment_try=True)
 
 
 def run_once(*, limit: int, dry_run: bool) -> dict[str, Any]:

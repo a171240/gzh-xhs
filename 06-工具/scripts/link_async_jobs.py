@@ -110,6 +110,7 @@ def ensure_schema() -> None:
               source_user text not null default '',
               url text not null default '',
               normalized_url text not null default '',
+              dedup_key text not null default '',
               state text not null default 'pending',
               created_at text not null default '',
               updated_at text not null default '',
@@ -118,6 +119,9 @@ def ensure_schema() -> None:
               deadline_at text not null default '',
               completed_at text not null default '',
               try_count integer not null default 0,
+              notify_state text not null default '',
+              notify_try_count integer not null default 0,
+              notify_error text not null default '',
               meta_json text not null default '{}',
               result_json text not null default '{}',
               error text not null default ''
@@ -126,7 +130,26 @@ def ensure_schema() -> None:
         )
         conn.execute("create index if not exists idx_link_async_jobs_state_next on link_async_jobs(state, next_poll_at)")
         conn.execute("create index if not exists idx_link_async_jobs_event_ref on link_async_jobs(event_ref)")
+        conn.execute("create index if not exists idx_link_async_jobs_dedup_key on link_async_jobs(dedup_key)")
         conn.execute("create unique index if not exists uq_link_async_jobs_event_ref_url on link_async_jobs(event_ref, normalized_url)")
+        _migrate_columns(conn)
+
+
+def _migrate_columns(conn: sqlite3.Connection) -> None:
+    existing = {
+        str(row[1] or "").strip().lower()
+        for row in conn.execute("pragma table_info(link_async_jobs)").fetchall()
+    }
+    migrations: list[tuple[str, str]] = [
+        ("dedup_key", "text not null default ''"),
+        ("notify_state", "text not null default ''"),
+        ("notify_try_count", "integer not null default 0"),
+        ("notify_error", "text not null default ''"),
+    ]
+    for column, ddl in migrations:
+        if column in existing:
+            continue
+        conn.execute(f"alter table link_async_jobs add column {column} {ddl}")
 
 
 def enqueue_job(
@@ -140,6 +163,7 @@ def enqueue_job(
     source_ref: str = "",
     source_time: str = "",
     source_user: str = "",
+    dedup_key: str = "",
     timeout_minutes: int = 20,
     meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -157,6 +181,7 @@ def enqueue_job(
         str(source_user or "").strip(),
         str(url or "").strip(),
         str(normalized_url or "").strip(),
+        str(dedup_key or "").strip(),
         STATE_PENDING,
         created_at,
         created_at,
@@ -165,6 +190,9 @@ def enqueue_job(
         deadline_at,
         "",
         0,
+        "",
+        0,
+        "",
         json.dumps(meta or {}, ensure_ascii=False),
         "{}",
         "",
@@ -174,20 +202,24 @@ def enqueue_job(
             """
             insert into link_async_jobs(
               job_id,event_ref,message_id,chat_id,source_ref,source_time,source_user,
-              url,normalized_url,state,created_at,updated_at,last_poll_at,next_poll_at,
-              deadline_at,completed_at,try_count,meta_json,result_json,error
-            ) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              url,normalized_url,dedup_key,state,created_at,updated_at,last_poll_at,next_poll_at,
+              deadline_at,completed_at,try_count,notify_state,notify_try_count,notify_error,meta_json,result_json,error
+            ) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             on conflict(event_ref, normalized_url) do update set
               message_id=excluded.message_id,
               chat_id=excluded.chat_id,
               source_ref=excluded.source_ref,
               source_time=excluded.source_time,
               source_user=excluded.source_user,
+              dedup_key=excluded.dedup_key,
               state=excluded.state,
               next_poll_at=excluded.next_poll_at,
               deadline_at=excluded.deadline_at,
               completed_at='',
               try_count=0,
+              notify_state='',
+              notify_try_count=0,
+              notify_error='',
               error='',
               result_json='{}',
               meta_json=excluded.meta_json,
@@ -273,6 +305,40 @@ def mark_job_pending(job_id: str, *, next_poll_seconds: int = 60, error: str = "
                 str(job_id or "").strip(),
             ),
         )
+
+
+def update_notify_status(
+    job_id: str,
+    *,
+    notify_state: str,
+    notify_error: str = "",
+    increment_try: bool = False,
+) -> None:
+    key = str(job_id or "").strip()
+    if not key:
+        return
+    state_text = str(notify_state or "").strip()
+    err_text = str(notify_error or "").strip()
+    now_iso = _iso()
+    with _connect() as conn:
+        if increment_try:
+            conn.execute(
+                """
+                update link_async_jobs
+                set notify_state=?, notify_error=?, notify_try_count=notify_try_count+1, updated_at=?
+                where job_id=?
+                """,
+                (state_text, err_text, now_iso, key),
+            )
+        else:
+            conn.execute(
+                """
+                update link_async_jobs
+                set notify_state=?, notify_error=?, updated_at=?
+                where job_id=?
+                """,
+                (state_text, err_text, now_iso, key),
+            )
 
 
 def complete_job_success(job_id: str, result: dict[str, Any] | None = None) -> None:

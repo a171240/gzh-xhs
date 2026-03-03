@@ -30,6 +30,11 @@ import requests
 
 from crawl_bridge import CRAWL_ROOT, URL_READER_VENV_PY, resolve_python_cmd, run_url_reader
 from quote_ingest_core import DEFAULT_NEAR_DUP_THRESHOLD, CandidateQuote, NearDupItem, resolve_path
+try:
+    from douyin_asr_extractor import DouyinAsrError, extract_douyin_asr_dict
+except Exception:  # pragma: no cover - optional runtime dependency
+    DouyinAsrError = RuntimeError  # type: ignore[assignment]
+    extract_douyin_asr_dict = None  # type: ignore[assignment]
 
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 NOISE_LINE_SUBSTRINGS = (
@@ -150,7 +155,13 @@ DEFAULT_DOUYIN_BITABLE_ENABLED = True
 DEFAULT_DOUYIN_BITABLE_READ_FIRST = True
 DEFAULT_DOUYIN_BITABLE_WRITE_BACK = True
 DEFAULT_DOUYIN_SOURCE_MODE = "bitable_only"
+DEFAULT_DOUYIN_PIPELINE_MODE = "asr_primary"
 DEFAULT_DOUYIN_BITABLE_FALLBACK_FULL_SCAN = True
+DEFAULT_DOUYIN_ASR_ENABLED = True
+DEFAULT_DOUYIN_ASR_TIMEOUT_SEC = 600
+DEFAULT_DOUYIN_WRITE_SUMMARY = True
+DEFAULT_DOUYIN_WRITE_KEYPOINTS = True
+DEFAULT_DOUYIN_DEDUP_KEY_MODE = "video_or_canonical_url"
 FEISHU_OPEN_BASE_URL = "https://open.feishu.cn"
 FEISHU_HTTP_TIMEOUT_SEC = 20
 FEISHU_HTTP_VERIFY_SSL = True
@@ -188,6 +199,7 @@ ENV_RUNTIME_REQUIRED_KEYS = {
     "BITABLE_TEXT_FIELD",
     "BITABLE_TEXT_FALLBACK_FIELD",
     "INGEST_DOUYIN_SOURCE_MODE",
+    "INGEST_DOUYIN_PIPELINE_MODE",
     "INGEST_DOUYIN_BITABLE_ENABLED",
 }
 
@@ -229,7 +241,13 @@ def _refresh_runtime_config() -> None:
     global DEFAULT_DOUYIN_BITABLE_READ_FIRST
     global DEFAULT_DOUYIN_BITABLE_WRITE_BACK
     global DEFAULT_DOUYIN_SOURCE_MODE
+    global DEFAULT_DOUYIN_PIPELINE_MODE
     global DEFAULT_DOUYIN_BITABLE_FALLBACK_FULL_SCAN
+    global DEFAULT_DOUYIN_ASR_ENABLED
+    global DEFAULT_DOUYIN_ASR_TIMEOUT_SEC
+    global DEFAULT_DOUYIN_WRITE_SUMMARY
+    global DEFAULT_DOUYIN_WRITE_KEYPOINTS
+    global DEFAULT_DOUYIN_DEDUP_KEY_MODE
     global FEISHU_OPEN_BASE_URL
     global FEISHU_HTTP_TIMEOUT_SEC
     global FEISHU_HTTP_VERIFY_SSL
@@ -259,7 +277,22 @@ def _refresh_runtime_config() -> None:
     DEFAULT_DOUYIN_BITABLE_WRITE_BACK = _env_bool("INGEST_DOUYIN_BITABLE_WRITE_BACK", True)
     source_mode_raw = str(os.getenv("INGEST_DOUYIN_SOURCE_MODE") or "bitable_only").strip().lower()
     DEFAULT_DOUYIN_SOURCE_MODE = source_mode_raw if source_mode_raw in {"bitable_only", "hybrid"} else "hybrid"
+    pipeline_mode_raw = str(os.getenv("INGEST_DOUYIN_PIPELINE_MODE") or "").strip().lower()
+    if not pipeline_mode_raw:
+        pipeline_mode_raw = "bitable_only" if DEFAULT_DOUYIN_SOURCE_MODE == "bitable_only" else "bitable_primary"
+    DEFAULT_DOUYIN_PIPELINE_MODE = (
+        pipeline_mode_raw
+        if pipeline_mode_raw in {"asr_primary", "bitable_primary", "bitable_only"}
+        else "asr_primary"
+    )
     DEFAULT_DOUYIN_BITABLE_FALLBACK_FULL_SCAN = _env_bool("INGEST_DOUYIN_BITABLE_FALLBACK_FULL_SCAN", True)
+    DEFAULT_DOUYIN_ASR_ENABLED = _env_bool("INGEST_DOUYIN_ASR_ENABLED", True)
+    DEFAULT_DOUYIN_ASR_TIMEOUT_SEC = max(60, int(os.getenv("INGEST_DOUYIN_ASR_TIMEOUT_SEC", "600")))
+    DEFAULT_DOUYIN_WRITE_SUMMARY = _env_bool("INGEST_DOUYIN_WRITE_SUMMARY", True)
+    DEFAULT_DOUYIN_WRITE_KEYPOINTS = _env_bool("INGEST_DOUYIN_WRITE_KEYPOINTS", True)
+    DEFAULT_DOUYIN_DEDUP_KEY_MODE = str(
+        os.getenv("INGEST_DOUYIN_DEDUP_KEY_MODE") or "video_or_canonical_url"
+    ).strip().lower()
     FEISHU_OPEN_BASE_URL = str(os.getenv("FEISHU_OPEN_BASE_URL") or "https://open.feishu.cn").strip().rstrip("/")
     FEISHU_HTTP_TIMEOUT_SEC = max(5, int(os.getenv("FEISHU_HTTP_TIMEOUT_SEC", "20")))
     FEISHU_HTTP_VERIFY_SSL = _env_bool("FEISHU_HTTP_VERIFY_SSL", True)
@@ -301,6 +334,9 @@ class LinkProcessItem:
     summary_detected: bool = False
     text_source: str = ""
     reject_reason: str = ""
+    douyin_pipeline_mode: str = ""
+    douyin_source_used: str = ""
+    douyin_dedup_key: str = ""
 
 
 @dataclass(frozen=True)
@@ -596,18 +632,36 @@ def _bitable_cell_to_text(value: Any) -> str:
     return ""
 
 
-def _bitable_source_rank(source: str) -> int:
-    ranks = {
-        "bitable": 0,
-        "bitable_text": 0,
-        "share_text": 1,
-        "url_reader_main": 2,
-        "f2": 3,
-        "yt_dlp": 4,
-        "http_fallback": 5,
-        "url_reader_caption": 6,
+def _douyin_source_rank(source: str) -> int:
+    mode = str(DEFAULT_DOUYIN_PIPELINE_MODE or "").strip().lower()
+    source_name = str(source or "").strip().lower()
+
+    base = {
+        "asr": 1,
+        "bitable": 2,
+        "bitable_text": 2,
+        "share_text": 3,
+        "url_reader_main": 4,
+        "f2": 5,
+        "yt_dlp": 6,
+        "http_fallback": 7,
+        "url_reader_caption": 8,
     }
-    return int(ranks.get(str(source or ""), 99))
+    if mode == "bitable_primary":
+        base["bitable"] = 0
+        base["bitable_text"] = 0
+        base["asr"] = 1
+    elif mode == "bitable_only":
+        base["bitable"] = 0
+        base["bitable_text"] = 0
+        base["asr"] = 50
+    else:
+        # default asr_primary
+        base["asr"] = 0
+        base["bitable"] = 1
+        base["bitable_text"] = 1
+
+    return int(base.get(source_name, 99))
 
 
 def _normalize_match_url(url: str) -> str:
@@ -1766,6 +1820,118 @@ def _expand_short_url(url: str) -> str:
     return raw
 
 
+def _build_douyin_dedup_key(
+    *,
+    url: str,
+    source_text: str = "",
+    video_id_hint: str = "",
+    canonical_url_hint: str = "",
+) -> str:
+    mode = str(DEFAULT_DOUYIN_DEDUP_KEY_MODE or "").strip().lower()
+    video_id = (
+        str(video_id_hint or "").strip()
+        or _extract_douyin_video_id(url)
+        or _extract_douyin_video_id(source_text)
+        or _extract_douyin_video_id(canonical_url_hint)
+    )
+    if video_id:
+        return f"dy-{video_id}"
+
+    if mode == "video_only":
+        return ""
+
+    canonical = _normalize_match_url(canonical_url_hint) or _normalize_match_url(_expand_short_url(url)) or _normalize_match_url(url)
+    if not canonical:
+        canonical = str(url or "").strip()
+    if not canonical:
+        return ""
+    return f"url-{hashlib.sha1(canonical.encode('utf-8')).hexdigest()[:12]}"
+
+
+def _extract_markdown_section(text: str, heading: str) -> str:
+    value = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    if not value.strip():
+        return ""
+    pattern = re.compile(
+        rf"(?ms)^\s*##\s*{re.escape(heading)}\s*$\n?(.*?)(?=^\s*##\s*\S+\s*$|\Z)"
+    )
+    match = pattern.search(value)
+    if not match:
+        return ""
+    return str(match.group(1) or "").strip()
+
+
+def _split_douyin_doc_sections(
+    *,
+    body_text: str,
+    summary_text: str = "",
+    keypoints_text: str = "",
+) -> tuple[str, str, str]:
+    value = str(body_text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    summary = str(summary_text or "").strip()
+    keypoints = str(keypoints_text or "").strip()
+    main_body = value
+
+    heading_summary = _extract_markdown_section(value, "摘要")
+    heading_keypoints = _extract_markdown_section(value, "关键点")
+    heading_body = _extract_markdown_section(value, "正文")
+
+    if heading_summary:
+        summary = heading_summary
+    if heading_keypoints:
+        keypoints = heading_keypoints
+    if heading_body:
+        main_body = heading_body
+    elif heading_summary or heading_keypoints:
+        main_body = re.sub(r"(?ms)^\s*##\s*(摘要|关键点)\s*$\n?.*?(?=^\s*##\s*\S+\s*$|\Z)", "", value).strip()
+
+    if not summary:
+        # Fallback: first meaningful sentence as summary.
+        first_line = ""
+        for raw_line in main_body.splitlines():
+            line = str(raw_line or "").strip()
+            if not line:
+                continue
+            if line.startswith("#"):
+                continue
+            if line.startswith("-"):
+                line = line.lstrip("- ").strip()
+            if not line:
+                continue
+            first_line = re.split(r"[。！？!?]", line, maxsplit=1)[0].strip()
+            break
+        summary = first_line[:100] if first_line else ""
+
+    if keypoints:
+        normalized_lines: list[str] = []
+        for raw_line in keypoints.splitlines():
+            line = str(raw_line or "").strip()
+            if not line:
+                continue
+            if line.startswith(("-", "•", "·")):
+                normalized_lines.append(line)
+            else:
+                normalized_lines.append(f"- {line}")
+        keypoints = "\n".join(normalized_lines).strip()
+
+    return summary.strip(), keypoints.strip(), main_body.strip()
+
+
+def _find_existing_doc_by_dedup_key(output_dir: Path, dedup_key: str) -> Path | None:
+    key = str(dedup_key or "").strip()
+    if not key or not output_dir.exists():
+        return None
+    marker = f"- 去重键：{key}"
+    for candidate in sorted(output_dir.glob("*.md")):
+        try:
+            content = candidate.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        if marker in content:
+            return candidate
+    return None
+
+
 def _write_body_doc(
     *,
     benchmark_root: Path,
@@ -1773,6 +1939,9 @@ def _write_body_doc(
     url: str,
     title: str,
     body_text: str,
+    summary_text: str = "",
+    keypoints_text: str = "",
+    dedup_key: str = "",
 ) -> Path:
     date_str = _normalize_date(source_time) or _today()
     digest = hashlib.sha1(url.encode("utf-8")).hexdigest()[:8]
@@ -1808,8 +1977,12 @@ def _write_body_doc(
     current_url_norm = _normalize_match_url(url)
     current_video_id = _extract_douyin_video_id(url)
 
-    # Keep required naming as 标题+提取日期; add hash suffix only when name collision is for another link.
-    if output_path.exists():
+    existing_by_key = _find_existing_doc_by_dedup_key(output_dir, dedup_key)
+    if existing_by_key is not None:
+        output_path = existing_by_key
+
+    # Keep required naming as 标题+提取日期; add stable suffix only when collision is for another link.
+    if output_path.exists() and existing_by_key is None:
         try:
             existing_text = output_path.read_text(encoding="utf-8", errors="ignore")
         except Exception:
@@ -1825,7 +1998,14 @@ def _write_body_doc(
                 or (current_video_id and existing_video_id and current_video_id == existing_video_id)
             )
         if not same_doc:
-            output_path = output_dir / f"{slug}-{date_str}-{digest}.md"
+            stable = str(dedup_key or "").strip() or digest
+            output_path = output_dir / f"{slug}-{date_str}-{stable[-8:]}.md"
+
+    summary, keypoints, 正文 = _split_douyin_doc_sections(
+        body_text=body_text,
+        summary_text=summary_text,
+        keypoints_text=keypoints_text,
+    )
 
     lines = [
         "# 对标文案提取",
@@ -1833,13 +2013,20 @@ def _write_body_doc(
         f"- 标题：{display_title}",
         f"- 原文链接：{url}",
     ]
+    if dedup_key:
+        lines.append(f"- 去重键：{dedup_key}")
+
+    if DEFAULT_DOUYIN_WRITE_SUMMARY and summary:
+        lines.extend(["", "## 摘要", "", summary])
+    if DEFAULT_DOUYIN_WRITE_KEYPOINTS and keypoints:
+        lines.extend(["", "## 关键点", "", keypoints])
 
     lines.extend(
         [
             "",
             "## 正文",
             "",
-            body_text.strip() or "（正文提取为空，建议打开抓取原文件人工复核）",
+            正文 or "（正文提取为空，建议打开抓取原文件人工复核）",
             "",
         ]
     )
@@ -1873,6 +2060,12 @@ def _append_link_log(path: Path, *, run_id: str, source_time: str, items: list[L
         lines.append(f"  - summary_detected：{'true' if item.summary_detected else 'false'}\n")
         if item.text_source:
             lines.append(f"  - text_source：{item.text_source}\n")
+        if item.douyin_pipeline_mode:
+            lines.append(f"  - douyin_pipeline_mode：{item.douyin_pipeline_mode}\n")
+        if item.douyin_source_used:
+            lines.append(f"  - douyin_source_used：{item.douyin_source_used}\n")
+        if item.douyin_dedup_key:
+            lines.append(f"  - douyin_dedup_key：{item.douyin_dedup_key}\n")
         if item.reject_reason:
             lines.append(f"  - reject_reason：{item.reject_reason}\n")
         if item.douyin_main_section_used:
@@ -1961,7 +2154,10 @@ def process_urls_to_quotes(
     for url in normalized_urls:
         is_test_url = bool(allow_test_url_skip and _is_test_link(url, source_ref=source_ref))
         is_douyin = _is_douyin_url(url)
-        douyin_bitable_only = bool(is_douyin and DEFAULT_DOUYIN_SOURCE_MODE == "bitable_only")
+        douyin_pipeline_mode = str(DEFAULT_DOUYIN_PIPELINE_MODE or "").strip().lower() if is_douyin else ""
+        if is_douyin and douyin_pipeline_mode not in {"asr_primary", "bitable_primary", "bitable_only"}:
+            douyin_pipeline_mode = "asr_primary"
+        douyin_bitable_only = bool(is_douyin and douyin_pipeline_mode == "bitable_only")
         min_chars_for_url = _effective_min_chars(url=url, min_chars=min_chars)
         route_status = "failed"
         provider = "none"
@@ -1990,6 +2186,12 @@ def process_urls_to_quotes(
         bitable_record_id = ""
         bitable_error = ""
         bitable_lookup_reason = ""
+        asr_error = ""
+        asr_payload: dict[str, Any] = {}
+        asr_summary = ""
+        asr_keypoints = ""
+        douyin_source_used = ""
+        douyin_dedup_key = ""
         bitable_read_first = bool(DEFAULT_DOUYIN_BITABLE_READ_FIRST or douyin_bitable_only)
         title_keywords = _extract_douyin_title_keywords(title) if is_douyin else []
         douyin_candidates: list[tuple[str, str]] = []
@@ -2005,6 +2207,22 @@ def process_urls_to_quotes(
                     bitable_error = bitable_lookup_err
             except Exception as exc:
                 bitable_error = f"bitable_read_failed:{exc}"
+
+        if is_douyin and not douyin_bitable_only and DEFAULT_DOUYIN_ASR_ENABLED and extract_douyin_asr_dict is not None:
+            try:
+                asr_payload = extract_douyin_asr_dict(
+                    source_text or url,
+                    timeout_sec=max(30, int(DEFAULT_DOUYIN_ASR_TIMEOUT_SEC)),
+                )
+                asr_transcript = _clean_douyin_text_for_output(str(asr_payload.get("transcript") or ""))
+                asr_summary = _clean_douyin_text_for_output(str(asr_payload.get("desc") or asr_payload.get("title") or ""))
+                if asr_transcript:
+                    douyin_candidates.append(("asr", asr_transcript))
+                if not title and asr_summary:
+                    title = _normalize_douyin_title(asr_summary)
+                    title_keywords = _extract_douyin_title_keywords(title)
+            except Exception as exc:
+                asr_error = f"asr_extract_failed:{exc}"
 
         if ok and md_file and Path(md_file).exists():
             markdown = _repair_mojibake(Path(md_file).read_text(encoding="utf-8", errors="ignore"))
@@ -2177,19 +2395,20 @@ def process_urls_to_quotes(
                 passed = [item for item in evaluated if not item.reject_reason]
                 ranked = sorted(
                     evaluated,
-                    key=lambda item: (_bitable_source_rank(item.source), -item.score, -item.chars, -item.sentence_count),
+                    key=lambda item: (_douyin_source_rank(item.source), -item.score, -item.chars, -item.sentence_count),
                 )
                 best = ranked[0]
                 if passed:
                     best = sorted(
                         passed,
-                        key=lambda item: (_bitable_source_rank(item.source), -item.score, -item.chars, -item.sentence_count),
+                        key=lambda item: (_douyin_source_rank(item.source), -item.score, -item.chars, -item.sentence_count),
                     )[0]
                     ok = True
                     body_plain = best.text
                     body_chars = best.chars
                     provider = best.source
                     text_source = best.source
+                    douyin_source_used = best.source
                     summary_detected = bool(best.summary_detected)
                     reject_reason = ""
                 elif DEFAULT_DOUYIN_STRICT_FULL_TEXT:
@@ -2197,6 +2416,7 @@ def process_urls_to_quotes(
                     body_plain = ""
                     body_chars = 0
                     text_source = best.source
+                    douyin_source_used = best.source
                     provider = best.source or provider
                     summary_detected = bool(best.summary_detected)
                     reject_reason = best.reject_reason or "no_full_text"
@@ -2207,6 +2427,7 @@ def process_urls_to_quotes(
                     body_chars = best.chars
                     provider = best.source
                     text_source = best.source
+                    douyin_source_used = best.source
                     summary_detected = bool(best.summary_detected)
                     reject_reason = best.reject_reason
             elif DEFAULT_DOUYIN_STRICT_FULL_TEXT:
@@ -2241,11 +2462,14 @@ def process_urls_to_quotes(
             content_status = "success"
             quality_reason = ""
 
-        if is_douyin and douyin_bitable_only and content_status == "success":
-            if text_source not in {"bitable", "bitable_text"}:
+        if is_douyin and content_status == "success":
+            allowed_sources = {"bitable", "bitable_text"}
+            if douyin_pipeline_mode in {"asr_primary", "bitable_primary"}:
+                allowed_sources = {"asr", "bitable", "bitable_text"}
+            if str(text_source or "").strip().lower() not in allowed_sources:
                 content_status = "failed"
-                quality_reason = "not_from_bitable"
-                reject_reason = "not_from_bitable"
+                quality_reason = "not_from_pipeline_source"
+                reject_reason = "not_from_pipeline_source"
 
         if is_douyin and not quality_reason and summary_detected and DEFAULT_DOUYIN_SUMMARY_BLOCK:
             content_status = "failed"
@@ -2256,6 +2480,8 @@ def process_urls_to_quotes(
 
         if bitable_error and not error:
             error = bitable_error
+        if asr_error and not error and douyin_pipeline_mode == "asr_primary":
+            error = asr_error
 
         if is_douyin and apply_mode:
             sync_error = _bitable_write_back(
@@ -2270,6 +2496,21 @@ def process_urls_to_quotes(
             if sync_error:
                 error = f"{error} | {sync_error}".strip(" |") if error else sync_error
 
+        write_summary_text = ""
+        write_keypoints_text = ""
+        if is_douyin:
+            if not douyin_source_used:
+                douyin_source_used = str(text_source or provider or "").strip().lower()
+            douyin_dedup_key = _build_douyin_dedup_key(
+                url=url,
+                source_text=source_text,
+                video_id_hint=str(asr_payload.get("video_id") or "").strip(),
+                canonical_url_hint=str(asr_payload.get("canonical_url") or "").strip(),
+            )
+            if douyin_source_used == "asr":
+                write_summary_text = asr_summary
+                write_keypoints_text = asr_keypoints
+
         if apply_mode and body_plain.strip() and content_status in {"success", "skipped_test"}:
             body_doc = _write_body_doc(
                 benchmark_root=benchmark_root,
@@ -2277,6 +2518,9 @@ def process_urls_to_quotes(
                 url=url,
                 title=title,
                 body_text=body_plain,
+                summary_text=write_summary_text,
+                keypoints_text=write_keypoints_text,
+                dedup_key=douyin_dedup_key,
             )
             body_file = body_doc.as_posix()
             touched_files.append(body_doc)
@@ -2315,6 +2559,9 @@ def process_urls_to_quotes(
                 summary_detected=bool(summary_detected),
                 text_source=text_source or provider or "none",
                 reject_reason=reject_reason,
+                douyin_pipeline_mode=douyin_pipeline_mode,
+                douyin_source_used=douyin_source_used or text_source or provider or "",
+                douyin_dedup_key=douyin_dedup_key,
             )
         )
 
@@ -2367,6 +2614,12 @@ def _render_cli_report(result: LinkToQuotesResult) -> str:
         lines.append(f"  summary_detected={str(item.summary_detected).lower()}")
         if item.text_source:
             lines.append(f"  text_source={item.text_source}")
+        if item.douyin_pipeline_mode:
+            lines.append(f"  douyin_pipeline_mode={item.douyin_pipeline_mode}")
+        if item.douyin_source_used:
+            lines.append(f"  douyin_source_used={item.douyin_source_used}")
+        if item.douyin_dedup_key:
+            lines.append(f"  douyin_dedup_key={item.douyin_dedup_key}")
         if item.reject_reason:
             lines.append(f"  reject_reason={item.reject_reason}")
         if item.douyin_main_section_used:

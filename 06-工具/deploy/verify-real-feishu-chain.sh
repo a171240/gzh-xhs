@@ -15,6 +15,7 @@ ALLOW_TEST_URL_SKIP=true
 MIN_CONTENT_CHARS=120
 WAIT_ASYNC_SECONDS=0
 REQUIRE_TEXT_SOURCE=""
+REQUIRE_PIPELINE_MODE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,6 +33,7 @@ while [[ $# -gt 0 ]]; do
     --min-content-chars) MIN_CONTENT_CHARS="${2:?missing value for --min-content-chars}"; shift 2 ;;
     --wait-async-seconds) WAIT_ASYNC_SECONDS="${2:?missing value for --wait-async-seconds}"; shift 2 ;;
     --require-text-source) REQUIRE_TEXT_SOURCE="${2:?missing value for --require-text-source}"; shift 2 ;;
+    --require-pipeline-mode) REQUIRE_PIPELINE_MODE="${2:?missing value for --require-pipeline-mode}"; shift 2 ;;
     *) echo "[verify] unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -83,7 +85,7 @@ test -n "$RUN_LOG" || { echo "[verify] FAIL: run log missing under $REPO_PATH/06
 test -f "$RUN_LOG" || { echo "[verify] FAIL: run log not a file: $RUN_LOG"; exit 1; }
 
 validate_run_log() {
-python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" >"$RUN_TMP" <<'PY'
+python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" "$REQUIRE_PIPELINE_MODE" >"$RUN_TMP" <<'PY'
 import datetime as dt
 import json
 import pathlib
@@ -98,6 +100,7 @@ require_content_success = sys.argv[6].strip().lower() in {"1", "true", "yes", "y
 allow_test_url_skip = sys.argv[7].strip().lower() in {"1", "true", "yes", "y", "on"}
 min_content_chars = max(1, int(sys.argv[8]))
 require_text_source = sys.argv[9].strip().lower()
+require_pipeline_mode = sys.argv[10].strip().lower()
 
 cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=since_minutes)
 
@@ -208,6 +211,18 @@ def row_failures(row, meta):
                     accepted.add("bitable_text")
                 if link_text_source not in accepted:
                     fails.append(f"text_source_not_match:{link_text_source or 'missing'}!={require_text_source}")
+            elif require_pipeline_mode:
+                if require_pipeline_mode == "bitable_only":
+                    accepted = {"bitable", "bitable_text"}
+                elif require_pipeline_mode in {"asr_primary", "bitable_primary"}:
+                    accepted = {"asr", "bitable", "bitable_text"}
+                else:
+                    accepted = set()
+                if accepted and link_text_source not in accepted:
+                    fails.append(
+                        f"text_source_not_match_pipeline:{link_text_source or 'missing'} "
+                        f"not in {','.join(sorted(accepted))} for mode={require_pipeline_mode}"
+                    )
     return fails
 
 rows.sort(key=lambda item: item[0], reverse=True)
@@ -304,7 +319,7 @@ DB_PATH="$(ls -1 "$REPO_PATH"/06-*/data/ingest-writer/writer_state.db 2>/dev/nul
 test -n "$DB_PATH" || { echo "[verify] FAIL: writer db missing under $REPO_PATH/06-*/data/ingest-writer/"; exit 1; }
 test -f "$DB_PATH" || { echo "[verify] FAIL: writer db not a file: $DB_PATH"; exit 1; }
 
-python3 - "$DB_PATH" "$LATEST_EVENT_REF" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" <<'PY'
+python3 - "$DB_PATH" "$LATEST_EVENT_REF" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" "$REQUIRE_PIPELINE_MODE" <<'PY'
 import sqlite3
 import sys
 
@@ -314,6 +329,7 @@ require_content_success = sys.argv[3].strip().lower() in {"1", "true", "yes", "y
 allow_test_url_skip = sys.argv[4].strip().lower() in {"1", "true", "yes", "y", "on"}
 min_content_chars = max(1, int(sys.argv[5]))
 require_text_source = sys.argv[6].strip().lower()
+require_pipeline_mode = sys.argv[7].strip().lower()
 prefix = f"{event_ref}#%"
 
 conn = sqlite3.connect(db_path)
@@ -376,6 +392,22 @@ try:
                     if actual_text_source not in accepted:
                         print(
                             f"[verify] FAIL: text_source not match for {ev}: {text_source or 'missing'}!={require_text_source}",
+                            file=sys.stderr,
+                        )
+                        sys.exit(1)
+                if c_status == "success" and (not require_text_source) and require_pipeline_mode:
+                    actual_text_source = str(text_source or "").strip().lower()
+                    if require_pipeline_mode == "bitable_only":
+                        accepted = {"bitable", "bitable_text"}
+                    elif require_pipeline_mode in {"asr_primary", "bitable_primary"}:
+                        accepted = {"asr", "bitable", "bitable_text"}
+                    else:
+                        accepted = set()
+                    if accepted and actual_text_source not in accepted:
+                        print(
+                            f"[verify] FAIL: text_source not match pipeline for {ev}: "
+                            f"{text_source or 'missing'} not in {','.join(sorted(accepted))} "
+                            f"(mode={require_pipeline_mode})",
                             file=sys.stderr,
                         )
                         sys.exit(1)

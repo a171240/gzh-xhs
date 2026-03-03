@@ -9,6 +9,7 @@ REQUIRE_GIT_SYNC=true
 MIN_CONTENT_CHARS=120
 REQUIRE_BITABLE_CONSISTENCY=false
 REQUIRE_TEXT_SOURCE=""
+REQUIRE_PIPELINE_MODE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -20,6 +21,7 @@ while [[ $# -gt 0 ]]; do
     --min-content-chars) MIN_CONTENT_CHARS="${2:?missing value for --min-content-chars}"; shift 2 ;;
     --require-bitable-consistency) REQUIRE_BITABLE_CONSISTENCY="${2:?missing value for --require-bitable-consistency}"; shift 2 ;;
     --require-text-source) REQUIRE_TEXT_SOURCE="${2:?missing value for --require-text-source}"; shift 2 ;;
+    --require-pipeline-mode) REQUIRE_PIPELINE_MODE="${2:?missing value for --require-pipeline-mode}"; shift 2 ;;
     *) echo "[verify-event] unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -134,7 +136,7 @@ EVENT_REF_PICKED="$(grep '^event_ref=' "$META_TMP" | head -n1 | cut -d= -f2-)"
 test -n "$EVENT_REF_PICKED" || { echo "[verify-event] FAIL: missing event_ref in metadata"; exit 1; }
 PREFIX="${EVENT_REF_PICKED}#%"
 
-python3 - "$DB_PATH" "$PREFIX" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" <<'PY'
+python3 - "$DB_PATH" "$PREFIX" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" "$REQUIRE_PIPELINE_MODE" <<'PY'
 import json
 import sqlite3
 import sys
@@ -143,6 +145,7 @@ db_path = sys.argv[1]
 prefix = sys.argv[2]
 min_chars = max(1, int(sys.argv[3]))
 required_text_source = str(sys.argv[4] or "").strip().lower()
+required_pipeline_mode = str(sys.argv[5] or "").strip().lower()
 
 conn = sqlite3.connect(db_path)
 try:
@@ -185,13 +188,26 @@ try:
     if str(content_status) != "success":
         print(f"FAIL:content_status:{content_status or 'missing'}")
         sys.exit(1)
+    actual_text_source = str(text_source or "").strip().lower()
     if required_text_source:
-        actual_text_source = str(text_source or "").strip().lower()
         accepted_sources = {required_text_source}
         if required_text_source == "bitable":
             accepted_sources.add("bitable_text")
         if actual_text_source not in accepted_sources:
             print(f"FAIL:text_source:{text_source or 'missing'}!={required_text_source}")
+            sys.exit(1)
+    elif required_pipeline_mode:
+        if required_pipeline_mode == "bitable_only":
+            accepted_sources = {"bitable", "bitable_text"}
+        elif required_pipeline_mode in {"asr_primary", "bitable_primary"}:
+            accepted_sources = {"asr", "bitable", "bitable_text"}
+        else:
+            accepted_sources = set()
+        if accepted_sources and actual_text_source not in accepted_sources:
+            print(
+                f"FAIL:text_source_pipeline:{text_source or 'missing'} not in "
+                f"{','.join(sorted(accepted_sources))} for mode={required_pipeline_mode}"
+            )
             sys.exit(1)
     if summary_detected:
         print("FAIL:summary_detected:true")
