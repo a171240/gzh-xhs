@@ -183,6 +183,13 @@ def enqueue_job(
               source_ref=excluded.source_ref,
               source_time=excluded.source_time,
               source_user=excluded.source_user,
+              state=excluded.state,
+              next_poll_at=excluded.next_poll_at,
+              deadline_at=excluded.deadline_at,
+              completed_at='',
+              try_count=0,
+              error='',
+              result_json='{}',
               meta_json=excluded.meta_json,
               updated_at=excluded.updated_at
             """,
