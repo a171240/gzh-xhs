@@ -8,6 +8,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -150,26 +151,53 @@ def _compose_fail_reply(reason: str, *, timeout: bool = False) -> str:
     return f"链接入库失败：{detail}。"
 
 
-def _safe_reply(job: dict[str, Any], text: str) -> None:
+_MID_RE = re.compile(r"(?:^|[\s,;|])(?:message_id|msg_id)\s*[:=]\s*([A-Za-z0-9_-]+)", re.IGNORECASE)
+_CID_RE = re.compile(r"(?:^|[\s,;|])(?:chat_id|open_chat_id)\s*[:=]\s*([A-Za-z0-9_-]+)", re.IGNORECASE)
+
+
+def _extract_ids_from_source_ref(source_ref: str) -> tuple[str, str]:
+    raw = str(source_ref or "").strip()
+    if not raw:
+        return "", ""
+    mid = _MID_RE.search(raw)
+    cid = _CID_RE.search(raw)
+    return (
+        str(mid.group(1) if mid else "").strip(),
+        str(cid.group(1) if cid else "").strip(),
+    )
+
+
+def _safe_reply(job: dict[str, Any], text: str) -> tuple[bool, list[str]]:
     body = str(text or "").strip()
     if not body:
-        return
+        return True, []
 
     message_id = str(job.get("message_id") or "").strip()
     chat_id = str(job.get("chat_id") or "").strip()
+    meta = job.get("meta_json") if isinstance(job.get("meta_json"), dict) else {}
+    if not message_id:
+        message_id = str((meta or {}).get("message_id") or (meta or {}).get("msg_id") or "").strip()
+    if not chat_id:
+        chat_id = str((meta or {}).get("chat_id") or (meta or {}).get("open_chat_id") or "").strip()
+    if not message_id or not chat_id:
+        s_mid, s_cid = _extract_ids_from_source_ref(str(job.get("source_ref") or ""))
+        if not message_id and s_mid:
+            message_id = s_mid
+        if not chat_id and s_cid:
+            chat_id = s_cid
     errors: list[str] = []
 
     if message_id:
         try:
             reply_message(message_id=message_id, text=body)
-            return
+            return True, []
         except Exception as exc:
             errors.append(f"reply_message:{exc}")
 
     if chat_id:
         try:
             send_text_message(receive_id=chat_id, receive_id_type="chat_id", text=body)
-            return
+            return True, []
         except Exception as exc:
             errors.append(f"send_text_message:{exc}")
 
@@ -184,6 +212,8 @@ def _safe_reply(job: dict[str, Any], text: str) -> None:
                 "errors": errors,
             },
         )
+        return False, errors
+    return False, ["reply_target_missing"]
 
 
 def _append_run_log(job: dict[str, Any], *, status: str, ingest: dict[str, Any], git_sync: dict[str, Any] | None, errors: list[str]) -> None:
@@ -235,11 +265,34 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
     source_user = str(job.get("source_user") or "").strip()
     url = str(job.get("url") or "").strip()
     meta = job.get("meta_json") if isinstance(job.get("meta_json"), dict) else {}
+    previous_result = job.get("result_json") if isinstance(job.get("result_json"), dict) else {}
     text = str((meta or {}).get("text") or "").strip()
 
     if not event_ref or not url:
         complete_job_failed(job_id, error="invalid_job_payload", state="failed")
         return
+
+    # Notification retry mode: avoid re-ingest after content already succeeded.
+    prev_status = str((previous_result or {}).get("status") or "").strip().lower()
+    prev_ingest = (previous_result or {}).get("ingest") if isinstance((previous_result or {}).get("ingest"), dict) else None
+    prev_git_sync = (previous_result or {}).get("git_sync") if isinstance((previous_result or {}).get("git_sync"), dict) else {}
+    if prev_status in {"notify_pending", "success", "partial"} and prev_ingest:
+        prev_meta = _pick_ingest_meta(prev_ingest)
+        if _is_success(prev_meta):
+            ok, _ = _safe_reply(job, _compose_success_reply(prev_meta, prev_git_sync))
+            if ok:
+                complete_job_success(
+                    job_id,
+                    result={"ingest": prev_ingest, "git_sync": prev_git_sync, "status": "success"},
+                )
+            else:
+                mark_job_pending(
+                    job_id,
+                    next_poll_seconds=max(10, int(settings.link_async_poll_interval_sec)),
+                    error="notify_retry",
+                    result={"ingest": prev_ingest, "git_sync": prev_git_sync, "status": "notify_pending"},
+                )
+            return
 
     # Best-effort safeguard: if async entry was queued but Bitable row is missing,
     # create the row here so upstream automation has a concrete target.
@@ -295,12 +348,17 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
             errors.append(str(git_sync.get("message") or git_sync.get("stderr") or "git_sync_failed"))
 
         final_status = "success" if not errors else "partial"
-        complete_job_success(
-            job_id,
-            result={"ingest": ingest, "git_sync": git_sync or {}, "status": final_status},
-        )
+        result_payload = {"ingest": ingest, "git_sync": git_sync or {}, "status": final_status}
+        complete_job_success(job_id, result=result_payload)
         _append_run_log(job, status=final_status, ingest=ingest, git_sync=git_sync, errors=errors)
-        _safe_reply(job, _compose_success_reply(meta_info, git_sync))
+        notify_ok, notify_errors = _safe_reply(job, _compose_success_reply(meta_info, git_sync))
+        if not notify_ok:
+            mark_job_pending(
+                job_id,
+                next_poll_seconds=max(10, int(settings.link_async_poll_interval_sec)),
+                error="; ".join(notify_errors),
+                result={**result_payload, "status": "notify_pending", "notify_errors": notify_errors},
+            )
         return
 
     if _is_retryable(meta_info, ingest_status):
