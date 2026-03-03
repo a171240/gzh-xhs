@@ -36,6 +36,7 @@ from urllib.parse import urlparse
 import requests
 
 from codex_commander import execute_tasks
+from feishu_http_client import ensure_bitable_link_record
 from feishu_skill_runner import (
     DEFAULT_MODEL,
     build_skill_registry,
@@ -410,12 +411,34 @@ def _enqueue_async_jobs(
     meta: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
     ensure_link_async_schema()
+    bitable_app_token = str(os.getenv("BITABLE_APP_TOKEN") or "").strip()
+    bitable_table_id = str(os.getenv("BITABLE_TABLE_ID") or "").strip()
+    bitable_view_id = str(os.getenv("BITABLE_VIEW_ID") or "").strip()
+    bitable_link_field = str(os.getenv("BITABLE_LINK_FIELD") or "视频链接").strip()
+    bitable_video_id_field = str(os.getenv("BITABLE_VIDEO_ID_FIELD") or "视频ID").strip()
+    bitable_full_scan = _as_bool(os.getenv("INGEST_DOUYIN_BITABLE_FALLBACK_FULL_SCAN"), default=True)
+
     source_meta = _extract_message_meta_from_source_ref(source_ref)
     message_id = str((meta or {}).get("message_id") or (meta or {}).get("msg_id") or source_meta.get("message_id") or "").strip()
     chat_id = str((meta or {}).get("chat_id") or source_meta.get("chat_id") or "").strip()
     out: list[dict[str, Any]] = []
     for idx, url in enumerate(urls):
         normalized_url = _normalize_async_url(url)
+        bitable_seed: dict[str, Any] = {}
+        if bitable_app_token and bitable_table_id:
+            try:
+                bitable_seed = ensure_bitable_link_record(
+                    app_token=bitable_app_token,
+                    table_id=bitable_table_id,
+                    url=url,
+                    link_field=bitable_link_field or "视频链接",
+                    video_id_field=bitable_video_id_field or "视频ID",
+                    view_id=bitable_view_id,
+                    fallback_full_scan=bitable_full_scan,
+                )
+            except Exception as exc:
+                bitable_seed = {"ok": False, "error": str(exc)}
+
         job = enqueue_link_async_job(
             job_id=f"{event_ref}#async#{idx + 1}",
             event_ref=event_ref,
@@ -435,6 +458,7 @@ def _enqueue_async_jobs(
                 "source_ref": source_ref,
                 "source_time": source_time,
                 "source_user": source_user,
+                "bitable_seed": bitable_seed,
             },
         )
         out.append(job)

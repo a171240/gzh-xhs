@@ -7,8 +7,10 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import re
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 
@@ -117,6 +119,163 @@ def add_bitable_record(
         payload={"fields": fields},
     )
     return data.get("data") or {}
+
+
+def _bitable_cell_to_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (int, float)):
+        return str(value).strip()
+    if isinstance(value, list):
+        chunks = [_bitable_cell_to_text(item) for item in value]
+        return "\n".join([item for item in chunks if item]).strip()
+    if isinstance(value, dict):
+        for key in ("text", "link", "url", "href", "name", "value"):
+            raw = value.get(key)
+            if isinstance(raw, str) and raw.strip():
+                return raw.strip()
+        chunks = [_bitable_cell_to_text(raw) for raw in value.values()]
+        return "\n".join([item for item in chunks if item]).strip()
+    return ""
+
+
+def _normalize_url(url: str) -> str:
+    raw = str(url or "").strip()
+    if not raw:
+        return ""
+    try:
+        parsed = urlparse(raw)
+    except Exception:
+        return raw.lower()
+    host = str(parsed.netloc or "").lower()
+    if not host:
+        return raw.lower()
+    scheme = str(parsed.scheme or "https").lower()
+    path = re.sub(r"/+", "/", str(parsed.path or "/")).rstrip("/")
+    return f"{scheme}://{host}{path}"
+
+
+def _extract_video_id(url: str) -> str:
+    matched = re.search(r"/video/(\d{8,32})", str(url or ""), re.IGNORECASE)
+    return str(matched.group(1) if matched else "").strip()
+
+
+def search_bitable_records(
+    *,
+    app_token: str,
+    table_id: str,
+    view_id: str = "",
+    settings: FeishuHttpSettings | None = None,
+    page_size: int = 200,
+    max_pages: int = 8,
+) -> list[dict[str, Any]]:
+    s = settings or load_feishu_settings()
+    token = get_tenant_access_token(s)
+    items: list[dict[str, Any]] = []
+    page_token = ""
+    body: dict[str, Any] = {"automatic_fields": False}
+    if str(view_id or "").strip():
+        body["view_id"] = str(view_id).strip()
+
+    for _ in range(max(1, int(max_pages))):
+        path = f"/open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records/search?page_size={max(10, min(500, int(page_size)))}"
+        if page_token:
+            path += f"&page_token={page_token}"
+        data = _request_json(
+            settings=s,
+            method="POST",
+            path=path,
+            token=token,
+            payload=body,
+        )
+        batch = ((data.get("data") or {}).get("items") or [])
+        items.extend([item for item in batch if isinstance(item, dict)])
+        has_more = bool((data.get("data") or {}).get("has_more"))
+        page_token = str((data.get("data") or {}).get("page_token") or "").strip()
+        if not has_more or not page_token:
+            break
+    return items
+
+
+def ensure_bitable_link_record(
+    *,
+    app_token: str,
+    table_id: str,
+    url: str,
+    link_field: str = "视频链接",
+    video_id_field: str = "视频ID",
+    view_id: str = "",
+    fallback_full_scan: bool = True,
+    settings: FeishuHttpSettings | None = None,
+) -> dict[str, Any]:
+    """Ensure a Bitable row exists for the Douyin URL and return record metadata."""
+
+    raw_url = str(url or "").strip()
+    if not raw_url:
+        return {"ok": False, "error": "empty_url"}
+
+    s = settings or load_feishu_settings()
+    normalized = _normalize_url(raw_url)
+    video_id = _extract_video_id(raw_url)
+    scans = [True]
+    if fallback_full_scan and str(view_id or "").strip():
+        scans.append(False)
+
+    for use_view in scans:
+        records = search_bitable_records(
+            app_token=app_token,
+            table_id=table_id,
+            view_id=(view_id if use_view else ""),
+            settings=s,
+        )
+        for item in records:
+            fields = item.get("fields") or {}
+            if not isinstance(fields, dict):
+                continue
+            link_text = _bitable_cell_to_text(fields.get(link_field))
+            vid_text = _bitable_cell_to_text(fields.get(video_id_field))
+            if not link_text:
+                for raw in fields.values():
+                    text = _bitable_cell_to_text(raw)
+                    if ("douyin.com" in text) or ("iesdouyin.com" in text):
+                        link_text = text
+                        break
+            if not vid_text and link_text:
+                vid_text = _extract_video_id(link_text)
+
+            link_norm = _normalize_url(link_text)
+            if normalized and link_norm and normalized == link_norm:
+                return {
+                    "ok": True,
+                    "record_id": str(item.get("record_id") or "").strip(),
+                    "created": False,
+                    "match": "url",
+                }
+            if video_id and (video_id == vid_text or video_id in link_text):
+                return {
+                    "ok": True,
+                    "record_id": str(item.get("record_id") or "").strip(),
+                    "created": False,
+                    "match": "video_id",
+                }
+
+    fields: dict[str, Any] = {str(link_field or "视频链接"): raw_url}
+    data = add_bitable_record(
+        app_token=app_token,
+        table_id=table_id,
+        fields=fields,
+        settings=s,
+    )
+    record = data.get("record") if isinstance(data, dict) else {}
+    record_id = str((record or {}).get("record_id") or data.get("record_id") or "").strip()
+    return {
+        "ok": True,
+        "record_id": record_id,
+        "created": True,
+        "match": "created",
+    }
 
 
 def send_text_message(

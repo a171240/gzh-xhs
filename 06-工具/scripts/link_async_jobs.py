@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Async job store for Douyin->Bitable ingest workflow."""
 
@@ -13,7 +13,28 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DB = REPO_ROOT / "06-工具" / "data" / "feishu-orchestrator" / "link_async_jobs.db"
+
+
+def _resolve_tool_dir() -> Path:
+    env_dir = str(os.getenv("FEISHU_TOOL_DIR") or "").strip()
+    if env_dir:
+        candidate = Path(env_dir).expanduser()
+        if candidate.exists():
+            return candidate
+
+    for candidate in (REPO_ROOT / "06-宸ュ叿", REPO_ROOT / "06-\u5de5\u5177"):
+        if candidate.exists() and (candidate / "scripts").exists():
+            return candidate
+
+    for child in sorted(REPO_ROOT.glob("06-*")):
+        if child.is_dir() and (child / "scripts").exists():
+            return child
+
+    return REPO_ROOT
+
+
+TOOL_DIR = _resolve_tool_dir()
+DEFAULT_DB = TOOL_DIR / "data" / "feishu-orchestrator" / "link_async_jobs.db"
 STATE_PENDING = "pending"
 STATE_PROCESSING = "processing"
 STATE_SUCCESS = "success"
@@ -25,6 +46,11 @@ def _db_path() -> Path:
     raw = str(os.getenv("FEISHU_LINK_ASYNC_DB") or "").strip()
     if raw:
         return Path(raw).expanduser()
+    if DEFAULT_DB.exists():
+        return DEFAULT_DB
+    matches = [p for p in REPO_ROOT.glob("06-*/data/feishu-orchestrator/link_async_jobs.db") if p.exists()]
+    if matches:
+        return sorted(matches, key=lambda p: len(str(p)))[0]
     return DEFAULT_DB
 
 
@@ -302,3 +328,4 @@ def is_expired(job: dict[str, Any]) -> bool:
     if deadline is None:
         return False
     return _now() >= deadline
+

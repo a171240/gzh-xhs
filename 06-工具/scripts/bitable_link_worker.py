@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from feishu_http_client import reply_message, send_text_message
+from feishu_http_client import ensure_bitable_link_record, reply_message, send_text_message
 from feishu_kb_orchestrator import (
     _load_settings,
     _now_iso,
@@ -240,6 +240,25 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
     if not event_ref or not url:
         complete_job_failed(job_id, error="invalid_job_payload", state="failed")
         return
+
+    # Best-effort safeguard: if async entry was queued but Bitable row is missing,
+    # create the row here so upstream automation has a concrete target.
+    bitable_app_token = str(os.getenv("BITABLE_APP_TOKEN") or "").strip()
+    bitable_table_id = str(os.getenv("BITABLE_TABLE_ID") or "").strip()
+    if bitable_app_token and bitable_table_id:
+        try:
+            ensure_bitable_link_record(
+                app_token=bitable_app_token,
+                table_id=bitable_table_id,
+                url=url,
+                link_field=str(os.getenv("BITABLE_LINK_FIELD") or "视频链接").strip() or "视频链接",
+                video_id_field=str(os.getenv("BITABLE_VIDEO_ID_FIELD") or "视频ID").strip() or "视频ID",
+                view_id=str(os.getenv("BITABLE_VIEW_ID") or "").strip(),
+                fallback_full_scan=True,
+            )
+        except Exception:
+            # keep ingest flow running; final failure reason comes from ingest result
+            pass
 
     if is_expired(job):
         reason = "timeout_waiting_bitable_text"
