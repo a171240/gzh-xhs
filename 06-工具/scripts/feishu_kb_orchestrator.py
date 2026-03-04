@@ -803,6 +803,7 @@ def _call_writer(
     payload: dict[str, Any],
     *,
     method: str = "POST",
+    timeout_sec: int | None = None,
 ) -> dict[str, Any]:
     if not settings.ingest_shared_token:
         raise RuntimeError("INGEST_SHARED_TOKEN is empty")
@@ -810,13 +811,14 @@ def _call_writer(
         raise RuntimeError("INGEST_HMAC_SECRET is empty")
 
     method_upper = str(method or "POST").strip().upper()
+    request_timeout = max(3, int(timeout_sec if timeout_sec is not None else settings.ingest_timeout_sec))
     if method_upper == "GET":
         body = b""
         response = requests.get(
             f"{settings.writer_base_url}{endpoint}",
             headers=_writer_headers(settings, body),
             params=payload,
-            timeout=settings.ingest_timeout_sec,
+            timeout=request_timeout,
             verify=settings.ingest_verify_ssl,
         )
     else:
@@ -825,7 +827,7 @@ def _call_writer(
             f"{settings.writer_base_url}{endpoint}",
             headers=_writer_headers(settings, body),
             data=body,
-            timeout=settings.ingest_timeout_sec,
+            timeout=request_timeout,
             verify=settings.ingest_verify_ssl,
         )
     if response.status_code >= 400:
@@ -846,6 +848,7 @@ def _run_ingest(
     source_time: str,
     dry_run: bool,
     force_replay: bool = False,
+    timeout_sec: int | None = None,
 ) -> dict[str, Any]:
     if not text.strip() and not urls:
         return {"status": "ignored", "mode": "ignore", "errors": ["empty text"], "result": {}}
@@ -881,7 +884,7 @@ def _run_ingest(
             "result": {"mode": mode, "status": "success", "added": 0, "near_dup": 0, "skipped": 0},
         }
 
-    data = _call_writer(settings, endpoint, payload)
+    data = _call_writer(settings, endpoint, payload, timeout_sec=timeout_sec)
     result = data.get("result") or {}
     return {
         "status": str(result.get("status") or "unknown"),

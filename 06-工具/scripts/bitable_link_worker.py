@@ -467,6 +467,15 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
             )
         return
 
+    replay_timeout_sec = max(
+        30,
+        int(
+            os.getenv(
+                "FEISHU_LINK_REPLAY_TIMEOUT_SEC",
+                os.getenv("INGEST_DOUYIN_ASR_TIMEOUT_SEC", os.getenv("INGEST_TIMEOUT_SEC", "20")),
+            )
+        ),
+    )
     ingest = _run_ingest(
         settings=settings,
         text=text,
@@ -476,6 +485,7 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
         source_time=source_time,
         dry_run=dry_run,
         force_replay=True,
+        timeout_sec=replay_timeout_sec,
     )
     ingest_status = str(ingest.get("status") or "").strip().lower()
     meta_info = _pick_ingest_meta(ingest)
