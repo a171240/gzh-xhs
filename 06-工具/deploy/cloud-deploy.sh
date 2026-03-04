@@ -46,6 +46,15 @@ set_env_kv() {
   fi
 }
 
+set_env_kv_if_nonempty() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  if [[ -n "${value}" ]]; then
+    set_env_kv "$file" "$key" "$value"
+  fi
+}
+
 find_runtime_layout() {
   local fixed_runtime fixed_deploy orch
   fixed_runtime="$REPO_PATH/06-工具/scripts"
@@ -294,7 +303,7 @@ set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_READ_FIRST "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_FALLBACK_FULL_SCAN "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_WRITE_BACK "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_ENABLED "${INGEST_DOUYIN_ASR_ENABLED:-true}"
-set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_API_KEY "${INGEST_DOUYIN_ASR_API_KEY:-${API_KEY:-}}"
+set_env_kv_if_nonempty /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_API_KEY "${INGEST_DOUYIN_ASR_API_KEY:-${API_KEY:-}}"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_TIMEOUT_SEC "${INGEST_DOUYIN_ASR_TIMEOUT_SEC:-600}"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_DEDUP_KEY_MODE "${INGEST_DOUYIN_DEDUP_KEY_MODE:-video_or_canonical_url}"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_WRITE_SUMMARY "${INGEST_DOUYIN_WRITE_SUMMARY:-true}"
@@ -310,6 +319,14 @@ set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_TIMEOUT_MIN "20"
 set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_BATCH "5"
 set_env_kv /etc/openclaw/feishu.env FEISHU_TOOL_DIR "$TOOL_DIR"
 set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_DB "$TOOL_DIR/data/feishu-orchestrator/link_async_jobs.db"
+
+# Credential keys: only overwrite when explicit values are provided.
+# This prevents accidental key wipe on deploy.
+set_env_kv_if_nonempty /etc/openclaw/feishu.env FEISHU_APP_ID "${FEISHU_APP_ID:-}"
+set_env_kv_if_nonempty /etc/openclaw/feishu.env FEISHU_APP_SECRET "${FEISHU_APP_SECRET:-}"
+set_env_kv_if_nonempty /etc/openclaw/feishu.env API_KEY "${API_KEY:-}"
+set_env_kv_if_nonempty /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_API_KEY "${INGEST_DOUYIN_ASR_API_KEY:-${API_KEY:-}}"
+
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_ENABLED "true"
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_REPO_ROOT "$REPO_PATH"
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_REMOTE "$REMOTE"
