@@ -39,6 +39,7 @@ RUN_LOG_DIR = LOG_ROOT / "runs"
 DEAD_LETTER_DIR = LOG_ROOT / "dead-letter"
 RETRYABLE_REASONS = {
     "not_from_bitable",
+    "not_from_pipeline_source",
     "bitable_no_record",
     "bitable_record_without_text",
     "bitable_no_query_key",
