@@ -128,11 +128,12 @@ def ensure_schema() -> None:
             )
             """
         )
+        # Migrate legacy databases before creating indexes on new columns.
+        _migrate_columns(conn)
         conn.execute("create index if not exists idx_link_async_jobs_state_next on link_async_jobs(state, next_poll_at)")
         conn.execute("create index if not exists idx_link_async_jobs_event_ref on link_async_jobs(event_ref)")
         conn.execute("create index if not exists idx_link_async_jobs_dedup_key on link_async_jobs(dedup_key)")
         conn.execute("create unique index if not exists uq_link_async_jobs_event_ref_url on link_async_jobs(event_ref, normalized_url)")
-        _migrate_columns(conn)
 
 
 def _migrate_columns(conn: sqlite3.Connection) -> None:
