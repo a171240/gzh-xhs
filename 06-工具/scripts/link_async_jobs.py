@@ -247,14 +247,16 @@ def claim_due_jobs(*, limit: int = 5, stale_processing_seconds: int = 300) -> li
               (
                 state = ?
                 or (state = ? and (last_poll_at = '' or last_poll_at <= ?))
+                or (notify_state = 'pending' and state in (?, ?))
               )
               and (next_poll_at = '' or next_poll_at <= ?)
             order by created_at asc
             limit ?
             """,
-            (STATE_PENDING, STATE_PROCESSING, stale_cutoff, now_iso, max(1, int(limit))),
+            (STATE_PENDING, STATE_PROCESSING, stale_cutoff, STATE_FAILED, STATE_TIMEOUT, now_iso, max(1, int(limit))),
         ).fetchall()
         for row in rows:
+            previous_state = str(row["state"] or "")
             conn.execute(
                 """
                 update link_async_jobs
@@ -268,6 +270,7 @@ def claim_due_jobs(*, limit: int = 5, stale_processing_seconds: int = 300) -> li
             updated["updated_at"] = now_iso
             updated["last_poll_at"] = now_iso
             updated["try_count"] = int(updated.get("try_count") or 0) + 1
+            updated["_claimed_from_state"] = previous_state
             picked.append(updated)
         conn.commit()
     return [_normalize_row(item) for item in picked]

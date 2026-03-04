@@ -10,6 +10,7 @@ MIN_CONTENT_CHARS=120
 REQUIRE_BITABLE_CONSISTENCY=false
 REQUIRE_TEXT_SOURCE=""
 REQUIRE_PIPELINE_MODE=""
+REQUIRE_NOTIFY_SENT=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -22,6 +23,7 @@ while [[ $# -gt 0 ]]; do
     --require-bitable-consistency) REQUIRE_BITABLE_CONSISTENCY="${2:?missing value for --require-bitable-consistency}"; shift 2 ;;
     --require-text-source) REQUIRE_TEXT_SOURCE="${2:?missing value for --require-text-source}"; shift 2 ;;
     --require-pipeline-mode) REQUIRE_PIPELINE_MODE="${2:?missing value for --require-pipeline-mode}"; shift 2 ;;
+    --require-notify-sent) REQUIRE_NOTIFY_SENT="${2:?missing value for --require-notify-sent}"; shift 2 ;;
     *) echo "[verify-event] unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -218,6 +220,41 @@ try:
 finally:
     conn.close()
 PY
+
+if as_bool "$REQUIRE_NOTIFY_SENT"; then
+  ASYNC_DB_PATH="$(ls -1 "$REPO_PATH"/06-*/data/feishu-orchestrator/link_async_jobs.db 2>/dev/null | head -n1 || true)"
+  test -n "$ASYNC_DB_PATH" || { echo "[verify-event] FAIL: async db missing"; exit 1; }
+  python3 - "$ASYNC_DB_PATH" "$EVENT_REF_PICKED" <<'PY'
+import sqlite3
+import sys
+
+db = sys.argv[1]
+event_ref = sys.argv[2]
+conn = sqlite3.connect(db)
+try:
+    row = conn.execute(
+        "select job_id,state,notify_state,notify_try_count,notify_error,error,updated_at "
+        "from link_async_jobs where event_ref=? order by updated_at desc limit 1",
+        (event_ref,),
+    ).fetchone()
+    if not row:
+        print("FAIL:notify:no_async_row")
+        sys.exit(1)
+    job_id, state, notify_state, notify_try_count, notify_error, error, updated_at = row
+    print(f"ASYNC_JOB_ID={job_id}")
+    print(f"ASYNC_STATE={state}")
+    print(f"ASYNC_NOTIFY_STATE={notify_state}")
+    print(f"ASYNC_NOTIFY_TRY_COUNT={int(notify_try_count or 0)}")
+    print(f"ASYNC_NOTIFY_ERROR={notify_error or ''}")
+    print(f"ASYNC_ERROR={error or ''}")
+    print(f"ASYNC_UPDATED_AT={updated_at or ''}")
+    if str(notify_state or "").strip().lower() != "sent":
+        print(f"FAIL:notify:not_sent:{notify_state or 'missing'}")
+        sys.exit(1)
+finally:
+    conn.close()
+PY
+fi
 
 if as_bool "$REQUIRE_BITABLE_CONSISTENCY"; then
   python3 - "$DB_PATH" "$PREFIX" <<'PY'

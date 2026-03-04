@@ -355,6 +355,16 @@ if [[ -f "$RUNTIME_DIR/douyin_asr_extractor.py" ]]; then
   python3 -m py_compile "$RUNTIME_DIR/douyin_asr_extractor.py"
 fi
 
+# Preflight async DB schema before service restart to avoid timer crash loops.
+FEISHU_TOOL_DIR="$TOOL_DIR" FEISHU_LINK_ASYNC_DB="$TOOL_DIR/data/feishu-orchestrator/link_async_jobs.db" \
+python3 - <<PY
+import sys
+sys.path.insert(0, r"$RUNTIME_DIR")
+from link_async_jobs import ensure_schema
+ensure_schema()
+print("[deploy] async schema preflight: ok")
+PY
+
 chmod +x "$SMOKE_SCRIPT" "$RUNTIME_DIR/run-feishu-kb-orchestrator.sh"
 if [[ -f "$DEPLOY_DIR/verify-real-feishu-chain.sh" ]]; then
   chmod +x "$DEPLOY_DIR/verify-real-feishu-chain.sh"

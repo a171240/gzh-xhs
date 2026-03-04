@@ -16,6 +16,7 @@ MIN_CONTENT_CHARS=120
 WAIT_ASYNC_SECONDS=0
 REQUIRE_TEXT_SOURCE=""
 REQUIRE_PIPELINE_MODE=""
+REQUIRE_NOTIFY_SENT=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -34,6 +35,7 @@ while [[ $# -gt 0 ]]; do
     --wait-async-seconds) WAIT_ASYNC_SECONDS="${2:?missing value for --wait-async-seconds}"; shift 2 ;;
     --require-text-source) REQUIRE_TEXT_SOURCE="${2:?missing value for --require-text-source}"; shift 2 ;;
     --require-pipeline-mode) REQUIRE_PIPELINE_MODE="${2:?missing value for --require-pipeline-mode}"; shift 2 ;;
+    --require-notify-sent) REQUIRE_NOTIFY_SENT="${2:?missing value for --require-notify-sent}"; shift 2 ;;
     *) echo "[verify] unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -417,6 +419,44 @@ try:
 finally:
     conn.close()
 PY
+
+if as_bool "$REQUIRE_NOTIFY_SENT"; then
+  ASYNC_DB_PATH="$(ls -1 "$REPO_PATH"/06-*/data/feishu-orchestrator/link_async_jobs.db 2>/dev/null | head -n1 || true)"
+  test -n "$ASYNC_DB_PATH" || { echo "[verify] FAIL: async db missing under $REPO_PATH/06-*/data/feishu-orchestrator/"; exit 1; }
+  python3 - "$ASYNC_DB_PATH" "$LATEST_EVENT_REF" <<'PY'
+import sqlite3
+import sys
+
+db_path = sys.argv[1]
+event_ref = sys.argv[2]
+conn = sqlite3.connect(db_path)
+try:
+    row = conn.execute(
+        "select job_id,state,notify_state,notify_try_count,notify_error,error,updated_at "
+        "from link_async_jobs where event_ref=? order by updated_at desc limit 1",
+        (event_ref,),
+    ).fetchone()
+    if not row:
+        print(f"[verify] FAIL: async job missing for event_ref={event_ref}", file=sys.stderr)
+        sys.exit(1)
+    job_id, state, notify_state, notify_try_count, notify_error, error, updated_at = row
+    print(f"ASYNC_JOB_ID={job_id}")
+    print(f"ASYNC_STATE={state}")
+    print(f"ASYNC_NOTIFY_STATE={notify_state}")
+    print(f"ASYNC_NOTIFY_TRY_COUNT={int(notify_try_count or 0)}")
+    print(f"ASYNC_NOTIFY_ERROR={notify_error or ''}")
+    print(f"ASYNC_ERROR={error or ''}")
+    print(f"ASYNC_UPDATED_AT={updated_at or ''}")
+    if str(notify_state or "").strip().lower() != "sent":
+        print(
+            f"[verify] FAIL: notify_state not sent for event_ref={event_ref}: {notify_state or 'missing'}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+finally:
+    conn.close()
+PY
+fi
 
 if [[ -n "$KEYWORD" ]]; then
   if ! grep -R -n --include="*.md" -- "$KEYWORD" "$REPO_PATH"/03-* "$REPO_PATH"/01-* >/dev/null 2>&1; then

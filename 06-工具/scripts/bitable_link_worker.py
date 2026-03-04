@@ -21,6 +21,8 @@ from feishu_kb_orchestrator import (
     _run_ingest,
 )
 from link_async_jobs import (
+    STATE_FAILED,
+    STATE_SUCCESS,
     STATE_TIMEOUT,
     claim_due_jobs,
     complete_job_failed,
@@ -166,7 +168,7 @@ def _compose_success_reply(meta: dict[str, Any], git_sync: dict[str, Any] | None
 def _compose_fail_reply(reason: str, *, timeout: bool = False) -> str:
     detail = str(reason or "unknown").strip() or "unknown"
     if timeout:
-        return f"链接入库失败：等待多维表文案超时（{detail}）。"
+        return f"链接入库失败：等待提取正文超时（{detail}）。"
     return f"链接入库失败：{detail}。"
 
 
@@ -275,6 +277,83 @@ def _append_run_log(job: dict[str, Any], *, status: str, ingest: dict[str, Any],
     )
 
 
+def _finalize_job(
+    *,
+    job_id: str,
+    final_state: str,
+    reason: str = "",
+    result: dict[str, Any] | None = None,
+    reply_text: str = "",
+) -> None:
+    state = str(final_state or "").strip().lower()
+    payload = dict(result or {})
+    if reply_text:
+        payload["reply_text"] = reply_text
+    payload["final_state"] = state
+    payload["notify_status"] = "sent"
+    if state == STATE_SUCCESS:
+        payload["status"] = "success"
+        complete_job_success(job_id, result=payload)
+        return
+    if state == STATE_TIMEOUT:
+        payload["status"] = "timeout"
+        complete_job_failed(job_id, error=str(reason or "timeout_waiting_pipeline_text"), result=payload, state=STATE_TIMEOUT)
+        return
+    payload["status"] = "failed"
+    complete_job_failed(job_id, error=str(reason or "content_not_success"), result=payload, state=STATE_FAILED)
+
+
+def _schedule_notify_retry(
+    *,
+    job_id: str,
+    settings: Any,
+    result: dict[str, Any],
+    notify_errors: list[str],
+) -> None:
+    payload = dict(result or {})
+    payload["status"] = "notify_pending"
+    payload["notify_status"] = "pending"
+    if notify_errors:
+        payload["notify_errors"] = list(notify_errors)
+    mark_job_pending(
+        job_id,
+        next_poll_seconds=max(10, int(settings.link_async_poll_interval_sec)),
+        error="; ".join(notify_errors) if notify_errors else "notify_retry",
+        result=payload,
+    )
+    update_notify_status(
+        job_id,
+        notify_state="pending",
+        notify_error="; ".join(notify_errors) if notify_errors else "notify_retry",
+        increment_try=True,
+    )
+
+
+def _compose_reply_for_notify_retry(
+    *,
+    previous_result: dict[str, Any],
+    pipeline_mode: str,
+    fallback_reason: str,
+    fallback_timeout: bool,
+) -> tuple[str, str, str]:
+    reply_text = str(previous_result.get("reply_text") or "").strip()
+    final_state = str(previous_result.get("final_state") or "").strip().lower()
+    reason = str(previous_result.get("error") or "").strip() or fallback_reason
+    prev_ingest = previous_result.get("ingest") if isinstance(previous_result.get("ingest"), dict) else None
+    prev_git_sync = previous_result.get("git_sync") if isinstance(previous_result.get("git_sync"), dict) else None
+    if not final_state and prev_ingest:
+        meta = _pick_ingest_meta(prev_ingest)
+        final_state = "success" if _is_success(meta, pipeline_mode=pipeline_mode) else ("timeout" if fallback_timeout else "failed")
+    if not final_state:
+        final_state = "timeout" if fallback_timeout else "failed"
+    if not reply_text:
+        if prev_ingest and final_state == "success":
+            reply_text = _compose_success_reply(_pick_ingest_meta(prev_ingest), prev_git_sync)
+        else:
+            reply_text = _compose_fail_reply(reason, timeout=(final_state == "timeout"))
+    return reply_text, final_state, reason
+
+
 def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
     settings = _load_settings()
     pipeline_mode = _current_pipeline_mode()
@@ -286,35 +365,66 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
     url = str(job.get("url") or "").strip()
     meta = job.get("meta_json") if isinstance(job.get("meta_json"), dict) else {}
     previous_result = job.get("result_json") if isinstance(job.get("result_json"), dict) else {}
+    claimed_from_state = str(job.get("_claimed_from_state") or "").strip().lower()
+    notify_state = str(job.get("notify_state") or "").strip().lower()
     text = str((meta or {}).get("text") or "").strip()
 
     if not event_ref or not url:
         complete_job_failed(job_id, error="invalid_job_payload", state="failed")
         return
 
-    # Notification retry mode: avoid re-ingest after content already succeeded.
+    # Notification retry mode: avoid re-ingest after content already completed.
     prev_status = str((previous_result or {}).get("status") or "").strip().lower()
-    prev_ingest = (previous_result or {}).get("ingest") if isinstance((previous_result or {}).get("ingest"), dict) else None
-    prev_git_sync = (previous_result or {}).get("git_sync") if isinstance((previous_result or {}).get("git_sync"), dict) else {}
-    if prev_status in {"notify_pending", "success", "partial"} and prev_ingest:
-        prev_meta = _pick_ingest_meta(prev_ingest)
-        if _is_success(prev_meta, pipeline_mode=pipeline_mode):
-            ok, _ = _safe_reply(job, _compose_success_reply(prev_meta, prev_git_sync))
-            if ok:
-                complete_job_success(
-                    job_id,
-                    result={"ingest": prev_ingest, "git_sync": prev_git_sync, "status": "success"},
-                )
-                update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
-            else:
-                mark_job_pending(
-                    job_id,
-                    next_poll_seconds=max(10, int(settings.link_async_poll_interval_sec)),
-                    error="notify_retry",
-                    result={"ingest": prev_ingest, "git_sync": prev_git_sync, "status": "notify_pending"},
-                )
-                update_notify_status(job_id, notify_state="pending", notify_error="notify_retry", increment_try=True)
-            return
+    if prev_status == "notify_pending":
+        fallback_timeout = claimed_from_state == STATE_TIMEOUT
+        fallback_reason = str(job.get("error") or "").strip() or "content_not_success"
+        reply_text, final_state, reason = _compose_reply_for_notify_retry(
+            previous_result=previous_result,
+            pipeline_mode=pipeline_mode,
+            fallback_reason=fallback_reason,
+            fallback_timeout=fallback_timeout,
+        )
+        notify_ok, notify_errors = _safe_reply(job, reply_text)
+        if notify_ok:
+            _finalize_job(
+                job_id=job_id,
+                final_state=final_state,
+                reason=reason,
+                result=previous_result,
+                reply_text=reply_text,
+            )
+            update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
+        else:
+            _schedule_notify_retry(
+                job_id=job_id,
+                settings=settings,
+                result={**previous_result, "final_state": final_state, "error": reason, "reply_text": reply_text},
+                notify_errors=notify_errors,
+            )
+        return
+
+    # Backward compatibility: old jobs might have notify_state pending without notify_pending result payload.
+    if notify_state == "pending" and claimed_from_state in {STATE_FAILED, STATE_TIMEOUT}:
+        reason = str(job.get("error") or "").strip() or ("timeout_waiting_pipeline_text" if claimed_from_state == STATE_TIMEOUT else "content_not_success")
+        reply_text = _compose_fail_reply(reason, timeout=(claimed_from_state == STATE_TIMEOUT))
+        notify_ok, notify_errors = _safe_reply(job, reply_text)
+        if notify_ok:
+            _finalize_job(
+                job_id=job_id,
+                final_state=STATE_TIMEOUT if claimed_from_state == STATE_TIMEOUT else STATE_FAILED,
+                reason=reason,
+                result={"status": "notify_pending"},
+                reply_text=reply_text,
+            )
+            update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
+        else:
+            _schedule_notify_retry(
+                job_id=job_id,
+                settings=settings,
+                result={"status": "notify_pending", "final_state": claimed_from_state, "error": reason, "reply_text": reply_text},
+                notify_errors=notify_errors,
+            )
+        return
 
     # Best-effort safeguard: if async entry was queued but Bitable row is missing,
     # create the row here so upstream automation has a concrete target.
@@ -336,13 +446,25 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
             pass
 
     if is_expired(job):
-        reason = "timeout_waiting_bitable_text"
-        complete_job_failed(job_id, error=reason, state=STATE_TIMEOUT)
-        notify_ok, notify_errors = _safe_reply(job, _compose_fail_reply(reason, timeout=True))
+        reason = "timeout_waiting_pipeline_text"
+        reply_text = _compose_fail_reply(reason, timeout=True)
+        notify_ok, notify_errors = _safe_reply(job, reply_text)
         if notify_ok:
+            _finalize_job(
+                job_id=job_id,
+                final_state=STATE_TIMEOUT,
+                reason=reason,
+                result={"status": "timeout"},
+                reply_text=reply_text,
+            )
             update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
         else:
-            update_notify_status(job_id, notify_state="pending", notify_error="; ".join(notify_errors), increment_try=True)
+            _schedule_notify_retry(
+                job_id=job_id,
+                settings=settings,
+                result={"status": "notify_pending", "final_state": STATE_TIMEOUT, "error": reason, "reply_text": reply_text},
+                notify_errors=notify_errors,
+            )
         return
 
     ingest = _run_ingest(
@@ -353,6 +475,7 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
         source_ref=source_ref,
         source_time=source_time,
         dry_run=dry_run,
+        force_replay=True,
     )
     ingest_status = str(ingest.get("status") or "").strip().lower()
     meta_info = _pick_ingest_meta(ingest)
@@ -374,61 +497,81 @@ def _process_job(job: dict[str, Any], *, dry_run: bool) -> None:
             errors.append(str(git_sync.get("message") or git_sync.get("stderr") or "git_sync_failed"))
 
         final_status = "success" if not errors else "partial"
-        result_payload = {"ingest": ingest, "git_sync": git_sync or {}, "status": final_status}
+        result_payload = {
+            "ingest": ingest,
+            "git_sync": git_sync or {},
+            "status": final_status,
+            "final_state": STATE_SUCCESS,
+            "notify_status": "sent",
+        }
         complete_job_success(job_id, result=result_payload)
         _append_run_log(job, status=final_status, ingest=ingest, git_sync=git_sync, errors=errors)
-        notify_ok, notify_errors = _safe_reply(job, _compose_success_reply(meta_info, git_sync))
+        reply_text = _compose_success_reply(meta_info, git_sync)
+        notify_ok, notify_errors = _safe_reply(job, reply_text)
         if not notify_ok:
-            mark_job_pending(
-                job_id,
-                next_poll_seconds=max(10, int(settings.link_async_poll_interval_sec)),
-                error="; ".join(notify_errors),
-                result={**result_payload, "status": "notify_pending", "notify_errors": notify_errors},
+            _schedule_notify_retry(
+                job_id=job_id,
+                settings=settings,
+                result={**result_payload, "status": "notify_pending", "notify_status": "pending", "reply_text": reply_text},
+                notify_errors=notify_errors,
             )
-            update_notify_status(job_id, notify_state="pending", notify_error="; ".join(notify_errors), increment_try=True)
         else:
             update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
         return
 
     if _is_retryable(meta_info, ingest_status, pipeline_mode=pipeline_mode):
         if is_expired(job):
-            reason = str(meta_info.get("reject_reason") or meta_info.get("quality_reason") or "timeout_waiting_bitable_text")
-            complete_job_failed(
-                job_id,
-                error=reason,
-                result={"ingest": ingest, "status": "timeout"},
-                state=STATE_TIMEOUT,
-            )
+            reason = str(meta_info.get("reject_reason") or meta_info.get("quality_reason") or "timeout_waiting_pipeline_text")
+            reply_text = _compose_fail_reply(reason, timeout=True)
             _append_run_log(job, status="error", ingest=ingest, git_sync=None, errors=[reason])
-            notify_ok, notify_errors = _safe_reply(job, _compose_fail_reply(reason, timeout=True))
+            notify_ok, notify_errors = _safe_reply(job, reply_text)
             if notify_ok:
+                _finalize_job(
+                    job_id=job_id,
+                    final_state=STATE_TIMEOUT,
+                    reason=reason,
+                    result={"ingest": ingest},
+                    reply_text=reply_text,
+                )
                 update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
             else:
-                update_notify_status(job_id, notify_state="pending", notify_error="; ".join(notify_errors), increment_try=True)
+                _schedule_notify_retry(
+                    job_id=job_id,
+                    settings=settings,
+                    result={"ingest": ingest, "status": "notify_pending", "final_state": STATE_TIMEOUT, "error": reason, "reply_text": reply_text},
+                    notify_errors=notify_errors,
+                )
             return
 
         mark_job_pending(
             job_id,
             next_poll_seconds=max(10, int(settings.link_async_poll_interval_sec)),
-            error=str(meta_info.get("reject_reason") or meta_info.get("quality_reason") or "waiting_bitable_text"),
+            error=str(meta_info.get("reject_reason") or meta_info.get("quality_reason") or "waiting_pipeline_text"),
             result={"ingest": ingest, "status": "pending"},
         )
-        update_notify_status(job_id, notify_state="pending", notify_error="", increment_try=False)
+        update_notify_status(job_id, notify_state="", notify_error="", increment_try=False)
         return
 
     reason = str(meta_info.get("reject_reason") or meta_info.get("quality_reason") or "content_not_success").strip()
-    complete_job_failed(
-        job_id,
-        error=reason,
-        result={"ingest": ingest, "status": "failed"},
-        state="failed",
-    )
     _append_run_log(job, status="error", ingest=ingest, git_sync=None, errors=[reason])
-    notify_ok, notify_errors = _safe_reply(job, _compose_fail_reply(reason))
+    reply_text = _compose_fail_reply(reason)
+    notify_ok, notify_errors = _safe_reply(job, reply_text)
     if notify_ok:
+        _finalize_job(
+            job_id=job_id,
+            final_state=STATE_FAILED,
+            reason=reason,
+            result={"ingest": ingest},
+            reply_text=reply_text,
+        )
         update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
     else:
-        update_notify_status(job_id, notify_state="pending", notify_error="; ".join(notify_errors), increment_try=True)
+        _schedule_notify_retry(
+            job_id=job_id,
+            settings=settings,
+            result={"ingest": ingest, "status": "notify_pending", "final_state": STATE_FAILED, "error": reason, "reply_text": reply_text},
+            notify_errors=notify_errors,
+        )
 
 
 def run_once(*, limit: int, dry_run: bool) -> dict[str, Any]:
@@ -453,9 +596,26 @@ def run_once(*, limit: int, dry_run: bool) -> dict[str, Any]:
         except Exception as exc:
             msg = str(exc)
             if is_expired(job):
-                complete_job_failed(job_id, error=msg, state=STATE_TIMEOUT, result={"error": msg})
-                _safe_reply(job, _compose_fail_reply(msg, timeout=True))
-                stats["failed"] += 1
+                reply_text = _compose_fail_reply(msg, timeout=True)
+                notify_ok, notify_errors = _safe_reply(job, reply_text)
+                if notify_ok:
+                    _finalize_job(
+                        job_id=job_id,
+                        final_state=STATE_TIMEOUT,
+                        reason=msg,
+                        result={"error": msg},
+                        reply_text=reply_text,
+                    )
+                    update_notify_status(job_id, notify_state="sent", notify_error="", increment_try=False)
+                    stats["failed"] += 1
+                else:
+                    _schedule_notify_retry(
+                        job_id=job_id,
+                        settings=_load_settings(),
+                        result={"status": "notify_pending", "final_state": STATE_TIMEOUT, "error": msg, "reply_text": reply_text},
+                        notify_errors=notify_errors,
+                    )
+                    stats["pending"] += 1
             else:
                 mark_job_pending(
                     job_id,

@@ -845,12 +845,13 @@ def _run_ingest(
     source_ref: str,
     source_time: str,
     dry_run: bool,
+    force_replay: bool = False,
 ) -> dict[str, Any]:
     if not text.strip() and not urls:
         return {"status": "ignored", "mode": "ignore", "errors": ["empty text"], "result": {}}
 
     mode = "link" if urls else "quote"
-    endpoint = "/internal/ingest/v1/link" if urls else "/internal/ingest/v1/quote"
+    endpoint = "/internal/ingest/v1/replay" if force_replay else ("/internal/ingest/v1/link" if urls else "/internal/ingest/v1/quote")
     ingest_event_ref = f"{event_ref}#{mode}"
     source_kind = str(os.getenv("INGEST_SOURCE_KIND") or "openclaw-feishu").strip() or "openclaw-feishu"
     payload: dict[str, Any] = {
@@ -859,6 +860,8 @@ def _run_ingest(
         "source_ref": source_ref,
         "source_time": source_time,
     }
+    if force_replay:
+        payload["mode"] = mode
     if urls:
         payload["urls"] = urls
         payload["text"] = text

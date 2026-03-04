@@ -84,6 +84,9 @@ class MessageProcessSummary:
     link_summary_detected: bool
     link_text_source: str
     link_reject_reason: str
+    douyin_pipeline_mode: str
+    douyin_source_used: str
+    douyin_dedup_key: str
     touched_files: list[str]
     errors: list[str]
     import_record_path: str
@@ -492,6 +495,39 @@ def process_message(
         ),
         "",
     )
+    douyin_pipeline_mode = next(
+        (
+            str(item.douyin_pipeline_mode or "").strip().lower()
+            for item in (link_result.items if link_result is not None else [])
+            if str(item.douyin_pipeline_mode or "").strip()
+        ),
+        "",
+    )
+    douyin_source_used = next(
+        (
+            str(item.douyin_source_used or "").strip().lower()
+            for item in (link_result.items if link_result is not None else [])
+            if item.content_status == "success" and str(item.douyin_source_used or "").strip()
+        ),
+        "",
+    )
+    if not douyin_source_used:
+        douyin_source_used = next(
+            (
+                str(item.douyin_source_used or "").strip().lower()
+                for item in (link_result.items if link_result is not None else [])
+                if str(item.douyin_source_used or "").strip()
+            ),
+            "",
+        )
+    douyin_dedup_key = next(
+        (
+            str(item.douyin_dedup_key or "").strip()
+            for item in (link_result.items if link_result is not None else [])
+            if str(item.douyin_dedup_key or "").strip()
+        ),
+        "",
+    )
 
     return MessageProcessSummary(
         mode=routed.mode,
@@ -513,6 +549,9 @@ def process_message(
         link_summary_detected=summary_detected,
         link_text_source=link_text_source,
         link_reject_reason=link_reject_reason,
+        douyin_pipeline_mode=douyin_pipeline_mode,
+        douyin_source_used=douyin_source_used,
+        douyin_dedup_key=douyin_dedup_key,
         touched_files=sorted(touched_files),
         errors=errors,
         import_record_path=import_record_path.as_posix(),

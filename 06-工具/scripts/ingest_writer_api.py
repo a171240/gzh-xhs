@@ -537,6 +537,9 @@ def _check_source_kind(source_kind: str) -> None:
 
 def _message_summary_to_result(event_ref: str, mode: str, summary: Any) -> dict[str, Any]:
     summary_dict = dataclasses.asdict(summary)
+    # notify_status is resolved by async worker; keep the field in summary for schema stability.
+    if "notify_status" not in summary_dict:
+        summary_dict["notify_status"] = ""
     if mode == "quote":
         return _make_result(
             event_ref=event_ref,
