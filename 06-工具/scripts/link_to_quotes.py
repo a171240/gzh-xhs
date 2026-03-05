@@ -2402,9 +2402,19 @@ def process_urls_to_quotes(
                 evaluated = [item for item in evaluated if item.source in {"bitable", "bitable_text"}]
             if evaluated:
                 ok = True
-                passed = [item for item in evaluated if not item.reject_reason]
+                candidate_pool = list(evaluated)
+                if douyin_pipeline_mode in {"asr_primary", "bitable_primary", "bitable_only"}:
+                    if douyin_pipeline_mode == "bitable_only":
+                        pipeline_sources = {"bitable", "bitable_text"}
+                    else:
+                        pipeline_sources = {"asr", "bitable", "bitable_text"}
+                    pipeline_candidates = [item for item in evaluated if item.source in pipeline_sources]
+                    if pipeline_candidates:
+                        candidate_pool = pipeline_candidates
+
+                passed = [item for item in candidate_pool if not item.reject_reason]
                 ranked = sorted(
-                    evaluated,
+                    candidate_pool,
                     key=lambda item: (_douyin_source_rank(item.source), -item.score, -item.chars, -item.sentence_count),
                 )
                 best = ranked[0]
