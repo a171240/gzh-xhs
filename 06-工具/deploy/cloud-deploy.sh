@@ -63,6 +63,38 @@ env_file_get_kv() {
   printf '%s' "${line#${key}=}"
 }
 
+set_env_kv_protected() {
+  local file="$1"
+  local key="$2"
+  local default_value="$3"
+  local deploy_var_name="$4"
+  local current value source
+
+  current="$(env_file_get_kv "$file" "$key")"
+  if [[ -n "${!deploy_var_name+x}" ]]; then
+    if [[ -n "${!deploy_var_name}" ]]; then
+      value="${!deploy_var_name}"
+      set_env_kv "$file" "$key" "$value"
+      source="from_deploy_arg"
+    elif [[ -n "$current" ]]; then
+      value="$current"
+      source="from_env_file"
+    else
+      value="$default_value"
+      set_env_kv "$file" "$key" "$value"
+      source="from_default"
+    fi
+  elif [[ -n "$current" ]]; then
+    value="$current"
+    source="from_env_file"
+  else
+    value="$default_value"
+    set_env_kv "$file" "$key" "$value"
+    source="from_default"
+  fi
+  echo "[deploy] config ${key}=${value} (${source})"
+}
+
 is_truthy() {
   local raw="${1:-}"
   raw="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
@@ -334,12 +366,12 @@ set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_STRICT_FULL_TEXT "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_SUMMARY_BLOCK "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_MIN_SENTENCES "3"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_SOURCE_MODE "${INGEST_DOUYIN_SOURCE_MODE:-hybrid}"
-set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_PIPELINE_MODE "${INGEST_DOUYIN_PIPELINE_MODE:-asr_primary}"
+set_env_kv_protected /etc/openclaw/feishu.env INGEST_DOUYIN_PIPELINE_MODE "asr_primary" "INGEST_DOUYIN_PIPELINE_MODE"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_ENABLED "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_READ_FIRST "true"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_FALLBACK_FULL_SCAN "true"
-set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_WRITE_BACK "true"
-set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_ENABLED "${INGEST_DOUYIN_ASR_ENABLED:-true}"
+set_env_kv_protected /etc/openclaw/feishu.env INGEST_DOUYIN_BITABLE_WRITE_BACK "true" "INGEST_DOUYIN_BITABLE_WRITE_BACK"
+set_env_kv_protected /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_ENABLED "true" "INGEST_DOUYIN_ASR_ENABLED"
 set_env_kv_if_nonempty /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_API_KEY "${INGEST_DOUYIN_ASR_API_KEY:-${API_KEY:-}}"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_TIMEOUT_SEC "${INGEST_DOUYIN_ASR_TIMEOUT_SEC:-600}"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_DEDUP_KEY_MODE "${INGEST_DOUYIN_DEDUP_KEY_MODE:-video_or_canonical_url}"
@@ -354,6 +386,7 @@ set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_ENABLED "true"
 set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_POLL_INTERVAL_SEC "60"
 set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_TIMEOUT_MIN "20"
 set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_BATCH "5"
+set_env_kv_protected /etc/openclaw/feishu.env FEISHU_LINK_REPLAY_TIMEOUT_SEC "600" "FEISHU_LINK_REPLAY_TIMEOUT_SEC"
 set_env_kv /etc/openclaw/feishu.env FEISHU_TOOL_DIR "$TOOL_DIR"
 set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_DB "$TOOL_DIR/data/feishu-orchestrator/link_async_jobs.db"
 

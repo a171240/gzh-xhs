@@ -219,12 +219,16 @@ def route_message_text(text: str) -> RoutedMessage:
 
     body = _strip_command_shell(original)
     urls = _extract_urls(body)
+    quote_hit, quote_text = _extract_quote_after_mention(body)
 
-    # Product rule: if a message contains URL(s), treat it as benchmark-link input only.
+    # Explicit quote trigger + URL(s): process both quote and link in one message.
+    if urls and quote_hit:
+        return RoutedMessage(mode="mixed_mode", urls=urls, quote_text=quote_text, original_text=original)
+
+    # Default URL-only behavior remains link_mode for compatibility.
     if urls:
         return RoutedMessage(mode="link_mode", urls=urls, quote_text="", original_text=original)
 
-    quote_hit, quote_text = _extract_quote_after_mention(body)
     if quote_hit:
         return RoutedMessage(mode="quote_mode", urls=[], quote_text=quote_text, original_text=original)
 
@@ -391,7 +395,7 @@ def process_message(
     )
     link_result: LinkToQuotesResult | None = None
 
-    if routed.mode == "quote_mode" and routed.quote_text:
+    if routed.mode in {"quote_mode", "mixed_mode"} and routed.quote_text:
         quote_result = ingest_quote_text(
             quote_text=routed.quote_text,
             quote_dir=quote_dir,
@@ -403,7 +407,7 @@ def process_message(
         )
         touched_files.update(path.as_posix() for path in quote_result.touched_files)
 
-    if routed.mode == "link_mode" and routed.urls:
+    if routed.mode in {"link_mode", "mixed_mode"} and routed.urls:
         link_result = process_urls_to_quotes(
             urls=routed.urls,
             quote_dir=quote_dir,
@@ -564,6 +568,21 @@ def build_short_reply(summary: MessageProcessSummary) -> str:
 
     if summary.errors and summary.quote_added_count <= 0 and summary.link_content_success_count <= 0:
         return f"处理失败：{summary.errors[0]}"
+
+    if summary.mode == "mixed_mode":
+        quote_part = (
+            f"金句新增{summary.quote_added_count}，"
+            f"近似{summary.quote_near_dup_count}，"
+            f"重复{summary.quote_exact_dup_count}"
+        )
+        link_part = (
+            f"链接正文达标{summary.link_content_success_count}，"
+            f"失败{summary.link_content_failed_count}，"
+            f"测试跳过{summary.link_content_skipped_test_count}"
+            if summary.link_total > 0
+            else "链接未处理"
+        )
+        return f"混合处理完成：{quote_part}；{link_part}"
 
     if summary.mode == "quote_mode":
         return (

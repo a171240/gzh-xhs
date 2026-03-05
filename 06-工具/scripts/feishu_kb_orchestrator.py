@@ -5,7 +5,8 @@
 Contract:
 - CLI: python feishu_kb_orchestrator.py --text ... --event-ref ... --source-time ...
 - Intent routing:
-  - Message with URL => ingest link_mode (do not write into quote library directly)
+  - Message with URL => ingest link_mode
+  - Message with URL + explicit quote trigger => ingest mixed_mode (quote + link)
   - Message with @鍓嶇紑锛堝惈鍙€夆€滃洖澶?搴忓彿鈥濓級=> ingest quote_mode锛堜粎鍏ュ簱 @ 鍚庢鏂囷級
   - Non-link, non-skill, non-@ message => plain chat fallback
 - Skill commands support:

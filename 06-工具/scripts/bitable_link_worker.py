@@ -42,6 +42,7 @@ DEAD_LETTER_DIR = LOG_ROOT / "dead-letter"
 RETRYABLE_REASONS = {
     "not_from_bitable",
     "not_from_pipeline_source",
+    "bitable_write_failed",
     "bitable_no_record",
     "bitable_record_without_text",
     "bitable_no_query_key",
@@ -138,7 +139,6 @@ def _is_success(meta: dict[str, Any], *, pipeline_mode: str) -> bool:
     return (
         str(meta.get("content_status") or "") == "success"
         and str(meta.get("text_source") or "").lower() in allowed_sources
-        and not bool(meta.get("summary_detected"))
     )
 
 

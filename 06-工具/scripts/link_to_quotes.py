@@ -1384,8 +1384,6 @@ def _evaluate_douyin_candidate(
     reject_reason = ""
     if not cleaned:
         reject_reason = "no_full_text"
-    elif summary_detected:
-        reject_reason = "summary_detected"
     elif chars < min_chars_for_url:
         reject_reason = f"content_too_short:{chars}<{min_chars_for_url}"
     elif sentence_count < DEFAULT_DOUYIN_MIN_SENTENCES:
@@ -2494,11 +2492,11 @@ def process_urls_to_quotes(
                 quality_reason = "not_from_pipeline_source"
                 reject_reason = "not_from_pipeline_source"
 
-        if is_douyin and not quality_reason and summary_detected and DEFAULT_DOUYIN_SUMMARY_BLOCK:
-            content_status = "failed"
+        if is_douyin and summary_detected and DEFAULT_DOUYIN_SUMMARY_BLOCK and not quality_reason:
+            # Mark potential summary output for downstream review, but keep successful ingestion.
             quality_reason = "summary_detected"
 
-        if not reject_reason and quality_reason in {"summary_detected", "no_full_text"}:
+        if content_status == "failed" and (not reject_reason) and quality_reason in {"summary_detected", "no_full_text"}:
             reject_reason = quality_reason
 
         if bitable_error and not error:
@@ -2518,6 +2516,10 @@ def process_urls_to_quotes(
             )
             if sync_error:
                 error = f"{error} | {sync_error}".strip(" |") if error else sync_error
+                if str(sync_error).startswith("bitable_write_failed"):
+                    content_status = "failed"
+                    quality_reason = "bitable_write_failed"
+                    reject_reason = "bitable_write_failed"
 
         write_summary_text = ""
         write_keypoints_text = ""
