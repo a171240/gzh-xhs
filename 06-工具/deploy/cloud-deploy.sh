@@ -55,6 +55,43 @@ set_env_kv_if_nonempty() {
   fi
 }
 
+env_file_get_kv() {
+  local file="$1"
+  local key="$2"
+  local line
+  line="$(grep -E "^${key}=" "$file" | tail -n1 || true)"
+  printf '%s' "${line#${key}=}"
+}
+
+is_truthy() {
+  local raw="${1:-}"
+  raw="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+  [[ "$raw" == "1" || "$raw" == "true" || "$raw" == "yes" || "$raw" == "y" || "$raw" == "on" ]]
+}
+
+ensure_bitable_required_env() {
+  local file="$1"
+  local enabled app_token table_id
+  local missing=()
+  enabled="$(env_file_get_kv "$file" "INGEST_DOUYIN_BITABLE_ENABLED")"
+  if ! is_truthy "$enabled"; then
+    return 0
+  fi
+  app_token="$(env_file_get_kv "$file" "BITABLE_APP_TOKEN")"
+  table_id="$(env_file_get_kv "$file" "BITABLE_TABLE_ID")"
+  if [[ -z "$app_token" ]]; then
+    missing+=("BITABLE_APP_TOKEN")
+  fi
+  if [[ -z "$table_id" ]]; then
+    missing+=("BITABLE_TABLE_ID")
+  fi
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    echo "[deploy] ERROR: missing required Bitable env in ${file}: ${missing[*]} (INGEST_DOUYIN_BITABLE_ENABLED=true)." >&2
+    echo "[deploy] Refusing to continue without explicit Bitable target to prevent writing to wrong table." >&2
+    exit 1
+  fi
+}
+
 find_runtime_layout() {
   local fixed_runtime fixed_deploy orch
   fixed_runtime="$REPO_PATH/06-工具/scripts"
@@ -308,9 +345,9 @@ set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_ASR_TIMEOUT_SEC "${INGEST_DOUY
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_DEDUP_KEY_MODE "${INGEST_DOUYIN_DEDUP_KEY_MODE:-video_or_canonical_url}"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_WRITE_SUMMARY "${INGEST_DOUYIN_WRITE_SUMMARY:-true}"
 set_env_kv /etc/openclaw/feishu.env INGEST_DOUYIN_WRITE_KEYPOINTS "${INGEST_DOUYIN_WRITE_KEYPOINTS:-true}"
-set_env_kv /etc/openclaw/feishu.env BITABLE_APP_TOKEN "${BITABLE_APP_TOKEN:-UrwobWA3JadzAcsLqJbc6CThnRd}"
-set_env_kv /etc/openclaw/feishu.env BITABLE_TABLE_ID "${BITABLE_TABLE_ID:-tblr1mvEh1bFsUAS}"
-set_env_kv /etc/openclaw/feishu.env BITABLE_VIEW_ID "${BITABLE_VIEW_ID:-vew5Oj8RIj}"
+set_env_kv_if_nonempty /etc/openclaw/feishu.env BITABLE_APP_TOKEN "${BITABLE_APP_TOKEN:-}"
+set_env_kv_if_nonempty /etc/openclaw/feishu.env BITABLE_TABLE_ID "${BITABLE_TABLE_ID:-}"
+set_env_kv_if_nonempty /etc/openclaw/feishu.env BITABLE_VIEW_ID "${BITABLE_VIEW_ID:-}"
 set_env_kv /etc/openclaw/feishu.env BITABLE_TEXT_FIELD "${BITABLE_TEXT_FIELD:-文案整理}"
 set_env_kv /etc/openclaw/feishu.env BITABLE_TEXT_FALLBACK_FIELD "${BITABLE_TEXT_FALLBACK_FIELD:-文案出参}"
 set_env_kv /etc/openclaw/feishu.env FEISHU_LINK_ASYNC_ENABLED "true"
@@ -335,6 +372,8 @@ set_env_kv /etc/openclaw/feishu.env GIT_SYNC_INCLUDE_PATHS "02-内容生产,03-�
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_AUTHOR_NAME "feishu-bot"
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_AUTHOR_EMAIL "feishu-bot@local"
 set_env_kv /etc/openclaw/feishu.env GIT_SYNC_MAX_RETRIES "2"
+
+ensure_bitable_required_env /etc/openclaw/feishu.env
 
 apply_workspace_prompt
 install_or_update_writer_service
