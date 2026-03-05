@@ -69,3 +69,19 @@ bash 06-工具/deploy/replay-link-content-failures.sh \
   - `failed`：提取失败或正文不足阈值。
   - `skipped_test`：测试链接（如 `example.com`）被跳过质量门禁。
 - 验收脚本启用 `--require-content-success true` 时，仅对链接流进行正文门禁，不会误伤纯金句事件。
+
+## 5. Bitable Safety Requirements (2026-03-05)
+
+When `INGEST_DOUYIN_BITABLE_ENABLED=true`, deployment requires explicit Bitable target values:
+
+```bash
+BITABLE_APP_TOKEN=<your_bitable_app_token>
+BITABLE_TABLE_ID=<your_bitable_table_id>
+# optional
+BITABLE_VIEW_ID=<your_bitable_view_id>
+```
+
+Notes:
+- `cloud-deploy.sh` no longer injects hardcoded Bitable defaults.
+- If required Bitable values are missing, deployment fails fast to prevent writing to a wrong table.
+- To intentionally disable Bitable path, set `INGEST_DOUYIN_BITABLE_ENABLED=false`.

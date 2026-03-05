@@ -630,3 +630,18 @@
   - `04-数据与方法论/内容数据统计/公众号数据.md`
   - `04-数据与方法论/内容数据统计/小红书数据.md`
   - `04-数据与方法论/内容数据统计/抖音数据.md`
+
+## Appendix A.1: Bitable target safety guard (2026-03-05)
+
+For Douyin link ingest with Bitable enabled (`INGEST_DOUYIN_BITABLE_ENABLED=true`), these environment variables are required:
+
+| Variable | Required | Example |
+| --- | --- | --- |
+| `BITABLE_APP_TOKEN` | Yes | `app_token_xxx` |
+| `BITABLE_TABLE_ID` | Yes | `tbl_xxx` |
+| `BITABLE_VIEW_ID` | Optional | `vew_xxx` |
+
+Deployment behavior:
+- `cloud-deploy.sh` will fail fast when Bitable is enabled but `BITABLE_APP_TOKEN` or `BITABLE_TABLE_ID` is missing.
+- No hardcoded default Bitable IDs are injected anymore.
+- This guard prevents accidental writes into a wrong Bitable table.
