@@ -59,3 +59,10 @@
   - https://www.iesdouyin.com/share/video/7531055378311892243/?region=CN&mid=7442021180054308876&u_code=el0igj1g4m570c&did=MS4wLjABAAAA2dQOupVUDYr0dDzTIB0l_dm93s_XYALlhZjlfW5KDqL_jcZ0jZMlsjScbr0bnlcC&iid=MS4wLjABAAAANwkJuWIRFOzg5uCpDRpMj4OX-QryoDgn-yYlXQnRwQQ&with_sec_did=1&video_share_track_ver=&titleType=title&share_sign=35xV3PwuG91TAWRCqs8_EQJpvt0BzjWMtoV.5lC7Ph4-&share_version=190600&ts=1772696623&from_aid=6383&from_ssr=1&share_track_info=%7B%22link_description_type%22%3A%22%22%7D&from=web_code_link route=success content=success provider=bitable chars=205
     text_source: bitable
 
+## 2026-03-05T23:42:13Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 当爱可以用货币量化时，爱就开始贬值了
+
