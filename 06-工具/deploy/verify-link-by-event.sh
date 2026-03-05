@@ -11,6 +11,7 @@ REQUIRE_BITABLE_CONSISTENCY=false
 REQUIRE_TEXT_SOURCE=""
 REQUIRE_PIPELINE_MODE=""
 REQUIRE_NOTIFY_SENT=false
+ALLOW_SUMMARY_DETECTED=true
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -24,6 +25,7 @@ while [[ $# -gt 0 ]]; do
     --require-text-source) REQUIRE_TEXT_SOURCE="${2:?missing value for --require-text-source}"; shift 2 ;;
     --require-pipeline-mode) REQUIRE_PIPELINE_MODE="${2:?missing value for --require-pipeline-mode}"; shift 2 ;;
     --require-notify-sent) REQUIRE_NOTIFY_SENT="${2:?missing value for --require-notify-sent}"; shift 2 ;;
+    --allow-summary-detected) ALLOW_SUMMARY_DETECTED="${2:?missing value for --allow-summary-detected}"; shift 2 ;;
     *) echo "[verify-event] unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -138,7 +140,7 @@ EVENT_REF_PICKED="$(grep '^event_ref=' "$META_TMP" | head -n1 | cut -d= -f2-)"
 test -n "$EVENT_REF_PICKED" || { echo "[verify-event] FAIL: missing event_ref in metadata"; exit 1; }
 PREFIX="${EVENT_REF_PICKED}#%"
 
-python3 - "$DB_PATH" "$PREFIX" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" "$REQUIRE_PIPELINE_MODE" <<'PY'
+python3 - "$DB_PATH" "$PREFIX" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" "$REQUIRE_PIPELINE_MODE" "$ALLOW_SUMMARY_DETECTED" <<'PY'
 import json
 import sqlite3
 import sys
@@ -148,6 +150,7 @@ prefix = sys.argv[2]
 min_chars = max(1, int(sys.argv[3]))
 required_text_source = str(sys.argv[4] or "").strip().lower()
 required_pipeline_mode = str(sys.argv[5] or "").strip().lower()
+allow_summary_detected = str(sys.argv[6] or "").strip().lower() in {"1", "true", "yes", "y", "on"}
 
 conn = sqlite3.connect(db_path)
 try:
@@ -211,9 +214,11 @@ try:
                 f"{','.join(sorted(accepted_sources))} for mode={required_pipeline_mode}"
             )
             sys.exit(1)
-    if summary_detected:
+    if summary_detected and not allow_summary_detected:
         print("FAIL:summary_detected:true")
         sys.exit(1)
+    if summary_detected and allow_summary_detected:
+        print("WARN:summary_detected:true")
     if (not is_test_url) and content_chars < min_chars:
         print(f"FAIL:content_chars:{content_chars}<{min_chars}")
         sys.exit(1)

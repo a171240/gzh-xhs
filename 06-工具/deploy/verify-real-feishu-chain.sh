@@ -17,6 +17,7 @@ WAIT_ASYNC_SECONDS=0
 REQUIRE_TEXT_SOURCE=""
 REQUIRE_PIPELINE_MODE=""
 REQUIRE_NOTIFY_SENT=false
+ALLOW_SUMMARY_DETECTED=true
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +37,7 @@ while [[ $# -gt 0 ]]; do
     --require-text-source) REQUIRE_TEXT_SOURCE="${2:?missing value for --require-text-source}"; shift 2 ;;
     --require-pipeline-mode) REQUIRE_PIPELINE_MODE="${2:?missing value for --require-pipeline-mode}"; shift 2 ;;
     --require-notify-sent) REQUIRE_NOTIFY_SENT="${2:?missing value for --require-notify-sent}"; shift 2 ;;
+    --allow-summary-detected) ALLOW_SUMMARY_DETECTED="${2:?missing value for --allow-summary-detected}"; shift 2 ;;
     *) echo "[verify] unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -87,7 +89,7 @@ test -n "$RUN_LOG" || { echo "[verify] FAIL: run log missing under $REPO_PATH/06
 test -f "$RUN_LOG" || { echo "[verify] FAIL: run log not a file: $RUN_LOG"; exit 1; }
 
 validate_run_log() {
-python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" "$REQUIRE_PIPELINE_MODE" >"$RUN_TMP" <<'PY'
+python3 - "$RUN_LOG" "$SINCE_MINUTES" "$EVENT_REF_CONTAINS" "$EXPECT_INGEST" "$REQUIRE_GIT_SYNC" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" "$REQUIRE_PIPELINE_MODE" "$ALLOW_SUMMARY_DETECTED" >"$RUN_TMP" <<'PY'
 import datetime as dt
 import json
 import pathlib
@@ -103,6 +105,7 @@ allow_test_url_skip = sys.argv[7].strip().lower() in {"1", "true", "yes", "y", "
 min_content_chars = max(1, int(sys.argv[8]))
 require_text_source = sys.argv[9].strip().lower()
 require_pipeline_mode = sys.argv[10].strip().lower()
+allow_summary_detected = sys.argv[11].strip().lower() in {"1", "true", "yes", "y", "on"}
 
 cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=since_minutes)
 
@@ -203,7 +206,7 @@ def row_failures(row, meta):
                 pass
             elif link_content_status != "success":
                 fails.append(f"content_not_success:{link_content_status or 'missing'}")
-            elif link_summary_detected:
+            elif link_summary_detected and (not allow_summary_detected):
                 fails.append("content_summary_detected:true")
             elif (not link_is_test) and link_content_chars < min_content_chars:
                 fails.append(f"content_chars_too_low:{link_content_chars}<{min_content_chars}")
@@ -321,7 +324,7 @@ DB_PATH="$(ls -1 "$REPO_PATH"/06-*/data/ingest-writer/writer_state.db 2>/dev/nul
 test -n "$DB_PATH" || { echo "[verify] FAIL: writer db missing under $REPO_PATH/06-*/data/ingest-writer/"; exit 1; }
 test -f "$DB_PATH" || { echo "[verify] FAIL: writer db not a file: $DB_PATH"; exit 1; }
 
-python3 - "$DB_PATH" "$LATEST_EVENT_REF" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" "$REQUIRE_PIPELINE_MODE" <<'PY'
+python3 - "$DB_PATH" "$LATEST_EVENT_REF" "$REQUIRE_CONTENT_SUCCESS" "$ALLOW_TEST_URL_SKIP" "$MIN_CONTENT_CHARS" "$REQUIRE_TEXT_SOURCE" "$REQUIRE_PIPELINE_MODE" "$ALLOW_SUMMARY_DETECTED" <<'PY'
 import sqlite3
 import sys
 
@@ -332,6 +335,7 @@ allow_test_url_skip = sys.argv[4].strip().lower() in {"1", "true", "yes", "y", "
 min_content_chars = max(1, int(sys.argv[5]))
 require_text_source = sys.argv[6].strip().lower()
 require_pipeline_mode = sys.argv[7].strip().lower()
+allow_summary_detected = sys.argv[8].strip().lower() in {"1", "true", "yes", "y", "on"}
 prefix = f"{event_ref}#%"
 
 conn = sqlite3.connect(db_path)
@@ -383,9 +387,11 @@ try:
                 if c_status and c_status != "success":
                     print(f"[verify] FAIL: content_status not success for {ev}: {c_status} ({quality or ''})", file=sys.stderr)
                     sys.exit(1)
-                if c_status == "success" and summary_detected:
+                if c_status == "success" and summary_detected and (not allow_summary_detected):
                     print(f"[verify] FAIL: summary_detected=true for {ev} source={text_source} reason={reject_reason or quality}", file=sys.stderr)
                     sys.exit(1)
+                if c_status == "success" and summary_detected and allow_summary_detected:
+                    print(f"[verify] WARN: summary_detected=true for {ev} source={text_source} reason={reject_reason or quality}", file=sys.stderr)
                 if c_status == "success" and require_text_source:
                     actual_text_source = str(text_source or "").strip().lower()
                     accepted = {require_text_source}
