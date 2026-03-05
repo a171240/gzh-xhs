@@ -257,3 +257,20 @@
   - 金句入库：已禁用（链接仅入对标链接库）
   - 错误：bitable_write_failed:bitable request failed: NumberFieldConvFail
 
+## 2026-03-05T15:45:41+08:00 run=link_20260305154654_2aafac44
+- [success] https://www.iesdouyin.com/share/video/7531055378311892243/?region=CN&mid=7442021180054308876&u_code=el0igj1g4m570c&did=MS4wLjABAAAA2dQOupVUDYr0dDzTIB0l_dm93s_XYALlhZjlfW5KDqL_jcZ0jZMlsjScbr0bnlcC&iid=MS4wLjABAAAANwkJuWIRFOzg5uCpDRpMj4OX-QryoDgn-yYlXQnRwQQ&with_sec_did=1&video_share_track_ver=&titleType=title&share_sign=35xV3PwuG91TAWRCqs8_EQJpvt0BzjWMtoV.5lC7Ph4-&share_version=190600&ts=1772696623&from_aid=6383&from_ssr=1&share_track_info=%7B%22link_description_type%22%3A%22%22%7D&from=web_code_link
+  - 路由状态：success
+  - 正文状态：success
+  - 提取来源：bitable
+  - 测试链接：no
+  - 标题：你难道忘了吗？ 今天正是你多年前祈求的模样啊 #人间清醒 #内容太过真实 #读书 #共鸣 #读书分享
+  - 日期：2026-03-05
+  - 正文文件：`/root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-05/你难道忘了吗-今天正是你多年前祈求的模样啊-人间清醒-内容太过真实-读书-共鸣-读书分享-2026-03-05.md`
+  - 正文字符：205
+  - summary_detected：false
+  - text_source：bitable
+  - douyin_pipeline_mode：asr_primary
+  - douyin_source_used：bitable
+  - douyin_dedup_key：dy-7531055378311892243
+  - 金句入库：已禁用（链接仅入对标链接库）
+

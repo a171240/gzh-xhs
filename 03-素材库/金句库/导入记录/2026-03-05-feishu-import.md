@@ -41,3 +41,21 @@
 - quote_exact_dup: 0
 - quote_preview: 不断前进，即使在某件事情上栽跟头，也比坐着不动的人更接近成功。
 
+## 2026-03-05T15:45:41+08:00 event=ou_5d56d561182428f0bb29f1507989a034
+- mode: `mixed_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 你难道忘了吗？今天正是你多年前祈求的模样啊# 人间清醒 # 内容太过真实 # 读书 # 共鸣 # 读书分享 https://v.douyin.com/e8zrNmnK9lo/ 复制此链接，打开Dou音搜索，直接观看视频！
+- links: 1
+  - https://v.douyin.com/e8zrNmnK9lo/
+- link_route_success: 1/1
+- link_content_success: 1
+- link_content_failed: 0
+- link_content_skipped_test: 0
+- link_doc_saved: 1
+- link_summary_detected: false
+  - https://www.iesdouyin.com/share/video/7531055378311892243/?region=CN&mid=7442021180054308876&u_code=el0igj1g4m570c&did=MS4wLjABAAAA2dQOupVUDYr0dDzTIB0l_dm93s_XYALlhZjlfW5KDqL_jcZ0jZMlsjScbr0bnlcC&iid=MS4wLjABAAAANwkJuWIRFOzg5uCpDRpMj4OX-QryoDgn-yYlXQnRwQQ&with_sec_did=1&video_share_track_ver=&titleType=title&share_sign=35xV3PwuG91TAWRCqs8_EQJpvt0BzjWMtoV.5lC7Ph4-&share_version=190600&ts=1772696623&from_aid=6383&from_ssr=1&share_track_info=%7B%22link_description_type%22%3A%22%22%7D&from=web_code_link -> /root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-05/你难道忘了吗-今天正是你多年前祈求的模样啊-人间清醒-内容太过真实-读书-共鸣-读书分享-2026-03-05.md
+  - https://www.iesdouyin.com/share/video/7531055378311892243/?region=CN&mid=7442021180054308876&u_code=el0igj1g4m570c&did=MS4wLjABAAAA2dQOupVUDYr0dDzTIB0l_dm93s_XYALlhZjlfW5KDqL_jcZ0jZMlsjScbr0bnlcC&iid=MS4wLjABAAAANwkJuWIRFOzg5uCpDRpMj4OX-QryoDgn-yYlXQnRwQQ&with_sec_did=1&video_share_track_ver=&titleType=title&share_sign=35xV3PwuG91TAWRCqs8_EQJpvt0BzjWMtoV.5lC7Ph4-&share_version=190600&ts=1772696623&from_aid=6383&from_ssr=1&share_track_info=%7B%22link_description_type%22%3A%22%22%7D&from=web_code_link route=success content=success provider=bitable chars=205
+    text_source: bitable
+
