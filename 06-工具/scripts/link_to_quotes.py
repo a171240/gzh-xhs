@@ -1320,7 +1320,11 @@ def _is_summary_candidate(text: str) -> bool:
     if not value:
         return True
     lower = value.lower()
-    if "作者强调" in value or "通过分享" in value:
+    sentence_count = _count_sentences(value)
+    # Guardrail: long multi-sentence bodies are very unlikely to be abstract-only summaries.
+    if len(value) >= 400 and sentence_count >= 4:
+        return False
+    if ("作者强调" in value or "通过分享" in value) and sentence_count <= 3 and len(value) < 260:
         return True
     for rule in SUMMARY_HINT_REGEXES:
         if rule.search(value):
@@ -1331,7 +1335,6 @@ def _is_summary_candidate(text: str) -> bool:
         for token in ("本质", "核心", "总结", "观点", "启发", "提醒", "强调", "说明")
         if token in value
     )
-    sentence_count = _count_sentences(value)
     if abstract_hits >= 2 and sentence_count <= 3 and len(value) < 220:
         return True
     # Avoid accepting heavily truncated headline-like snippets as full正文.
