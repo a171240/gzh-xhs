@@ -32,9 +32,11 @@ from crawl_bridge import CRAWL_ROOT, URL_READER_VENV_PY, resolve_python_cmd, run
 from quote_ingest_core import DEFAULT_NEAR_DUP_THRESHOLD, CandidateQuote, NearDupItem, resolve_path
 try:
     from douyin_asr_extractor import DouyinAsrError, extract_douyin_asr_dict
-except Exception:  # pragma: no cover - optional runtime dependency
+    DOUYIN_ASR_IMPORT_ERROR = ""
+except Exception as exc:  # pragma: no cover - optional runtime dependency
     DouyinAsrError = RuntimeError  # type: ignore[assignment]
     extract_douyin_asr_dict = None  # type: ignore[assignment]
+    DOUYIN_ASR_IMPORT_ERROR = str(exc or "import_failed").strip() or "import_failed"
 
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 NOISE_LINE_SUBSTRINGS = (
@@ -2208,21 +2210,29 @@ def process_urls_to_quotes(
             except Exception as exc:
                 bitable_error = f"bitable_read_failed:{exc}"
 
-        if is_douyin and not douyin_bitable_only and DEFAULT_DOUYIN_ASR_ENABLED and extract_douyin_asr_dict is not None:
-            try:
-                asr_payload = extract_douyin_asr_dict(
-                    source_text or url,
-                    timeout_sec=max(30, int(DEFAULT_DOUYIN_ASR_TIMEOUT_SEC)),
-                )
-                asr_transcript = _clean_douyin_text_for_output(str(asr_payload.get("transcript") or ""))
-                asr_summary = _clean_douyin_text_for_output(str(asr_payload.get("desc") or asr_payload.get("title") or ""))
-                if asr_transcript:
-                    douyin_candidates.append(("asr", asr_transcript))
-                if not title and asr_summary:
-                    title = _normalize_douyin_title(asr_summary)
-                    title_keywords = _extract_douyin_title_keywords(title)
-            except Exception as exc:
-                asr_error = f"asr_extract_failed:{exc}"
+        if is_douyin and not douyin_bitable_only and DEFAULT_DOUYIN_ASR_ENABLED:
+            if extract_douyin_asr_dict is None:
+                asr_error = f"asr_extractor_unavailable:{DOUYIN_ASR_IMPORT_ERROR}"
+            else:
+                try:
+                    # Keep original source text context, but always append URL as a fallback input.
+                    asr_input = str(source_text or "").strip()
+                    safe_url = str(url or "").strip()
+                    if safe_url and safe_url not in asr_input:
+                        asr_input = f"{asr_input}\n{safe_url}".strip() if asr_input else safe_url
+                    asr_payload = extract_douyin_asr_dict(
+                        asr_input,
+                        timeout_sec=max(30, int(DEFAULT_DOUYIN_ASR_TIMEOUT_SEC)),
+                    )
+                    asr_transcript = _clean_douyin_text_for_output(str(asr_payload.get("transcript") or ""))
+                    asr_summary = _clean_douyin_text_for_output(str(asr_payload.get("desc") or asr_payload.get("title") or ""))
+                    if asr_transcript:
+                        douyin_candidates.append(("asr", asr_transcript))
+                    if not title and asr_summary:
+                        title = _normalize_douyin_title(asr_summary)
+                        title_keywords = _extract_douyin_title_keywords(title)
+                except Exception as exc:
+                    asr_error = f"asr_extract_failed:{exc}"
 
         if ok and md_file and Path(md_file).exists():
             markdown = _repair_mojibake(Path(md_file).read_text(encoding="utf-8", errors="ignore"))
