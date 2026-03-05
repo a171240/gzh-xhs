@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Automation scheduler for nightly metrics/retro/maintenance pipeline."""
+"""Automation scheduler for nightly metrics/retro/maintenance/benchmark pipeline."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 from automation_maintenance_runner import run_maintenance
 from automation_state import AUTOMATION_ROOT
+from benchmark_analysis_runner import run_benchmark_analysis
 from metrics_runner import run_metrics
 from retro_runner import run_retro
 
@@ -76,9 +77,13 @@ def run_once(*, date_str: str, dry_run: bool) -> dict[str, Any]:
     metrics_result = run_metrics({"date": date_str, "source_user": "scheduler"}, dry_run=dry_run)
     retro_result = run_retro({"date": date_str, "source_user": "scheduler"}, dry_run=dry_run)
     maintenance_result = run_maintenance({"source_user": "scheduler"}, dry_run=dry_run)
+    benchmark_result = run_benchmark_analysis(
+        {"date": date_str, "scan_mode": "yesterday", "source_user": "scheduler"},
+        dry_run=dry_run,
+    )
 
     status = "success"
-    for item in (metrics_result, retro_result, maintenance_result):
+    for item in (metrics_result, retro_result, maintenance_result, benchmark_result):
         if str(item.get("status") or "") != "success":
             status = "partial"
             break
@@ -89,6 +94,7 @@ def run_once(*, date_str: str, dry_run: bool) -> dict[str, Any]:
         "metrics": metrics_result,
         "retro": retro_result,
         "maintenance": maintenance_result,
+        "benchmark_analysis": benchmark_result,
     }
 
 
