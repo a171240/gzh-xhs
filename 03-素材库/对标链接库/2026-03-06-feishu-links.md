@@ -229,3 +229,20 @@
   - douyin_dedup_key：dy-7585580512580783414
   - 金句入库：已禁用（链接仅入对标链接库）
 
+## 2026-03-06T07:22:06Z run=link_20260306152303_3acd7a6d
+- [success] https://www.iesdouyin.com/share/video/7592035939830183878/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7592035576153377555&ts=1772781680&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=_hPvNocQnABfpcQLPG7sOe49rWFNt06uZa_jXRbgjF8-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772781714%22,%22social_author_id%22:%22104065488184%22,%22social_share_id%22:%227517492169541485627_1772781714%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772781715&share_version=370700&ug_share_id=a4a6f1848551b_1772781717076&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme
+  - 路由状态：success
+  - 正文状态：success
+  - 提取来源：asr
+  - 测试链接：no
+  - 标题：你不会是变得无情而是真清醒 “利润Z高的赛道是你自己”， 当你开始投资自己，全世界都会为你让路 当你开始用“资本”的眼光，来审视你的人生时，那些曾经让你痛苦纠结、内耗到死的人和事，会瞬间变得清晰明了
+  - 日期：2026-03-06
+  - 正文文件：`/root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-06/你不会是变得无情而是真清醒-利润Z高的赛道是你自己-当你开始投资自己-全世界都会为你让路-当你开始用-资本-的眼光-来审-2026-03-06.md`
+  - 正文字符：251
+  - summary_detected：false
+  - text_source：asr
+  - douyin_pipeline_mode：asr_primary
+  - douyin_source_used：asr
+  - douyin_dedup_key：dy-7592035939830183878
+  - 金句入库：已禁用（链接仅入对标链接库）
+
