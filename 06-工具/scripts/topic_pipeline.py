@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from feishu_skill_runner import DEFAULT_MODEL, run_skill_task
+from feishu_skill_runner import DEFAULT_MODEL, build_skill_registry, resolve_skill, run_skill_task
 from skill_context_resolver import resolve_context_files
 from topic_brief_builder import build_brief_from_payload
 from topic_doc_utils import (
@@ -383,6 +383,15 @@ def _retry_key(rel_path: str, platform: str) -> str:
     return f"{rel_path}|{platform}"
 
 
+def _resolve_dispatch_skill(platform: str) -> tuple[str, str]:
+    mapping = PLATFORM_DISPATCH.get(platform)
+    if not mapping:
+        raise KeyError(platform)
+    skill_ref, target_platform = mapping
+    skill = resolve_skill(build_skill_registry(), skill_ref)
+    return skill.skill_id, target_platform
+
+
 def _execute_one_task(
     *,
     state: dict[str, Any],
@@ -413,10 +422,10 @@ def _execute_one_task(
     has_error = False
 
     for platform in dispatch_platforms:
-        mapping = PLATFORM_DISPATCH.get(platform)
-        if not mapping:
+        try:
+            skill_id, target_platform = _resolve_dispatch_skill(platform)
+        except KeyError:
             continue
-        skill_id, target_platform = mapping
         retry_key = _retry_key(rel_path, target_platform)
         previous_retry = int(retry_counts.get(retry_key) or 0)
         if previous_retry >= MAX_RETRY_PER_PLATFORM:
@@ -432,7 +441,7 @@ def _execute_one_task(
             continue
 
         brief = build_brief_from_payload(payload, platform=target_platform)
-        context_files = resolve_context_files(doc.path, platform=target_platform)
+        context_files = resolve_context_files(doc.path, platform=target_platform, skill_id=skill_id)
         try:
             result = run_skill_task(
                 skill_id=skill_id,

@@ -30,7 +30,7 @@ import automation_state as _automation_state
 from feishu_ingest_router import process_message
 from media_task_runner import run_media_task
 from metrics_runner import run_metrics
-from publish_action_runner import approve_publish, prepare_publish, retry_publish_task
+from publish_action_runner import approve_publish, prepare_publish, preview_publish, retry_publish_task
 from quote_ingest_core import DEFAULT_NEAR_DUP_THRESHOLD
 from retro_runner import run_retro
 
@@ -847,6 +847,10 @@ def _run_publish_prepare(payload: dict[str, Any]) -> dict[str, Any]:
     return prepare_publish(payload, dry_run=_payload_bool(payload, "dry_run", default=False))
 
 
+def _run_publish_preview(payload: dict[str, Any]) -> dict[str, Any]:
+    return preview_publish(payload, dry_run=_payload_bool(payload, "dry_run", default=False))
+
+
 def _run_publish_approve(payload: dict[str, Any]) -> dict[str, Any]:
     action = str(payload.get("action") or "approve").strip().lower()
     dry_run = _payload_bool(payload, "dry_run", default=False)
@@ -995,6 +999,17 @@ async def publish_prepare(request: Request) -> JSONResponse:
     payload = _json_body_or_400(body)
     try:
         return _automation_response(_run_publish_prepare(payload))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/internal/publish/preview")
+async def publish_preview(request: Request) -> JSONResponse:
+    body = await request.body()
+    _verify_auth(request, body)
+    payload = _json_body_or_400(body)
+    try:
+        return _automation_response(_run_publish_preview(payload))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

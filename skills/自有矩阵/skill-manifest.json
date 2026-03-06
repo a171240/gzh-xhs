@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "skills": [
+    {
+      "skill_id": "wechat",
+      "name": "公众号四账号内容生成",
+      "path": "skills/自有矩阵/公众号批量生产.md",
+      "aliases": [
+        "公众号批量生产",
+        "公众号爆文写作",
+        "生成公众号内容",
+        "公众号内容生成",
+        "wechat",
+        "公众号"
+      ],
+      "default_platform": "公众号",
+      "kind": "content",
+      "default_contexts": [
+        "02-内容生产/公众号/账号矩阵.md",
+        "03-素材库/内容框架库/内容框架知识库.md",
+        "03-素材库/增强模块/公众号爆文增强版.md",
+        "02-内容生产/公众号/prompts/公众号内容质检规则.md"
+      ]
+    },
+    {
+      "skill_id": "wechat_topic_refine",
+      "name": "公众号选题深化",
+      "path": "skills/自有矩阵/公众号选题深化.md",
+      "aliases": [
+        "公众号选题深化",
+        "深化公众号选题",
+        "wechat_topic_refine",
+        "wechat-topic-refine"
+      ],
+      "default_platform": "公众号",
+      "kind": "content",
+      "default_contexts": [
+        "02-内容生产/公众号/账号矩阵.md",
+        "01-选题管理/选题规划/选题素材库.md",
+        "01-选题管理/选题规划/金句选题池.md",
+        "03-素材库/内容框架库/内容框架知识库.md"
+      ]
+    },
+    {
+      "skill_id": "wechat_benchmark_analyze",
+      "name": "公众号对标文案分析",
+      "path": "skills/自有矩阵/公众号对标文案分析.md",
+      "aliases": [
+        "公众号对标文案分析",
+        "分析公众号对标文案",
+        "对标文案分析",
+        "wechat_benchmark_analyze",
+        "wechat-benchmark-analyze"
+      ],
+      "default_platform": "公众号",
+      "kind": "content",
+      "default_contexts": [
+        "02-内容生产/公众号/账号矩阵.md",
+        "02-内容生产/公众号/prompts/对标文案改写模板.md",
+        "03-素材库/内容框架库/内容框架知识库.md"
+      ]
+    },
+    {
+      "skill_id": "wechat_prompt_normalize",
+      "name": "公众号配图提示词标准化",
+      "path": "skills/自有矩阵/公众号配图提示词标准化.md",
+      "aliases": [
+        "公众号配图提示词标准化",
+        "标准化公众号配图提示词",
+        "wechat_prompt_normalize",
+        "wechat-prompt-normalize"
+      ],
+      "default_platform": "公众号",
+      "kind": "content",
+      "default_contexts": [
+        "02-内容生产/公众号/账号矩阵.md",
+        "02-内容生产/公众号/prompts/视觉风格库.md",
+        "02-内容生产/公众号/prompts/P4.md",
+        "03-素材库/内容框架库/内容框架知识库.md"
+      ]
+    },
+    {
+      "skill_id": "wechat_image",
+      "name": "公众号图片生成",
+      "path": "skills/自有矩阵/公众号图片生成.md",
+      "aliases": [
+        "公众号图片生成",
+        "生成公众号图片",
+        "wechat_image",
+        "wechat-image",
+        "wechatimage"
+      ],
+      "default_platform": "公众号",
+      "kind": "execution",
+      "default_contexts": [
+        "06-工具/scripts/README_WECHAT_IMAGE_GENERATOR.md"
+      ]
+    }
+  ]
+}

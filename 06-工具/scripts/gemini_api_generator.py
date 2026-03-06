@@ -44,10 +44,25 @@ class GeminiAPIGenerator:
 
     # 可用模型列表（基于gemini-webapi支持的模型）
     MODELS = {
-        "pro": "gemini-3.0-pro",          # Gemini 3.0 Pro模型（推荐，质量最高）
-        "2.5-pro": "gemini-2.5-pro",      # Gemini 2.5 Pro
-        "2.5-flash": "gemini-2.5-flash",  # Gemini 2.5 Flash，速度快
+        "pro": "gemini-3.0-pro",                    # Recommended default
+        "flash": "gemini-3.0-flash",               # Faster generation
+        "3.0-pro": "gemini-3.0-pro",
+        "3.0-flash": "gemini-3.0-flash",
+        "3.0-flash-thinking": "gemini-3.0-flash-thinking",
+        "2.5-pro": "gemini-3.0-pro",               # Backward-compatible alias
+        "2.5-flash": "gemini-3.0-flash",           # Backward-compatible alias
     }
+
+    IMAGE_UNAVAILABLE_MARKERS = (
+        "无法为您创建任何图片",
+        "无法创建任何图片",
+        "图片创建功能",
+        "can't create any images",
+        "unable to create any images",
+        "create any images",
+        "image creation",
+        "not available in your region",
+    )
 
     def __init__(
         self,
@@ -104,6 +119,19 @@ class GeminiAPIGenerator:
                 self._loguru_sink_id = None
 
         self.client: Optional[GeminiClient] = None
+        self.last_error: Optional[str] = None
+        self.last_error_code: Optional[str] = None
+
+    @classmethod
+    def _classify_no_image_reason(cls, text: str) -> str:
+        message = str(text or "").strip()
+        if not message:
+            return "no_images"
+        lowered = message.lower()
+        for marker in cls.IMAGE_UNAVAILABLE_MARKERS:
+            if marker.lower() in lowered:
+                return "image_generation_unavailable"
+        return "no_images"
 
     async def start(self) -> None:
         """初始化Gemini客户端"""
@@ -137,7 +165,8 @@ class GeminiAPIGenerator:
         self,
         prompt: str,
         account: str = "A",
-        page_type: str = "封面"
+        page_type: str = "封面",
+        size: str | None = None,
     ) -> Optional[str]:
         """
         生成单张图片
@@ -146,6 +175,7 @@ class GeminiAPIGenerator:
             prompt: 图片生成提示词
             account: 账号标识 (A/B/C)
             page_type: 页面类型 (封面/P2/P3等)
+            size: 预留的宽高比例参数，供与其他生成器接口对齐
 
         Returns:
             保存的图片路径，失败返回None
@@ -153,6 +183,8 @@ class GeminiAPIGenerator:
         if not self.client:
             raise RuntimeError("客户端未初始化，请先调用start()")
 
+        self.last_error = None
+        self.last_error_code = None
         print(f"正在生成图片: {account}号-{page_type} (模型: {self.model_id})")
 
         # 构造生成图片的提示词
@@ -168,6 +200,12 @@ class GeminiAPIGenerator:
 
             # 检查是否有生成的图片
             if not response.images:
+                response_text = str(response.text or "").strip()
+                self.last_error = response_text or "Gemini returned no images."
+                self.last_error_code = self._classify_no_image_reason(response_text)
+                if self.last_error_code == "image_generation_unavailable":
+                    print("  [WARN] 当前 Gemini 会话不可用图片创建能力")
+                    return None
                 print("  [WARN] 未生成图片，尝试更直接的提示...")
                 # 重试，更直接地要求生成图片
                 retry_prompt = f"Generate an image: {prompt[:500]}"
@@ -175,6 +213,9 @@ class GeminiAPIGenerator:
                 print(f"  重试响应: {response.text[:100] if response.text else '无'}...")
 
             if not response.images:
+                response_text = str(response.text or "").strip()
+                self.last_error = response_text or "Gemini returned no images after retry."
+                self.last_error_code = self._classify_no_image_reason(response_text)
                 print("  [WARN] 仍未生成图片")
                 return None
 
@@ -193,10 +234,14 @@ class GeminiAPIGenerator:
             # 保存图片
             await image.save(path=str(date_dir), filename=filename, verbose=False)
 
+            self.last_error = None
+            self.last_error_code = None
             print(f"  [OK] 图片已保存: {filepath}")
             return str(filepath)
 
         except Exception as e:
+            self.last_error = str(e)
+            self.last_error_code = "exception"
             print(f"  [FAIL] 生成失败: {e}")
             try:
                 from loguru import logger

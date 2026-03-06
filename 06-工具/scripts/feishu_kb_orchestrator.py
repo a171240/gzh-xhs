@@ -80,6 +80,29 @@ SHORT_LINK_RE = re.compile(
     re.IGNORECASE,
 )
 SKILL_COMMAND_RE = re.compile(r"^\s*/skill\s+([^\s]+)(.*)$", re.IGNORECASE)
+WECHAT_IMAGE_DIRECT_RE = re.compile(
+    r"^\s*(?:生成公众号图片|公众号图片生成)\s*[:：]\s*(?P<target>.+?)\s*$",
+    re.IGNORECASE,
+)
+WECHAT_CONTENT_DIRECT_RE = re.compile(
+    r"^\s*(?:生成公众号内容|公众号内容生成)\s*[:：]\s*(?P<target>.+?)\s*$",
+    re.IGNORECASE,
+)
+WECHAT_TOPIC_REFINE_DIRECT_RE = re.compile(
+    r"^\s*(?:深化公众号选题|公众号选题深化)\s*[:：]\s*(?P<target>.+?)\s*$",
+    re.IGNORECASE,
+)
+WECHAT_BENCHMARK_DIRECT_RE = re.compile(
+    r"^\s*(?:分析公众号对标文案|公众号对标文案分析)\s*[:：]\s*(?P<target>.+?)\s*$",
+    re.IGNORECASE,
+)
+WECHAT_PROMPT_NORMALIZE_DIRECT_RE = re.compile(
+    r"^\s*(?:标准化公众号配图提示词|公众号配图提示词标准化)\s*[:：]\s*(?P<target>.+?)\s*$",
+    re.IGNORECASE,
+)
+WECHAT_LAYOUT_DIRECT_RE = re.compile(r"^\s*排版公众号\s*[:：]\s*(?P<target>.+?)\s*$", re.IGNORECASE)
+WECHAT_PUBLISH_DIRECT_RE = re.compile(r"^\s*发布公众号\s*[:：]\s*(?P<target>.+?)\s*$", re.IGNORECASE)
+WECHAT_APPROVE_DIRECT_RE = re.compile(r"^\s*确认发布\s*[:：]\s*(?P<task>[A-Za-z0-9._:-]+)\s*$", re.IGNORECASE)
 MEDIA_COMMAND_RE = re.compile(r"^\s*/media\s+generate\b", re.IGNORECASE)
 PUBLISH_PREPARE_RE = re.compile(r"^\s*/publish\s+prepare\b", re.IGNORECASE)
 PUBLISH_RETRY_RE = re.compile(r"^\s*/publish\s+retry\b", re.IGNORECASE)
@@ -617,6 +640,34 @@ def _detect_automation_intent(text: str, *, meta: dict[str, Any] | None = None) 
         }
         return AutomationIntent(kind="media_generate", payload=payload)
 
+    layout_match = WECHAT_LAYOUT_DIRECT_RE.match(raw)
+    if layout_match:
+        payload = {
+            **meta_payload,
+            "platform": "wechat",
+            "content": str(layout_match.group("target") or "").strip(),
+        }
+        return AutomationIntent(kind="publish_preview", payload=payload)
+
+    publish_direct_match = WECHAT_PUBLISH_DIRECT_RE.match(raw)
+    if publish_direct_match:
+        payload = {
+            **meta_payload,
+            "platform": "wechat",
+            "content": str(publish_direct_match.group("target") or "").strip(),
+            "mode": "publish",
+        }
+        return AutomationIntent(kind="publish_prepare", payload=payload)
+
+    approve_direct_match = WECHAT_APPROVE_DIRECT_RE.match(raw)
+    if approve_direct_match:
+        payload = {
+            **meta_payload,
+            "action": "approve",
+            "task_id": str(approve_direct_match.group("task") or "").strip(),
+        }
+        return AutomationIntent(kind="publish_approve", payload=payload)
+
     if PUBLISH_PREPARE_RE.search(raw):
         payload = {
             **meta_payload,
@@ -704,6 +755,16 @@ def _find_best_skill_alias(text: str, registry: Any) -> str:
         return best_skill
 
     fallback_aliases = (
+        ("生成公众号内容", "wechat"),
+        ("公众号内容生成", "wechat"),
+        ("深化公众号选题", "wechat_topic_refine"),
+        ("公众号选题深化", "wechat_topic_refine"),
+        ("分析公众号对标文案", "wechat_benchmark_analyze"),
+        ("公众号对标文案分析", "wechat_benchmark_analyze"),
+        ("标准化公众号配图提示词", "wechat_prompt_normalize"),
+        ("公众号配图提示词标准化", "wechat_prompt_normalize"),
+        ("公众号图片生成", "wechat_image"),
+        ("生成公众号图片", "wechat_image"),
         ("wechat", "wechat"),
         ("公众号", "wechat"),
         ("xhs", "xhs"),
@@ -731,6 +792,24 @@ def _detect_skill_intent(text: str, registry: Any, forced_skill_id: str, forced_
         brief = _remove_kv_chunks(raw)
         if not brief:
             raise ValueError("skill brief is empty")
+        return SkillIntent(skill_id=skill.skill_id, brief=brief, platform=platform, trigger="strong")
+
+    direct_skill_patterns = (
+        (WECHAT_CONTENT_DIRECT_RE, "wechat"),
+        (WECHAT_TOPIC_REFINE_DIRECT_RE, "wechat_topic_refine"),
+        (WECHAT_BENCHMARK_DIRECT_RE, "wechat_benchmark_analyze"),
+        (WECHAT_PROMPT_NORMALIZE_DIRECT_RE, "wechat_prompt_normalize"),
+        (WECHAT_IMAGE_DIRECT_RE, "wechat_image"),
+    )
+    for pattern, target_skill_id in direct_skill_patterns:
+        matched = pattern.match(raw)
+        if not matched:
+            continue
+        skill = resolve_skill(registry, target_skill_id)
+        brief = str(matched.group("target") or "").strip()
+        if not brief:
+            raise ValueError("skill brief is empty")
+        platform = forced_platform or skill.default_platform or "公众号"
         return SkillIntent(skill_id=skill.skill_id, brief=brief, platform=platform, trigger="strong")
 
     # Strong trigger: /skill {skill_id} 骞冲彴=... 闇€姹?...
@@ -954,18 +1033,21 @@ def _run_skill(
         "context_files_planned": merged_context_files,
         "context_files_auto": context_plan.get("context_files_auto") or [],
         "context_warnings": context_plan.get("context_warnings") or [],
+        "context_errors": context_plan.get("context_errors") or [],
     }
 
     if dry_run:
+        context_errors = list(context_plan.get("context_errors") or [])
+        status = "error" if context_errors else "success"
         return {
-            "status": "success",
+            "status": status,
             "dry_run": True,
             "trigger": skill_intent.trigger,
             "skill_id": skill_intent.skill_id,
             "platform": skill_intent.platform,
             "brief": skill_intent.brief,
             "result": {
-                "status": "success",
+                "status": status,
                 "skill_id": task["skill_id"],
                 "platform": task["platform"],
                 "saved_files": [],
@@ -973,7 +1055,31 @@ def _run_skill(
                 "context_files_used": merged_context_files,
                 "context_files_auto": context_plan.get("context_files_auto") or [],
                 "context_warnings": context_plan.get("context_warnings") or [],
-                "errors": [],
+                "context_errors": context_errors,
+                "errors": context_errors,
+            },
+            "commander": {"task": task},
+        }
+
+    if context_plan.get("context_errors"):
+        return {
+            "status": "error",
+            "dry_run": False,
+            "trigger": skill_intent.trigger,
+            "skill_id": skill_intent.skill_id,
+            "platform": skill_intent.platform,
+            "brief": skill_intent.brief,
+            "result": {
+                "status": "error",
+                "skill_id": task["skill_id"],
+                "platform": task["platform"],
+                "saved_files": [],
+                "full_text": "",
+                "context_files_used": merged_context_files,
+                "context_files_auto": context_plan.get("context_files_auto") or [],
+                "context_warnings": context_plan.get("context_warnings") or [],
+                "context_errors": context_plan.get("context_errors") or [],
+                "errors": list(context_plan.get("context_errors") or []),
             },
             "commander": {"task": task},
         }
@@ -1009,6 +1115,7 @@ def _run_automation_intent(
 ) -> dict[str, Any]:
     endpoint_map: dict[str, tuple[str, str]] = {
         "media_generate": ("POST", "/internal/media/generate"),
+        "publish_preview": ("POST", "/internal/publish/preview"),
         "publish_prepare": ("POST", "/internal/publish/prepare"),
         "publish_approve": ("POST", "/internal/publish/approve"),
         "metrics_run": ("POST", "/internal/metrics/run"),
@@ -1101,6 +1208,13 @@ def _compose_automation_reply(auto_result: dict[str, Any], *, max_chars: int) ->
         else:
             err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
             lines.append(f"媒体生成失败：{err}")
+    elif kind == "publish_preview":
+        if status == "success":
+            preview_html = str(result.get("preview_html") or "")
+            lines.append(f"排版预览已生成 preview={preview_html or '-'}")
+        else:
+            err = (result.get("errors") or auto_result.get("errors") or ["unknown error"])[0]
+            lines.append(f"排版预览失败：{err}")
     elif kind == "publish_prepare":
         if status in {"success", "duplicate"}:
             lines.append(f"发布准备完成 task={task_id or '-'}，等待审批确认。")

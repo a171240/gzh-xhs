@@ -1,0 +1,15 @@
+{
+  "name": "wechat-layout-compiler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Embedded WeChat layout compiler inspired by raphael-publish core rendering",
+  "scripts": {
+    "render": "node render.js"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "jsdom": "^26.0.0",
+    "markdown-it": "^14.1.0"
+  }
+}

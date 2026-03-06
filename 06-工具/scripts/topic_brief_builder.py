@@ -49,6 +49,22 @@ def _collect_related(meta: dict[str, Any]) -> str:
     return "\n".join(f"- {item}" for item in items) if items else "- 无"
 
 
+def _pick_topic_value(meta: dict[str, Any], sections: dict[str, str], *keys: str) -> str:
+    for key in keys:
+        value = meta.get(key)
+        if value is not None:
+            text = str(value).strip()
+            if text:
+                return text
+    for key in keys:
+        value = sections.get(key)
+        if value is not None:
+            text = str(value).strip()
+            if text:
+                return text
+    return ""
+
+
 def load_topic_payload(topic_path: Path) -> dict[str, Any]:
     raw = topic_path.read_text(encoding="utf-8", errors="ignore")
     meta, body = parse_frontmatter(raw)
@@ -73,6 +89,10 @@ def build_brief_from_payload(payload: dict[str, Any], *, platform: str) -> str:
     cta = _extract_cta(outline)
     conflict = _extract_core_conflict(topic_analysis)
     related_block = _collect_related(meta)
+    quote_enabled = _pick_topic_value(meta, sections, "是否调用金句库", "调用金句库") or "否"
+    quote_theme = _pick_topic_value(meta, sections, "金句主题", "quote_theme")
+    benchmark_ref = _pick_topic_value(meta, sections, "参考对标文案", "对标文案", "benchmark_ref")
+    fugui_enabled = _pick_topic_value(meta, sections, "富贵模块开关", "是否启用富贵模块", "fugui_enabled")
 
     platform_text = str(platform or "").strip()
     if platform_text == "公众号":
@@ -85,8 +105,10 @@ def build_brief_from_payload(payload: dict[str, Any], *, platform: str) -> str:
             f"希望读者做的第一步：{cta}\n"
             f"引流物(CTA关键词)：{cta}\n"
             "禁区(可选)：不夸大收益，不编造来源\n"
-            "是否调用金句库：否\n"
-            "金句主题：\n"
+            f"是否调用金句库：{quote_enabled}\n"
+            f"金句主题：{quote_theme}\n"
+            f"参考对标文案：{benchmark_ref}\n"
+            f"富贵模块开关：{fugui_enabled}\n"
             f"related参考：\n{related_block}\n"
         )
 

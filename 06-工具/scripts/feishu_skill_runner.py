@@ -3,7 +3,7 @@
 """Run skill-based content generation for Feishu messages.
 
 Responsibilities:
-- Discover skills from repository `skills/` and desktop-app `skills.json`.
+- Discover skills from repository `skills/` plus repo-local `skill-manifest.json`.
 - Resolve skill aliases (id/name/stem/relative path) to one canonical skill.
 - Invoke Codex CLI with model `gpt-5.3-codex` (configurable).
 - Parse `FILES_JSON + FILE` contract output when present.
@@ -26,6 +26,13 @@ import time
 from pathlib import Path
 from typing import Any
 
+from skill_manifest import (
+    get_repo_skill_entry,
+    load_repo_skill_entries,
+    resolve_benchmark_report_contexts,
+    resolve_quote_theme_contexts,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILLS_ROOT = REPO_ROOT / "skills"
 DESKTOP_SKILLS_JSON = REPO_ROOT / "06-工具" / "desktop-app" / "data" / "skills.json"
@@ -40,6 +47,20 @@ FILE_BLOCK_END = "<!--FILE_END-->"
 DEFAULT_PLATFORM_BY_SKILL = {
     "wechat": "公众号",
     "公众号批量生产": "公众号",
+    "生成公众号内容": "公众号",
+    "公众号内容生成": "公众号",
+    "wechat_prompt_normalize": "公众号",
+    "公众号配图提示词标准化": "公众号",
+    "标准化公众号配图提示词": "公众号",
+    "wechat_image": "公众号",
+    "公众号图片生成": "公众号",
+    "生成公众号图片": "公众号",
+    "wechat_topic_refine": "公众号",
+    "公众号选题深化": "公众号",
+    "深化公众号选题": "公众号",
+    "wechat_benchmark_analyze": "公众号",
+    "公众号对标文案分析": "公众号",
+    "分析公众号对标文案": "公众号",
     "xhs": "小红书",
     "小红书内容生产": "小红书",
     "短视频脚本生产": "短视频",
@@ -53,6 +74,8 @@ class SkillDefinition:
     path: Path
     aliases: tuple[str, ...]
     default_platform: str
+    kind: str
+    default_contexts: tuple[str, ...]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -195,10 +218,38 @@ def _platform_for_skill(skill_id: str, aliases: set[str]) -> str:
     return "通用"
 
 
+def _is_execution_skill(skill: SkillDefinition | str) -> bool:
+    if isinstance(skill, SkillDefinition):
+        return str(skill.kind or "").strip().lower() == "execution"
+    entry = get_repo_skill_entry(str(skill or "").strip())
+    if entry:
+        return str(entry.kind or "").strip().lower() == "execution"
+    return False
+
+
+def _auto_context_files_for_skill(skill_id: str) -> list[str]:
+    entry = get_repo_skill_entry(str(skill_id or "").strip())
+    if entry:
+        return list(entry.default_contexts)
+    normalized = str(skill_id or "").strip()
+    if _is_execution_skill(normalized):
+        return ["06-工具/scripts/README_WECHAT_IMAGE_GENERATOR.md"]
+    return []
+
+
 def build_skill_registry() -> SkillRegistry:
     by_id: dict[str, SkillDefinition] = {}
+    repo_manifest_alias_keys: set[str] = set()
 
-    def upsert(skill_id: str, name: str, path: Path, aliases: set[str]) -> None:
+    def upsert(
+        skill_id: str,
+        name: str,
+        path: Path,
+        aliases: set[str],
+        *,
+        kind: str = "content",
+        default_contexts: tuple[str, ...] = (),
+    ) -> None:
         if not path.exists() or path.suffix.lower() != ".md":
             return
         current = by_id.get(skill_id)
@@ -211,6 +262,8 @@ def build_skill_registry() -> SkillRegistry:
                 path=current.path,
                 aliases=tuple(sorted(merged_aliases)),
                 default_platform=platform,
+                kind=current.kind or kind,
+                default_contexts=tuple(dict.fromkeys([*current.default_contexts, *default_contexts])),
             )
             return
 
@@ -222,9 +275,26 @@ def build_skill_registry() -> SkillRegistry:
             path=path,
             aliases=tuple(sorted(merged_aliases)),
             default_platform=platform,
+            kind=kind,
+            default_contexts=tuple(dict.fromkeys(default_contexts)),
         )
 
-    # 1) Desktop app skill mapping
+    # 0) Repo-local skill manifest is the primary source of truth for markdown skills.
+    for entry in load_repo_skill_entries():
+        for alias in (*entry.aliases, entry.skill_id, entry.name):
+            key = _normalize_key(alias)
+            if key:
+                repo_manifest_alias_keys.add(key)
+        upsert(
+            entry.skill_id,
+            entry.name,
+            entry.abs_path,
+            set(entry.aliases),
+            kind=entry.kind,
+            default_contexts=entry.default_contexts,
+        )
+
+    # 1) Desktop app mapping remains only as a compatibility fallback for markdown-backed desktop skills.
     desktop_payload = _load_json(DESKTOP_SKILLS_JSON, {"skills": []})
     skills = desktop_payload.get("skills") if isinstance(desktop_payload, dict) else []
     if isinstance(skills, list):
@@ -235,6 +305,18 @@ def build_skill_registry() -> SkillRegistry:
             if not skill_id:
                 continue
             name = str(item.get("name") or skill_id).strip() or skill_id
+            desktop_keys = {
+                key
+                for key in (
+                    _normalize_key(skill_id),
+                    _normalize_key(name),
+                )
+                if key
+            }
+            # Repo-local manifest owns those skills; desktop metadata must not
+            # re-register or extend them.
+            if desktop_keys & repo_manifest_alias_keys:
+                continue
             aliases: set[str] = {skill_id, name}
             default_contexts = item.get("defaultContexts")
             if isinstance(default_contexts, list):
@@ -297,6 +379,7 @@ def list_skills_payload(registry: SkillRegistry) -> list[dict[str, Any]]:
                 "name": skill.name,
                 "path": skill.path.as_posix(),
                 "default_platform": skill.default_platform,
+                "kind": skill.kind,
                 "aliases": list(skill.aliases),
             }
         )
@@ -318,8 +401,18 @@ def resolve_skill(registry: SkillRegistry, skill_ref: str) -> SkillDefinition:
 
     # Stable fallback aliases for Feishu `/skill` commands.
     fallback_alias = {
-        _normalize_key("wechat"): "公众号批量生产",
-        _normalize_key("公众号"): "公众号批量生产",
+        _normalize_key("wechat"): "wechat",
+        _normalize_key("公众号"): "wechat",
+        _normalize_key("生成公众号内容"): "wechat",
+        _normalize_key("wechat_image"): "wechat_image",
+        _normalize_key("公众号图片生成"): "wechat_image",
+        _normalize_key("生成公众号图片"): "wechat_image",
+        _normalize_key("wechat_prompt_normalize"): "wechat_prompt_normalize",
+        _normalize_key("标准化公众号配图提示词"): "wechat_prompt_normalize",
+        _normalize_key("wechat_topic_refine"): "wechat_topic_refine",
+        _normalize_key("深化公众号选题"): "wechat_topic_refine",
+        _normalize_key("wechat_benchmark_analyze"): "wechat_benchmark_analyze",
+        _normalize_key("分析公众号对标文案"): "wechat_benchmark_analyze",
         _normalize_key("xhs"): "小红书内容生产",
         _normalize_key("小红书"): "小红书内容生产",
         _normalize_key("shortvideo"): "短视频脚本生产",
@@ -589,6 +682,110 @@ def _prepare_context_blocks(context_files: list[str] | None) -> tuple[list[str],
     return used, warnings, prompt_text
 
 
+def _brief_field(brief: str, *labels: str) -> str:
+    text = str(brief or "")
+    for label in labels:
+        pattern = re.compile(rf"(?im)^\s*{re.escape(label)}\s*[:：]\s*(.+?)\s*$")
+        matched = pattern.search(text)
+        if matched:
+            return str(matched.group(1) or "").strip()
+    return ""
+
+
+def _brief_flag_enabled(value: str) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "y", "on", "是", "开启", "开"}
+
+
+def _conditional_context_files_for_skill(skill_id: str, brief: str) -> tuple[list[str], list[str], list[str]]:
+    normalized = str(skill_id or "").strip()
+    contexts: list[str] = []
+    warnings: list[str] = []
+    errors: list[str] = []
+
+    if normalized != "wechat":
+        return contexts, warnings, errors
+
+    quote_enabled = _brief_flag_enabled(_brief_field(brief, "是否调用金句库", "调用金句库"))
+    quote_theme = _brief_field(brief, "金句主题", "quote_theme")
+    benchmark_ref = _brief_field(brief, "参考对标文案", "对标文案", "benchmark_ref")
+    fugui_enabled = _brief_flag_enabled(_brief_field(brief, "富贵模块开关", "是否启用富贵模块", "fugui"))
+
+    if quote_enabled:
+        if quote_theme:
+            quote_contexts = resolve_quote_theme_contexts(quote_theme)
+            if quote_contexts:
+                contexts.extend(quote_contexts)
+            else:
+                errors.append(f"quote theme not found: {quote_theme}")
+        else:
+            errors.append("quote library enabled but 金句主题 is empty")
+    if benchmark_ref:
+        matches = resolve_benchmark_report_contexts(benchmark_ref)
+        if matches:
+            contexts.extend(matches)
+        else:
+            errors.append(f"benchmark analysis report not found for: {benchmark_ref}")
+    if fugui_enabled:
+        contexts.append("03-素材库/增强模块/富贵-打动人模块.md")
+
+    return contexts, warnings, errors
+
+
+def build_skill_context_plan(
+    *,
+    skill_id: str,
+    brief: str,
+    platform: str = "",
+    context_files: list[str] | None = None,
+) -> dict[str, Any]:
+    merged: list[str] = []
+    warnings: list[str] = []
+    errors: list[str] = []
+    seen: set[str] = set()
+
+    def add(path_text: str) -> None:
+        resolved = _safe_repo_relative(path_text)
+        if not resolved:
+            warnings.append(f"path escapes repo or invalid: {path_text}")
+            return
+        rel_text, abs_path = resolved
+        if not abs_path.exists() or not abs_path.is_file():
+            warnings.append(f"missing context file: {rel_text}")
+            return
+        if rel_text in seen:
+            return
+        seen.add(rel_text)
+        merged.append(rel_text)
+
+    for raw in context_files or []:
+        add(str(raw or ""))
+
+    auto_files = _auto_context_files_for_skill(skill_id)
+    conditional_files, conditional_warnings, conditional_errors = _conditional_context_files_for_skill(skill_id, brief)
+
+    for raw in auto_files:
+        add(raw)
+
+    for raw in conditional_files:
+        add(raw)
+
+    for warning in conditional_warnings:
+        if warning not in warnings:
+            warnings.append(warning)
+    for error in conditional_errors:
+        if error not in errors:
+            errors.append(error)
+
+    return {
+        "skill_id": skill_id,
+        "platform": platform,
+        "context_files_merged": merged,
+        "context_files_auto": [item for item in [*auto_files, *conditional_files] if item in merged],
+        "context_warnings": warnings,
+        "context_errors": errors,
+    }
+
+
 def _build_prompt(
     *,
     skill: SkillDefinition,
@@ -598,6 +795,20 @@ def _build_prompt(
     context_prompt: str = "",
 ) -> str:
     skill_content = _read_text(skill.path)
+    if _is_execution_skill(skill):
+        return (
+            "你是仓库内的执行型技能助手。\n"
+            "你必须先阅读【技能文档】并检查输入是否合法，然后直接执行需要的脚本或命令。\n"
+            "不要输出 FILES_JSON，不要生成额外 markdown 文件，不要伪造已执行结果。\n"
+            "如果执行失败，返回失败原因、已检查的路径和建议下一步；如果执行成功，返回简洁执行摘要与关键产物路径。\n"
+            f"目标平台：{platform}\n"
+            f"{context_prompt}"
+            f"【技能ID】\n{skill.skill_id}\n\n"
+            f"【技能文档路径】\n{skill.path.as_posix()}\n\n"
+            f"【技能文档】\n{skill_content}\n\n"
+            f"【用户需求】\n{brief.strip()}\n"
+        )
+
     target_dir = f"02-内容生产/{platform}/生成内容/{date_str}/"
     return (
         "你是仓库内的内容生产执行助手。\n"
@@ -734,6 +945,55 @@ def _read_primary_saved_file(saved_files: list[str]) -> str:
     return _render_full_text_for_reply(str(primary.get("content") or ""))
 
 
+def _run_prompt_normalizer_script(
+    *,
+    brief: str,
+    timeout_sec: int,
+) -> dict[str, Any]:
+    target = str(brief or "").strip()
+    if not target:
+        raise RuntimeError("wechat_prompt_normalize target is empty")
+
+    script_path = REPO_ROOT / "06-工具" / "scripts" / "wechat_prompt_normalizer.py"
+    if not script_path.exists():
+        raise RuntimeError(f"missing script: {script_path}")
+
+    completed = subprocess.run(
+        [sys.executable, str(script_path), target],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=REPO_ROOT,
+        timeout=max(30, timeout_sec),
+    )
+    stdout_text = str(completed.stdout or "").strip()
+    stderr_text = str(completed.stderr or "").strip()
+
+    payload: dict[str, Any] | None = None
+    if stdout_text:
+        try:
+            parsed = json.loads(stdout_text)
+        except Exception:
+            parsed = None
+        if isinstance(parsed, dict):
+            payload = parsed
+
+    if completed.returncode != 0:
+        error = ""
+        if isinstance(payload, dict):
+            errors = payload.get("errors")
+            if isinstance(errors, list) and errors:
+                error = str(errors[0] or "").strip()
+        if not error:
+            error = stderr_text or stdout_text or f"prompt normalizer exited with {completed.returncode}"
+        raise RuntimeError(error)
+
+    if not isinstance(payload, dict) or str(payload.get("status") or "").strip().lower() != "success":
+        raise RuntimeError(stderr_text or stdout_text or "invalid prompt normalizer response")
+    return payload
+
+
 def run_skill_task(
     *,
     skill_id: str,
@@ -754,12 +1014,84 @@ def run_skill_task(
 
     resolved_platform = _sanitize_segment(platform or skill.default_platform or "通用")
     resolved_date = str(date_str or _today()).strip() or _today()
-    context_files_used, context_warnings, context_prompt = _prepare_context_blocks(context_files)
+    context_plan = build_skill_context_plan(
+        skill_id=skill.skill_id,
+        brief=brief,
+        platform=resolved_platform,
+        context_files=context_files,
+    )
+    merged_context_files = list(context_plan.get("context_files_merged") or [])
+    context_errors = list(context_plan.get("context_errors") or [])
+    context_files_used, context_warnings, context_prompt = _prepare_context_blocks(merged_context_files)
+    for warning in list(context_plan.get("context_warnings") or []):
+        if warning not in context_warnings:
+            context_warnings.append(warning)
 
     if not brief.strip():
         raise ValueError("brief is empty")
 
     if dry_run:
+        elapsed = int((time.time() - started) * 1000)
+        status = "error" if context_errors else "success"
+        return {
+            "status": status,
+            "skill_id": skill.skill_id,
+            "skill_name": skill.name,
+            "skill_path": skill.path.as_posix(),
+            "platform": resolved_platform,
+            "date": resolved_date,
+            "model": model or DEFAULT_MODEL,
+            "event_ref": event_ref,
+            "source_ref": source_ref,
+            "context_files_used": context_files_used,
+            "context_files_auto": list(context_plan.get("context_files_auto") or []),
+            "context_files_merged": merged_context_files,
+            "context_warnings": context_warnings,
+            "context_errors": context_errors,
+            "saved_files": [],
+            "full_text": "",
+            "stderr": "",
+            "elapsed_ms": elapsed,
+            "errors": list(context_errors),
+            "dry_run": True,
+        }
+
+    if context_errors:
+        elapsed = int((time.time() - started) * 1000)
+        return {
+            "status": "error",
+            "skill_id": skill.skill_id,
+            "skill_name": skill.name,
+            "skill_path": skill.path.as_posix(),
+            "platform": resolved_platform,
+            "date": resolved_date,
+            "model": model or DEFAULT_MODEL,
+            "event_ref": event_ref,
+            "source_ref": source_ref,
+            "context_files_used": context_files_used,
+            "context_files_auto": list(context_plan.get("context_files_auto") or []),
+            "context_files_merged": merged_context_files,
+            "context_warnings": context_warnings,
+            "context_errors": context_errors,
+            "saved_files": [],
+            "full_text": "",
+            "stderr": "",
+            "elapsed_ms": elapsed,
+            "errors": list(context_errors),
+            "dry_run": False,
+        }
+
+    if skill.skill_id == "wechat_prompt_normalize":
+        payload = _run_prompt_normalizer_script(
+            brief=brief,
+            timeout_sec=timeout_sec,
+        )
+        processed_files = payload.get("processed_files") if isinstance(payload, dict) else []
+        saved_files = [
+            str(item.get("path") or "").strip()
+            for item in processed_files
+            if isinstance(item, dict) and str(item.get("path") or "").strip()
+        ]
         elapsed = int((time.time() - started) * 1000)
         return {
             "status": "success",
@@ -772,13 +1104,15 @@ def run_skill_task(
             "event_ref": event_ref,
             "source_ref": source_ref,
             "context_files_used": context_files_used,
+            "context_files_auto": list(context_plan.get("context_files_auto") or []),
+            "context_files_merged": merged_context_files,
             "context_warnings": context_warnings,
-            "saved_files": [],
-            "full_text": "",
+            "context_errors": context_errors,
+            "saved_files": saved_files,
+            "full_text": json.dumps(payload, ensure_ascii=False, indent=2),
             "stderr": "",
             "elapsed_ms": elapsed,
             "errors": [],
-            "dry_run": True,
         }
 
     cli_path = codex_cli.strip() or resolve_codex_cli()
@@ -796,13 +1130,17 @@ def run_skill_task(
         codex_cli=cli_path,
         timeout_sec=timeout_sec,
     )
-    saved_files = _save_generated_files(
-        text=generated_text,
-        skill=skill,
-        platform=resolved_platform,
-        date_str=resolved_date,
-    )
-    full_text = _read_primary_saved_file(saved_files) or _render_full_text_for_reply(generated_text)
+    if _is_execution_skill(skill):
+        saved_files: list[str] = []
+        full_text = _render_full_text_for_reply(generated_text)
+    else:
+        saved_files = _save_generated_files(
+            text=generated_text,
+            skill=skill,
+            platform=resolved_platform,
+            date_str=resolved_date,
+        )
+        full_text = _read_primary_saved_file(saved_files) or _render_full_text_for_reply(generated_text)
 
     elapsed = int((time.time() - started) * 1000)
     return {
@@ -816,7 +1154,10 @@ def run_skill_task(
         "event_ref": event_ref,
         "source_ref": source_ref,
         "context_files_used": context_files_used,
+        "context_files_auto": list(context_plan.get("context_files_auto") or []),
+        "context_files_merged": merged_context_files,
         "context_warnings": context_warnings,
+        "context_errors": context_errors,
         "saved_files": saved_files,
         "full_text": full_text,
         "stderr": stderr_text,
