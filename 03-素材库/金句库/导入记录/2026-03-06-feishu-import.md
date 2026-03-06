@@ -284,3 +284,10 @@
   - https://www.iesdouyin.com/share/video/7592035939830183878/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7592035576153377555&ts=1772781680&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=_hPvNocQnABfpcQLPG7sOe49rWFNt06uZa_jXRbgjF8-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772781714%22,%22social_author_id%22:%22104065488184%22,%22social_share_id%22:%227517492169541485627_1772781714%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772781715&share_version=370700&ug_share_id=a4a6f1848551b_1772781717076&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=success provider=asr chars=251
     text_source: asr
 
+## 2026-03-06T07:26:21Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 用宏大的世界去稀释痛苦，用细微的敏感去感知幸福
+
