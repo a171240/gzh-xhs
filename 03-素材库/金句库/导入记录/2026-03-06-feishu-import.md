@@ -298,3 +298,10 @@
 - quote_exact_dup: 0
 - quote_preview: 我们究竟是活了365天，还是一天重复了365遍？
 
+## 2026-03-06T07:31:22Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 人生最好的三位老师: 干瘪的钱包、失败的经历、离开的她
+
