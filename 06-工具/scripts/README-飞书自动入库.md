@@ -54,6 +54,10 @@ python .\06-工具\scripts\feishu_kb_orchestrator.py --pipeline-mode daemon --pi
 - `抖音 -> 短视频脚本生产 / 抖音`  
 - `视频号 -> 短视频脚本生产 / 视频号`  
 
+补充约定：
+- `公众号` 当前以 repo-local `skill-manifest.json` 作为主注册真相源。
+- `小红书` 当前仍保留 `desktop-app + adapter` 兼容注册，不作为公众号链路的定义来源。
+
 ## 5. 知识库注入
 
 - 由 `skill_context_resolver.py` 统一生成 `context_files`，按以下顺序注入：  
@@ -62,6 +66,10 @@ python .\06-工具\scripts\feishu_kb_orchestrator.py --pipeline-mode daemon --pi
   3) 选题规划文档（固定两份）  
   4) 平台技能/资源文档  
   5) 抓取台 latest context（存在时）  
+
+- 当前归属补充：
+  - 公众号相关 skill/context profile 以 repo-local manifest/resolver 为主。
+  - 小红书与抓取台相关 skill 仍允许通过 desktop 兼容层补足注册与上下文。
 
 - `feishu_skill_runner.py` 会在结果中返回：  
   - `context_files_used`  

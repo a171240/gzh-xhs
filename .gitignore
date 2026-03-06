@@ -1,4 +1,4 @@
-﻿.DS_Store
+.DS_Store
 skills-dist/
 
 # Local IDE/runtime artifacts
@@ -7,7 +7,7 @@ skills-dist/
 .claude/
 .gha_*/
 
-# Local tooling outputs
+# Local tooling outputs (runtime evidence, never source-of-truth)
 /tmp/
 /reports/
 *.zip
@@ -17,12 +17,13 @@ one-shot-feishu-cutover.sh
 **/__pycache__/
 **/*.pyc
 **/node_modules/
+06-工具/scripts/wechat_layout_compiler/node_modules/
 
 # Local secrets/env overrides
 06-工具/scripts/.env
 06-工具/scripts/.env*.local
 
-# Generated data and local backups
+# Generated data, local state, and local backups (runtime artifacts)
 06-工具/data/
 06-工具/deploy/backups/
 
@@ -30,3 +31,5 @@ one-shot-feishu-cutover.sh
 06-工具/MediaCrawler/
 06-工具/scripts/crawlers/
 06-工具/内容抓取/
+
+# Runtime artifacts only. Do not expand ignore rules into 01-05 content assets or archive baselines.

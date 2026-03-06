@@ -1,0 +1,12 @@
+06-工具/desktop-app/README.md
+06-工具/desktop-app/data/prompts.default.json
+06-工具/scripts/crawl_bridge.py
+skills/自有矩阵/小红书内容生产.md
+06-工具/scripts/README-xhs-adapter.md
+06-工具/scripts/SECURITY_AUDIT_XHS.md
+06-工具/scripts/xhs_adapter_cli.py
+06-工具/scripts/requirements.xhs-adapter.lock.txt
+06-工具/scripts/adapters/
+06-工具/scripts/config/xhs_adapter.example.json
+06-工具/scripts/config/xhs_adapter.production.json
+06-工具/scripts/tests/test_xhs_adapter_security.py
