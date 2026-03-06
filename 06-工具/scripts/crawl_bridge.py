@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 """
-Unified crawl bridge for desktop-app.
+Compatibility crawl bridge for desktop-app.
 
 Supports:
 - URL crawl (via 内容抓取/url-reader)

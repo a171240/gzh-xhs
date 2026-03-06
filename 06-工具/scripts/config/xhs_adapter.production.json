@@ -1,0 +1,44 @@
+{
+  "enabled": false,
+  "profile_root": "06-工具/data/automation/profiles/xhs",
+  "lock_root": "06-工具/data/automation/locks/xhs",
+  "lock_stale_after_sec": 1200,
+  "cdp": {
+    "allow_remote": false,
+    "allowed_hosts": [
+      "127.0.0.1",
+      "localhost"
+    ]
+  },
+  "network": {
+    "url_allowlist": [
+      "www.xiaohongshu.com",
+      "edith.xiaohongshu.com",
+      "xhslink.com"
+    ],
+    "block_private_ip": true
+  },
+  "deps_lockfile_path": "06-工具/scripts/requirements.xhs-adapter.lock.txt",
+  "runner": {
+    "allowed_binaries": [
+      "python",
+      "python.exe",
+      "python3",
+      "py"
+    ],
+    "allowed_executable_roots": [
+      "C:/Python313",
+      "C:/Users/Administrator/AppData/Local/Programs/Python",
+      "C:/Windows"
+    ],
+    "default_command": [],
+    "action_commands": {
+      "publish": [],
+      "search": [],
+      "detail": [],
+      "comment": [],
+      "content_data": []
+    }
+  }
+}
+

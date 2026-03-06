@@ -1,0 +1,34 @@
+{
+  "enabled": false,
+  "profile_root": "06-工具/data/automation/profiles/xhs",
+  "lock_root": "06-工具/data/automation/locks/xhs",
+  "lock_stale_after_sec": 1800,
+  "cdp": {
+    "allow_remote": false,
+    "allowed_hosts": [
+      "127.0.0.1"
+    ]
+  },
+  "network": {
+    "url_allowlist": [],
+    "block_private_ip": true
+  },
+  "deps_lockfile_path": "06-工具/scripts/requirements.xhs-adapter.lock.txt",
+  "runner": {
+    "allowed_binaries": [
+      "python",
+      "python.exe",
+      "python3",
+      "py"
+    ],
+    "allowed_executable_roots": [],
+    "default_command": [],
+    "action_commands": {
+      "publish": [],
+      "search": [],
+      "detail": [],
+      "comment": [],
+      "content_data": []
+    }
+  }
+}
