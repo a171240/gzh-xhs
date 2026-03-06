@@ -219,3 +219,20 @@
   - https://www.iesdouyin.com/share/video/7611146947617573990/?from_ssr=1&video_share_track_ver=&life_share_ext=wyo80n/OK4Wb5DZs+711YFKCBYw5b/QJiRuXtNo+m9zi+A8bCqYfeqNhm8WxO4LlndblY17glVguFp4FSAQNEy3OH9EIaKG/jCat+TArAMG6Zk/EDSR87y5k2B4CwdPTfouUBw69rF2DKehi4Q6fbwOgpDpOQvYXHOxjZ0yilsA%3D&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7611146949147757322&ts=1772780819&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=W6.n1F0j_dIo1FkCUTdmC0wciy18.si7Mls3Vsi7IkQ-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780906%22,%22social_author_id%22:%227519178430427137081%22,%22social_share_id%22:%227517492169541485627_1772780906%22,%22social_share_user_id%22:%227517492169541485627%22%7D&life_anchor_type=2&timestamp=1772780907&share_version=370700&ug_share_id=a4a6f1848551b_1772780909495&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=success provider=asr chars=142
     text_source: asr
 
+## 2026-03-06T07:10:54Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `link_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- links: 1
+  - https://v.douyin.com/3vtCaFLKvFE/
+- link_route_success: 1/1
+- link_content_success: 1
+- link_content_failed: 0
+- link_content_skipped_test: 0
+- link_doc_saved: 1
+- link_summary_detected: false
+  - https://www.iesdouyin.com/share/video/7601848654311296294/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7601848877192710931&ts=1772780819&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=hNqaoY_FwX2HsbVK6ZSN7qIejeTaAJvkSBavjQIgZks-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780998%22,%22social_author_id%22:%223158270586661614%22,%22social_share_id%22:%227517492169541485627_1772780998%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780998&share_version=370700&ug_share_id=a4a6f1848551b_1772780999845&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme -> /root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-06/岂不闻光阴如骏马加鞭-日月如落花流水-哪有不倒的道理-了不起的混剪团-情绪共鸣-共鸣叙事家-2026-03-06.md
+  - https://www.iesdouyin.com/share/video/7601848654311296294/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7601848877192710931&ts=1772780819&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=hNqaoY_FwX2HsbVK6ZSN7qIejeTaAJvkSBavjQIgZks-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780998%22,%22social_author_id%22:%223158270586661614%22,%22social_share_id%22:%227517492169541485627_1772780998%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780998&share_version=370700&ug_share_id=a4a6f1848551b_1772780999845&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=success provider=asr chars=204
+    text_source: asr
+

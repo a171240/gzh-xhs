@@ -195,3 +195,20 @@
   - douyin_dedup_key：dy-7611146947617573990
   - 金句入库：已禁用（链接仅入对标链接库）
 
+## 2026-03-06T07:10:54Z run=link_20260306151154_bfdda043
+- [success] https://www.iesdouyin.com/share/video/7601848654311296294/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7601848877192710931&ts=1772780819&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=hNqaoY_FwX2HsbVK6ZSN7qIejeTaAJvkSBavjQIgZks-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780998%22,%22social_author_id%22:%223158270586661614%22,%22social_share_id%22:%227517492169541485627_1772780998%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780998&share_version=370700&ug_share_id=a4a6f1848551b_1772780999845&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme
+  - 路由状态：success
+  - 正文状态：success
+  - 提取来源：asr
+  - 测试链接：no
+  - 标题：“岂不闻光阴如骏马加鞭，日月如落花流水，哪有不倒的道理！ ” #了不起的混剪团 #情绪共鸣 #共鸣叙事家
+  - 日期：2026-03-06
+  - 正文文件：`/root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-06/岂不闻光阴如骏马加鞭-日月如落花流水-哪有不倒的道理-了不起的混剪团-情绪共鸣-共鸣叙事家-2026-03-06.md`
+  - 正文字符：204
+  - summary_detected：false
+  - text_source：asr
+  - douyin_pipeline_mode：asr_primary
+  - douyin_source_used：asr
+  - douyin_dedup_key：dy-7601848654311296294
+  - 金句入库：已禁用（链接仅入对标链接库）
+
