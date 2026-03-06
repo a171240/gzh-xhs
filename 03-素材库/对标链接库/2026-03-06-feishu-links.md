@@ -88,3 +88,40 @@
   - douyin_dedup_key：dy-7605942922122408305
   - 金句入库：已禁用（链接仅入对标链接库）
 
+## 2026-03-06T06:57:38Z run=link_20260306145803_48cad36c
+- [failed] https://www.iesdouyin.com/share/video/7600378237923925093/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7600378177894042402&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=6Jjk6S1MixD0OKbLj3gDHL6eUL7FJcz8FCnqPusbDhY-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780250%22,%22social_author_id%22:%22678839663984752%22,%22social_share_id%22:%227517492169541485627_1772780250%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780251&share_version=370700&ug_share_id=a4a6f1848551b_1772780252532&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme
+  - 路由状态：success
+  - 正文状态：failed
+  - 提取来源：asr
+  - 测试链接：no
+  - 标题：“要么成功，要么成长，做什么事都不会白费 任何事情不是得到就是学到，允许一切发生一切发生终将有利于我。 ” #拍出电影感 #情绪短片 #纽约 #青年创作者成长计划 #inmyfeelings
+  - 日期：2026-03-06
+  - 正文字符：0
+  - 质量原因：content_too_short:90<120
+  - summary_detected：false
+  - text_source：asr
+  - douyin_pipeline_mode：asr_primary
+  - douyin_source_used：asr
+  - douyin_dedup_key：dy-7600378237923925093
+  - reject_reason：content_too_short:90<120
+  - 金句入库：已禁用（链接仅入对标链接库）
+  - 错误：content_too_short:90<120
+
+## 2026-03-06T06:57:38Z run=link_20260306150003_859e6b6c
+- [success] https://www.iesdouyin.com/share/video/7600378237923925093/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7600378177894042402&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=6Jjk6S1MixD0OKbLj3gDHL6eUL7FJcz8FCnqPusbDhY-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780250%22,%22social_author_id%22:%22678839663984752%22,%22social_share_id%22:%227517492169541485627_1772780250%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780251&share_version=370700&ug_share_id=a4a6f1848551b_1772780252532&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme
+  - 路由状态：success
+  - 正文状态：success
+  - 提取来源：bitable
+  - 测试链接：no
+  - 标题：“要么成功，要么成长，做什么事都不会白费 任何事情不是得到就是学到，允许一切发生一切发生终将有利于我。 ” #拍出电影感 #情绪短片 #纽约 #青年创作者成长计划 #inmyfeelings
+  - 日期：2026-03-06
+  - 正文文件：`/root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-06/要么成功-要么成长-做什么事都不会白费-任何事情不是得到就是学到-允许一切发生一切发生终将有利于我-拍出电影感-情绪短片-2026-03-06.md`
+  - 正文字符：253
+  - 质量原因：summary_detected
+  - summary_detected：true
+  - text_source：bitable
+  - douyin_pipeline_mode：asr_primary
+  - douyin_source_used：bitable
+  - douyin_dedup_key：dy-7600378237923925093
+  - 金句入库：已禁用（链接仅入对标链接库）
+
