@@ -58,3 +58,41 @@
   - https://www.iesdouyin.com/share/video/7612261638155239842/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7612261624455629577&ts=1772779875&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=t8tb5VuapdUUokTZuEa2M_pM01f4gVJNZi3Zgf6jqvY-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772779966%22,%22social_author_id%22:%224033486964927031%22,%22social_share_id%22:%227517492169541485627_1772779966%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772779967&share_version=370700&ug_share_id=a4a6f1848551b_1772779971507&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=success provider=bitable chars=293
     text_source: bitable
 
+## 2026-03-06T06:54:33Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `link_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- links: 1
+  - https://v.douyin.com/ib_SSEQb_pE/
+- link_route_success: 1/1
+- link_content_success: 0
+- link_content_failed: 1
+- link_content_skipped_test: 0
+- link_doc_saved: 0
+- link_summary_detected: false
+  - https://www.iesdouyin.com/share/video/7605942922122408305/?from_ssr=1&video_share_track_ver=&life_share_ext=wyo80n/OK4Wb5DZs+711YBETgtd99mf9hL4NjjV+VGa58ZN2iDPe+/eTzyil3Vvue/mJfiKpz7ifAVfz/77hS1KBdBxpoQVY1d+uwmP6X/0EGmSbpy0LWYv1EIsNableTgcLN2MUUGk0ywUY8iD/EbwGXJykUjyhu1wrdQJKZtc%3D&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7605942835283610420&ts=1772780039&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=K8vJqSr61b1p.qU1sNfaJX.N2aL5wTSrRN.xZHcFt40-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780064%22,%22social_author_id%22:%221118619016918489%22,%22social_share_id%22:%227517492169541485627_1772780064%22,%22social_share_user_id%22:%227517492169541485627%22%7D&life_anchor_type=2&timestamp=1772780064&share_version=370700&ug_share_id=a4a6f1848551b_1772780067093&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=failed provider=asr chars=0
+    quality_reason: content_too_short:113<120
+    text_source: asr
+    reject_reason: content_too_short:113<120
+- errors:
+  - https://www.iesdouyin.com/share/video/7605942922122408305/?from_ssr=1&video_share_track_ver=&life_share_ext=wyo80n/OK4Wb5DZs+711YBETgtd99mf9hL4NjjV+VGa58ZN2iDPe+/eTzyil3Vvue/mJfiKpz7ifAVfz/77hS1KBdBxpoQVY1d+uwmP6X/0EGmSbpy0LWYv1EIsNableTgcLN2MUUGk0ywUY8iD/EbwGXJykUjyhu1wrdQJKZtc%3D&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7605942835283610420&ts=1772780039&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=K8vJqSr61b1p.qU1sNfaJX.N2aL5wTSrRN.xZHcFt40-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780064%22,%22social_author_id%22:%221118619016918489%22,%22social_share_id%22:%227517492169541485627_1772780064%22,%22social_share_user_id%22:%227517492169541485627%22%7D&life_anchor_type=2&timestamp=1772780064&share_version=370700&ug_share_id=a4a6f1848551b_1772780067093&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme: content_too_short:113<120
+
+## 2026-03-06T06:54:33Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `link_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- links: 1
+  - https://v.douyin.com/ib_SSEQb_pE/
+- link_route_success: 1/1
+- link_content_success: 1
+- link_content_failed: 0
+- link_content_skipped_test: 0
+- link_doc_saved: 1
+- link_summary_detected: true
+  - https://www.iesdouyin.com/share/video/7605942922122408305/?from_ssr=1&video_share_track_ver=&life_share_ext=wyo80n/OK4Wb5DZs+711YBETgtd99mf9hL4NjjV+VGa58ZN2iDPe+/eTzyil3Vvue/mJfiKpz7ifAVfz/77hS1KBdBxpoQVY1d+uwmP6X/0EGmSbpy0LWYv1EIsNableTgcLN2MUUGk0ywUY8iD/EbwGXJykUjyhu1wrdQJKZtc%3D&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7605942835283610420&ts=1772780039&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=K8vJqSr61b1p.qU1sNfaJX.N2aL5wTSrRN.xZHcFt40-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780064%22,%22social_author_id%22:%221118619016918489%22,%22social_share_id%22:%227517492169541485627_1772780064%22,%22social_share_user_id%22:%227517492169541485627%22%7D&life_anchor_type=2&timestamp=1772780064&share_version=370700&ug_share_id=a4a6f1848551b_1772780067093&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme -> /root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-06/所有的一鸣惊人都是源于厚积薄发-拍出电影感-情绪短片-insanitycrew-每一帧都是热爱-抖音摄影美学大赏-2026-03-06.md
+  - https://www.iesdouyin.com/share/video/7605942922122408305/?from_ssr=1&video_share_track_ver=&life_share_ext=wyo80n/OK4Wb5DZs+711YBETgtd99mf9hL4NjjV+VGa58ZN2iDPe+/eTzyil3Vvue/mJfiKpz7ifAVfz/77hS1KBdBxpoQVY1d+uwmP6X/0EGmSbpy0LWYv1EIsNableTgcLN2MUUGk0ywUY8iD/EbwGXJykUjyhu1wrdQJKZtc%3D&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7605942835283610420&ts=1772780039&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=K8vJqSr61b1p.qU1sNfaJX.N2aL5wTSrRN.xZHcFt40-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780064%22,%22social_author_id%22:%221118619016918489%22,%22social_share_id%22:%227517492169541485627_1772780064%22,%22social_share_user_id%22:%227517492169541485627%22%7D&life_anchor_type=2&timestamp=1772780064&share_version=370700&ug_share_id=a4a6f1848551b_1772780067093&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=success provider=bitable chars=303
+    quality_reason: summary_detected
+    text_source: bitable
+
