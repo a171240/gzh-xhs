@@ -246,3 +246,20 @@
   - douyin_dedup_key：dy-7592035939830183878
   - 金句入库：已禁用（链接仅入对标链接库）
 
+## 2026-03-06T07:31:48Z run=link_20260306153303_61af930c
+- [success] https://www.iesdouyin.com/share/video/7588575782017027380/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7588576157218507570&ts=1772782209&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=mr7C9Y4ThQJJTHx7sqLELKYPIGmizVRHxT8taIq11I0-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772782298%22,%22social_author_id%22:%223287953428456298%22,%22social_share_id%22:%227517492169541485627_1772782298%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772782298&share_version=370700&ug_share_id=a4a6f1848551b_1772782301084&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme
+  - 路由状态：success
+  - 正文状态：success
+  - 提取来源：asr
+  - 测试链接：no
+  - 标题：一个人『心智成熟』的八个阶段！ #心智成熟 #认知 #自我提升 #个人成长 #青年创作者扶持计划
+  - 日期：2026-03-06
+  - 正文文件：`/root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-06/一个人-心智成熟-的八个阶段-心智成熟-认知-自我提升-个人成长-青年创作者扶持计划-2026-03-06.md`
+  - 正文字符：7093
+  - summary_detected：false
+  - text_source：asr
+  - douyin_pipeline_mode：asr_primary
+  - douyin_source_used：asr
+  - douyin_dedup_key：dy-7588575782017027380
+  - 金句入库：已禁用（链接仅入对标链接库）
+
