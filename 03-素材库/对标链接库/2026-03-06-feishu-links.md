@@ -125,3 +125,22 @@
   - douyin_dedup_key：dy-7600378237923925093
   - 金句入库：已禁用（链接仅入对标链接库）
 
+## 2026-03-06T07:00:07Z run=link_20260306150105_fe9b0f77
+- [failed] https://www.iesdouyin.com/share/video/7609283083561834468/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7609283031303473946&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=x5YeX1.m9FGvrNLGyKmx1Cajg28EQakmsaMwBNmcvN0-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780393%22,%22social_author_id%22:%227597826054355715109%22,%22social_share_id%22:%227517492169541485627_1772780393%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780393&share_version=370700&ug_share_id=a4a6f1848551b_1772780395739&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme
+  - 路由状态：success
+  - 正文状态：failed
+  - 提取来源：asr
+  - 测试链接：no
+  - 标题：人的心气，是可以重新养回来的。 长时间极致的独处，大量的睡眠，不被灌输周围人的任何观点，大量的阅读，极致的专注，按时吃饭，按时睡觉，不去接受任何反驳，那么你就会养出一个，新的充盈的自己。 #治愈系风景 #乡野田间
+  - 日期：2026-03-06
+  - 正文字符：0
+  - 质量原因：content_too_short:92<120
+  - summary_detected：false
+  - text_source：asr
+  - douyin_pipeline_mode：asr_primary
+  - douyin_source_used：asr
+  - douyin_dedup_key：dy-7609283083561834468
+  - reject_reason：content_too_short:92<120
+  - 金句入库：已禁用（链接仅入对标链接库）
+  - 错误：content_too_short:92<120
+

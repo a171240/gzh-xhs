@@ -134,3 +134,30 @@
     quality_reason: summary_detected
     text_source: bitable
 
+## 2026-03-06T07:00:07Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `link_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- links: 1
+  - https://v.douyin.com/CtslG-dhXlk/
+- link_route_success: 1/1
+- link_content_success: 0
+- link_content_failed: 1
+- link_content_skipped_test: 0
+- link_doc_saved: 0
+- link_summary_detected: false
+  - https://www.iesdouyin.com/share/video/7609283083561834468/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7609283031303473946&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=x5YeX1.m9FGvrNLGyKmx1Cajg28EQakmsaMwBNmcvN0-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780393%22,%22social_author_id%22:%227597826054355715109%22,%22social_share_id%22:%227517492169541485627_1772780393%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780393&share_version=370700&ug_share_id=a4a6f1848551b_1772780395739&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=failed provider=asr chars=0
+    quality_reason: content_too_short:92<120
+    text_source: asr
+    reject_reason: content_too_short:92<120
+- errors:
+  - https://www.iesdouyin.com/share/video/7609283083561834468/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7609283031303473946&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=x5YeX1.m9FGvrNLGyKmx1Cajg28EQakmsaMwBNmcvN0-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780393%22,%22social_author_id%22:%227597826054355715109%22,%22social_share_id%22:%227517492169541485627_1772780393%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780393&share_version=370700&ug_share_id=a4a6f1848551b_1772780395739&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme: content_too_short:92<120
+
+## 2026-03-06T07:01:03Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 谁能想到，大一和六年级只差了六年，却好像过了半辈子
+
