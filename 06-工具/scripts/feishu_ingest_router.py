@@ -36,11 +36,11 @@ REPLY_PREFIX_RE = re.compile(
 BLOCKQUOTE_PREFIX_RE = re.compile(r"^\s*(?:[|｜>＞]+\s*)+")
 LEADING_BULLET_PREFIX_RE = re.compile(r"^\s*(?:[·•●▪▫◦○・\-*]+\s*)+")
 QUOTE_AT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s*[^:：\n]{0,80}\s*[:：]\s*)?(?:[·•●▪▫◦○・\-*]+\s*)?[\"'“”‘’]?[@＠]\s*(?P<mention>[^:：，,\n]+?)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s*[^:：\n]{0,80}\s*[:：]\s*)?(?:[·•●▪▫◦○・\-*]+\s*)?[\"'“”‘’]?[@＠]\s*(?P<mention>[^:：，,\n]+?)\s*(?:[:：]\s*|\s+)(?P<body>[\s\S]+?)\s*$",
     re.IGNORECASE,
 )
 QUOTE_TEXT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s*[^:：\n]{0,80}\s*[:：]\s*)?(?:[·•●▪▫◦○・\-*]+\s*)?金句\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s*[^:：\n]{0,80}\s*[:：]\s*)?(?:[·•●▪▫◦○・\-*]+\s*)?(?:金句|quote)\s*(?:[:：]\s*|\s+)(?P<body>[\s\S]+?)\s*$",
     re.IGNORECASE,
 )
 
@@ -174,6 +174,12 @@ def _extract_urls(text: str) -> list[str]:
     return _dedupe_urls(urls)
 
 
+def _strip_urls(text: str) -> str:
+    cleaned = URL_RE.sub(" ", str(text or ""))
+    cleaned = SHORT_LINK_RE.sub(" ", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
 def _strip_command_shell(text: str) -> str:
     cleaned = COMMAND_RE.sub("", text, count=1)
     return cleaned.strip()
@@ -223,7 +229,12 @@ def route_message_text(text: str) -> RoutedMessage:
 
     # Explicit quote trigger + URL(s): process both quote and link in one message.
     if urls and quote_hit:
-        return RoutedMessage(mode="mixed_mode", urls=urls, quote_text=quote_text, original_text=original)
+        return RoutedMessage(
+            mode="mixed_mode",
+            urls=urls,
+            quote_text=_strip_urls(quote_text),
+            original_text=original,
+        )
 
     # Default URL-only behavior remains link_mode for compatibility.
     if urls:

@@ -99,11 +99,11 @@ REPLY_PREFIX_RE = re.compile(
 BLOCKQUOTE_PREFIX_RE = re.compile(r"^\s*(?:[|｜>＞]+\s*)+")
 LEADING_BULLET_PREFIX_RE = re.compile(r"^\s*(?:[·•●▪▫◦○・\-*]+\s*)+")
 QUOTE_AT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s*[^:：\n]{0,80}\s*[:：]\s*)?(?:[·•●▪▫◦○・\-*]+\s*)?[@＠]\s*(?P<mention>[^:：，,\n]+?)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s*[^:：\n]{0,80}\s*[:：]\s*)?(?:[·•●▪▫◦○・\-*]+\s*)?[@＠]\s*(?P<mention>[^:：，,\n]+?)\s*(?:[:：]\s*|\s+)(?P<body>[\s\S]+?)\s*$",
     re.IGNORECASE,
 )
 QUOTE_TEXT_PREFIX_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s*[^:：\n]{0,80}\s*[:：]\s*)?(?:[·•●▪▫◦○・\-*]+\s*)?(?:金句|quote)\s*(?:[:：]\s*|\n+)(?P<body>[\s\S]+?)\s*$",
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?)?(?:(?:回复|reply)\s*[^:：\n]{0,80}\s*[:：]\s*)?(?:[·•●▪▫◦○・\-*]+\s*)?(?:金句|quote)\s*(?:[:：]\s*|\s+)(?P<body>[\s\S]+?)\s*$",
     re.IGNORECASE,
 )
 

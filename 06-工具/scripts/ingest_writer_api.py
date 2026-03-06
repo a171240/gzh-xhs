@@ -57,7 +57,7 @@ SHORT_LINK_RE = re.compile(
 )
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 QUOTE_TRIGGER_RE = re.compile(
-    r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?(?:@[^:\s：，,]+\s*[:：]\s*.+|金句\s*[:：]\s*.+)\s*$"
+    r"^\s*(?:(?:\d+\s*[\.、]\s*)?(?:回复\s*)?)?(?:[@＠][^:\s：，,]+\s*(?:[:：]\s*|\s+).+|(?:金句|quote)\s*(?:[:：]\s*|\s+).+)\s*$"
 )
 SOURCE_KIND_ALIAS_MAP = {
     # Keep backward compatibility with older orchestrator sender.
