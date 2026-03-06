@@ -195,3 +195,10 @@
   - https://www.iesdouyin.com/share/video/7611534480365760634/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7611534451235261222&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=tS1hVXbYLAiXYiatqjUB7q6YJ6lQNkmfAU369cKw2io-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780570%22,%22social_author_id%22:%22880058512445684%22,%22social_share_id%22:%227517492169541485627_1772780570%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780571&share_version=370700&ug_share_id=a4a6f1848551b_1772780573208&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=success provider=asr chars=427
     text_source: asr
 
+## 2026-03-06T07:08:05Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 你应该亲手打造一个全盛姿态的自己
+
