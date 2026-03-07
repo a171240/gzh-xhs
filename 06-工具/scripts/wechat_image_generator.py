@@ -41,6 +41,7 @@ FATAL_GENERATION_ERROR_CODES = {
 
 DEFAULT_COVER_SIZE = "21:9"
 DEFAULT_BODY_SIZE = "3:4"
+DEFAULT_GENERATION_CONCURRENCY = 3
 
 
 @dataclasses.dataclass(frozen=True)
@@ -58,6 +59,34 @@ def requested_size_for_spec(spec: PromptSpec) -> str:
     if spec.is_cover:
         return DEFAULT_COVER_SIZE
     return DEFAULT_BODY_SIZE
+
+
+def provider_supports_concurrency(provider: str, generator: Any) -> bool:
+    declared = getattr(generator, "supports_concurrency", None)
+    if declared is not None:
+        return bool(declared)
+    return str(provider or "").strip().lower() == "evolink"
+
+
+def resolve_generation_concurrency(
+    provider: str,
+    generator: Any,
+    *,
+    requested: int,
+    prompt_count: int,
+) -> int:
+    if prompt_count <= 1:
+        return 1
+    if not provider_supports_concurrency(provider, generator):
+        return 1
+    if requested > 0:
+        return max(1, min(requested, prompt_count))
+    env_value = str(os.getenv("WECHAT_IMAGE_CONCURRENCY") or "").strip()
+    try:
+        configured = int(env_value) if env_value else DEFAULT_GENERATION_CONCURRENCY
+    except ValueError:
+        configured = DEFAULT_GENERATION_CONCURRENCY
+    return max(1, min(configured, prompt_count))
 
 
 def read_markdown(path: Path) -> str:
@@ -89,22 +118,16 @@ def build_image_generator(*, output_dir: Path, model: str) -> tuple[Any, str]:
     load_runtime_env_fallbacks()
 
     evolink_api_key = str(os.getenv("EVOLINK_API_KEY") or "").strip()
-    if evolink_api_key:
-        from evolink_image_generator import EvolinkImageGenerator
+    if not evolink_api_key:
+        raise RuntimeError("Missing EVOLINK_API_KEY for WeChat image generation")
 
-        generator = EvolinkImageGenerator(
-            output_dir=str(output_dir),
-            model=(model or None),
-        )
-        return generator, "evolink"
+    from evolink_image_generator import EvolinkImageGenerator
 
-    from gemini_api_generator import GeminiAPIGenerator
-
-    generator = GeminiAPIGenerator(
+    generator = EvolinkImageGenerator(
         output_dir=str(output_dir),
-        model=(model or "pro"),
+        model=(model or None),
     )
-    return generator, "gemini_webapi"
+    return generator, "evolink"
 
 
 def split_frontmatter(text: str) -> tuple[str, str, str]:
@@ -490,6 +513,16 @@ def insert_body_images(text: str, body_refs: list[dict[str, str]], *, abbr: str)
         if stripped.startswith("### "):
             heading_positions.append((idx, stripped[4:].strip()))
 
+    heading_insert_positions: dict[int, int] = {}
+    for pos, (heading_idx, _title) in enumerate(heading_positions):
+        next_heading_idx = heading_positions[pos + 1][0] if pos + 1 < len(heading_positions) else len(body_lines)
+        insert_after_idx = heading_idx
+        for probe in range(next_heading_idx - 1, heading_idx, -1):
+            if body_lines[probe].strip():
+                insert_after_idx = probe
+                break
+        heading_insert_positions[heading_idx] = insert_after_idx
+
     assignments: dict[int, list[dict[str, str]]] = {}
     unassigned: list[dict[str, str]] = []
     sequential_heading_indexes = [idx for idx, _ in heading_positions]
@@ -504,7 +537,8 @@ def insert_body_images(text: str, body_refs: list[dict[str, str]], *, abbr: str)
         if matched_idx is None:
             unassigned.append(ref)
             continue
-        assignments.setdefault(matched_idx, []).append(ref)
+        insert_after_idx = heading_insert_positions.get(matched_idx, matched_idx)
+        assignments.setdefault(insert_after_idx, []).append(ref)
 
     rebuilt: list[str] = []
     for idx, line in enumerate(body_lines):
@@ -659,6 +693,68 @@ def post_process_results(
     return final_results, had_failures
 
 
+async def _generate_one_spec(
+    *,
+    generator: Any,
+    spec: PromptSpec,
+    abbr: str,
+    retries: int,
+    logger: logging.Logger,
+) -> dict[str, Any]:
+    logger.info("Generating %s", spec.label)
+    generated_path: str | None = None
+    error = ""
+    error_code = ""
+
+    for attempt in range(1, max(1, retries) + 2):
+        generated_path = await generator.generate_image(
+            spec.prompt,
+            account=abbr,
+            page_type=spec.page_type,
+            size=requested_size_for_spec(spec),
+        )
+        if generated_path:
+            break
+        error = str(getattr(generator, "last_error", "") or "").strip()
+        error_code = str(getattr(generator, "last_error_code", "") or "").strip()
+        logger.warning(
+            "Attempt %s failed for %s | code=%s | error=%s",
+            attempt,
+            spec.label,
+            error_code or "unknown",
+            error or "unknown",
+        )
+        if error_code in FATAL_GENERATION_ERROR_CODES:
+            break
+
+    if not generated_path:
+        return {
+            "label": spec.label,
+            "prompt": spec.prompt,
+            "index": spec.index,
+            "anchor": spec.anchor,
+            "filename_stub": spec.filename_stub,
+            "is_cover": spec.is_cover,
+            "page_type": spec.page_type,
+            "output": "",
+            "error": error or "image generation failed",
+            "error_code": error_code or "image_generation_failed",
+        }
+
+    return {
+        "label": spec.label,
+        "prompt": spec.prompt,
+        "index": spec.index,
+        "anchor": spec.anchor,
+        "filename_stub": spec.filename_stub,
+        "is_cover": spec.is_cover,
+        "page_type": spec.page_type,
+        "output": generated_path,
+        "error": "",
+        "error_code": "",
+    }
+
+
 async def run_generate(
     md_path: Path,
     model: str,
@@ -668,6 +764,7 @@ async def run_generate(
     insert_to_md: bool,
     compress: bool,
     max_size_kb: int,
+    concurrency: int,
 ) -> int:
     text = read_markdown(md_path)
     fm = parse_frontmatter(text)
@@ -719,68 +816,64 @@ async def run_generate(
 
     try:
         await generator.start()
-        for spec in specs:
-            logger.info("Generating %s", spec.label)
-            generated_path: str | None = None
-            error = ""
-            error_code = ""
+        effective_concurrency = resolve_generation_concurrency(
+            provider,
+            generator,
+            requested=concurrency,
+            prompt_count=len(specs),
+        )
+        resolved_model = str(getattr(generator, "model_id", "") or resolved_model)
+        logger.info(
+            "Provider=%s | ResolvedModel=%s | Concurrency=%s",
+            provider,
+            resolved_model,
+            effective_concurrency,
+        )
 
-            for attempt in range(1, max(1, retries) + 2):
-                generated_path = await generator.generate_image(
-                    spec.prompt,
-                    account=abbr,
-                    page_type=spec.page_type,
-                    size=requested_size_for_spec(spec),
+        if effective_concurrency <= 1:
+            for spec in specs:
+                result = await _generate_one_spec(
+                    generator=generator,
+                    spec=spec,
+                    abbr=abbr,
+                    retries=retries,
+                    logger=logger,
                 )
-                if generated_path:
-                    break
-                error = str(getattr(generator, "last_error", "") or "").strip()
-                error_code = str(getattr(generator, "last_error_code", "") or "").strip()
-                logger.warning(
-                    "Attempt %s failed for %s | code=%s | error=%s",
-                    attempt,
-                    spec.label,
-                    error_code or "unknown",
-                    error or "unknown",
-                )
-                if error_code in FATAL_GENERATION_ERROR_CODES:
-                    break
+                raw_results.append(result)
+                error_code = str(result.get("error_code") or "").strip()
+                if not result.get("output"):
+                    exit_code = 1
+                    if error_code in FATAL_GENERATION_ERROR_CODES:
+                        logger.error("Fatal provider error, stop batch for file: %s", error_code)
+                        break
+        else:
+            semaphore = asyncio.Semaphore(effective_concurrency)
 
-            if not generated_path:
+            async def run_spec(spec: PromptSpec) -> dict[str, Any]:
+                async with semaphore:
+                    worker, worker_provider = build_image_generator(output_dir=output_dir, model=model)
+                    if worker_provider != provider:
+                        logger.warning(
+                            "Parallel worker provider mismatch for %s: expected=%s actual=%s",
+                            spec.label,
+                            provider,
+                            worker_provider,
+                        )
+                    await worker.start()
+                    try:
+                        return await _generate_one_spec(
+                            generator=worker,
+                            spec=spec,
+                            abbr=abbr,
+                            retries=retries,
+                            logger=logger,
+                        )
+                    finally:
+                        await worker.close()
+
+            raw_results = list(await asyncio.gather(*(run_spec(spec) for spec in specs)))
+            if any(not item.get("output") for item in raw_results):
                 exit_code = 1
-                raw_results.append(
-                    {
-                        "label": spec.label,
-                        "prompt": spec.prompt,
-                        "index": spec.index,
-                        "anchor": spec.anchor,
-                        "filename_stub": spec.filename_stub,
-                        "is_cover": spec.is_cover,
-                        "page_type": spec.page_type,
-                        "output": "",
-                        "error": error or "image generation failed",
-                        "error_code": error_code or "image_generation_failed",
-                    }
-                )
-                if error_code in FATAL_GENERATION_ERROR_CODES:
-                    logger.error("Fatal provider error, stop batch for file: %s", error_code)
-                    break
-                continue
-
-            raw_results.append(
-                {
-                    "label": spec.label,
-                    "prompt": spec.prompt,
-                    "index": spec.index,
-                    "anchor": spec.anchor,
-                    "filename_stub": spec.filename_stub,
-                    "is_cover": spec.is_cover,
-                    "page_type": spec.page_type,
-                    "output": generated_path,
-                    "error": "",
-                    "error_code": "",
-                }
-            )
     finally:
         await generator.close()
 
@@ -841,10 +934,16 @@ def main() -> int:
     parser.add_argument(
         "--model",
         default="",
-        help="Model id or alias. Evolink defaults to EVOLINK_IMAGE_MODEL; Gemini fallback defaults to pro.",
+        help="Model id or alias. Evolink defaults to EVOLINK_IMAGE_MODEL.",
     )
     parser.add_argument("--limit", type=int, default=0, help="Limit number of body images to generate")
     parser.add_argument("--retries", type=int, default=2, help="Retry count per image")
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=0,
+        help="Concurrent image jobs per markdown file. 0 means auto (Evolink defaults to 3).",
+    )
     parser.add_argument("--batch-date", help="Generate all md files under 02-内容生产/公众号/生成内容/<DATE>")
 
     insert_group = parser.add_mutually_exclusive_group()
@@ -901,6 +1000,7 @@ def main() -> int:
                     insert_to_md=args.insert_to_md,
                     compress=args.compress,
                     max_size_kb=args.max_size_kb,
+                    concurrency=args.concurrency,
                 )
             )
             if code != 0:
@@ -925,6 +1025,7 @@ def main() -> int:
             insert_to_md=args.insert_to_md,
             compress=args.compress,
             max_size_kb=args.max_size_kb,
+            concurrency=args.concurrency,
         )
     )
 

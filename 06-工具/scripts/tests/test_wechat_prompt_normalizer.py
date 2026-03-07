@@ -90,11 +90,22 @@ def test_normalize_markdown_file_rewrites_bullet_contract(tmp_path: Path, monkey
     assert payload["prompt_count"] == 3
     assert "- 封面图：" in updated
     assert "- 配图1（对应：第1步：一句话重写你的价值入口（5分钟））：" in updated
-    assert "中央 383×383 安全区" in updated
+    assert "中央 383×383 安全区" not in updated
+    assert "900×383 像素" not in updated
     assert "1080×1440 像素" in updated
     assert "3:4 竖版" in updated
     assert "统一风格约束" in updated
     assert "手账笔记风格" in updated
+    assert "只保留一组清晰可读的中文主标题" in updated
+    assert "尺寸数字、像素标注" in updated
+    assert "正方形焦点区" in updated
+
+
+def test_compress_cover_title_prefers_crop_safe_short_titles() -> None:
+    assert normalizer._compress_cover_title("很多人把直率当真诚忽略了关系里的情绪成本") == "直率不等于真诚"
+    assert normalizer._compress_cover_title("一开口就冷场的人常在亲密关系里做错这三步") == "冷场的人做错三步"
+    assert normalizer._compress_cover_title("把扫兴率降到10沟通反馈会出现三种变化") == "把扫兴率降到10"
+    assert normalizer._compress_cover_title("今晚就能用的四句不扫兴回应模板附避坑清单") == "四句不扫兴回应模板"
 
 
 def test_normalize_markdown_file_fails_when_style_conflicts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -136,3 +147,19 @@ def test_run_skill_task_executes_prompt_normalizer_script(monkeypatch: pytest.Mo
     assert result["status"] == "success"
     assert result["saved_files"] == ["02-内容生产/公众号/生成内容/2026-03-08/demo.md"]
     assert "processed_files" in result["full_text"]
+
+
+def test_extract_subsections_strips_existing_body_image_markdown() -> None:
+    body = (
+        "### 第一节\n"
+        "这一节正文。\n\n"
+        "![配图1](images/gongchang/img-01.jpg)\n\n"
+        "补充一句。\n"
+    )
+
+    sections = normalizer._extract_subsections(body)
+
+    assert len(sections) == 1
+    assert "![配图1]" not in sections[0].content
+    assert "这一节正文。" in sections[0].content
+    assert "补充一句。" in sections[0].content

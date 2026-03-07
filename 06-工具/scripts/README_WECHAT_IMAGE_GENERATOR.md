@@ -7,7 +7,7 @@ It does not infer account style on its own. The expected flow is:
 2. `公众号图片生成` only validates that normalized contract and calls the script.
 3. `wechat_image_generator.py` consumes that contract, generates images, optionally compresses them, and writes results back to markdown.
 
-The script prefers Evolink Nano Banana when `EVOLINK_API_KEY` is configured, and only falls back to the legacy Gemini cookie workflow when Evolink is unavailable.
+The script is Evolink-only. If `EVOLINK_API_KEY` is missing, generation fails immediately with a configuration error.
 
 ## Normalized Prompt Contract
 
@@ -37,9 +37,6 @@ Legacy `### 标题 + 代码块` format is still accepted for compatibility, but 
   - `EVOLINK_IMAGE_MODEL`
   - `EVOLINK_IMAGE_SIZE`
   - `EVOLINK_IMAGE_QUALITY`
-- Optional fallback: `gemini-webapi` plus Gemini login cookies
-  - `GEMINI_SECURE_1PSID`
-  - `GEMINI_SECURE_1PSIDTS`
 
 ## Usage
 
@@ -53,6 +50,12 @@ Batch for one date:
 
 ```bash
 python 06-工具/scripts/wechat_image_generator.py --batch-date 2026-03-08 --insert-to-md --compress --max-size-kb 500
+```
+
+Force higher per-file concurrency when using Evolink:
+
+```bash
+python 06-工具/scripts/wechat_image_generator.py --batch-date 2026-03-08 --insert-to-md --compress --concurrency 4
 ```
 
 Generate only, skip markdown write-back:
@@ -88,6 +91,12 @@ When `--compress` is enabled, the script:
 - compresses oversized images to fit `--max-size-kb`
 - may convert the final output to `.jpg`
 - keeps markdown references and `index.json` aligned with the final filenames
+
+## Concurrency
+
+- `EvolinkImageGenerator` supports concurrent generation within a single markdown file
+- default concurrency is `3` per file when provider is Evolink
+- you can override it with `--concurrency N` or `WECHAT_IMAGE_CONCURRENCY`
 
 ## Generated Metadata
 

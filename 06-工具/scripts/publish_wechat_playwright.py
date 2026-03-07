@@ -440,9 +440,106 @@ def _clear_editor(page: Any, selector: str) -> None:
         (editorSelector) => {
           const node = document.querySelector(editorSelector);
           if (!node) throw new Error(`Missing selector: ${editorSelector}`);
+          const doc = node.ownerDocument || document;
+          const createAnchor = () => {
+            const p = doc.createElement('p');
+            p.setAttribute('data-codex-anchor', '1');
+            const br = doc.createElement('br');
+            p.appendChild(br);
+            return p;
+          };
+          const placeCaret = (target) => {
+            const selection = doc.getSelection();
+            const range = doc.createRange();
+            range.selectNodeContents(target);
+            range.collapse(false);
+            if (selection) {
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
+          };
           node.focus();
           node.innerHTML = '';
+          const anchor = createAnchor();
+          node.appendChild(anchor);
+          placeCaret(anchor);
           node.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'deleteContentBackward', data: null }));
+          node.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        """,
+        selector,
+    )
+
+
+def _ensure_editor_anchor(page: Any, selector: str) -> None:
+    page.evaluate(
+        """
+        (editorSelector) => {
+          const node = document.querySelector(editorSelector);
+          if (!node) throw new Error(`Missing selector: ${editorSelector}`);
+          const doc = node.ownerDocument || document;
+          const isAnchor = (target) => {
+            return !!target
+              && target.nodeType === 1
+              && target.tagName === 'P'
+              && target.getAttribute('data-codex-anchor') === '1';
+          };
+          const createAnchor = () => {
+            const p = doc.createElement('p');
+            p.setAttribute('data-codex-anchor', '1');
+            const br = doc.createElement('br');
+            p.appendChild(br);
+            return p;
+          };
+          const placeCaret = (target) => {
+            const selection = doc.getSelection();
+            const range = doc.createRange();
+            range.selectNodeContents(target);
+            range.collapse(false);
+            if (selection) {
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
+          };
+
+          node.focus();
+          let anchor = node.lastElementChild;
+          if (!isAnchor(anchor)) {
+            anchor = createAnchor();
+            node.appendChild(anchor);
+          }
+          placeCaret(anchor);
+          node.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        """,
+        selector,
+    )
+
+
+def _cleanup_editor_anchors(page: Any, selector: str) -> None:
+    page.evaluate(
+        """
+        (editorSelector) => {
+          const node = document.querySelector(editorSelector);
+          if (!node) throw new Error(`Missing selector: ${editorSelector}`);
+          const anchors = Array.from(node.querySelectorAll('p[data-codex-anchor="1"]'));
+          for (const anchor of anchors) {
+            const hasMeaningfulChild = Array.from(anchor.childNodes).some((child) => {
+              if (child.nodeType === 3) {
+                return String(child.textContent || '').trim().length > 0;
+              }
+              if (child.nodeType !== 1) {
+                return false;
+              }
+              const tag = String(child.tagName || '').toUpperCase();
+              return tag !== 'BR';
+            });
+            if (hasMeaningfulChild) {
+              anchor.removeAttribute('data-codex-anchor');
+              continue;
+            }
+            anchor.remove();
+          }
           node.dispatchEvent(new Event('change', { bubbles: true }));
         }
         """,
@@ -456,24 +553,66 @@ def _append_editor_html(page: Any, selector: str, html_fragment: str) -> None:
         ({selector, html}) => {
           const node = document.querySelector(selector);
           if (!node) throw new Error(`Missing selector: ${selector}`);
-          node.focus();
           const doc = node.ownerDocument || document;
-          const selection = doc.getSelection();
-          const range = doc.createRange();
-          range.selectNodeContents(node);
-          range.collapse(false);
-          if (selection) {
-            selection.removeAllRanges();
-            selection.addRange(range);
-          }
-          let inserted = false;
-          try {
-            if (typeof doc.execCommand === 'function') {
-              inserted = !!doc.execCommand('insertHTML', false, html);
+          const isAnchor = (target) => {
+            return !!target
+              && target.nodeType === 1
+              && target.tagName === 'P'
+              && target.getAttribute('data-codex-anchor') === '1';
+          };
+          const createAnchor = () => {
+            const p = doc.createElement('p');
+            p.setAttribute('data-codex-anchor', '1');
+            const br = doc.createElement('br');
+            p.appendChild(br);
+            return p;
+          };
+          const moveCursorToEnd = () => {
+            const selection = doc.getSelection();
+            const range = doc.createRange();
+            range.selectNodeContents(node);
+            range.collapse(false);
+            if (selection) {
+              selection.removeAllRanges();
+              selection.addRange(range);
             }
-          } catch (_err) {}
-          if (!inserted) {
+          };
+          const appendFragment = () => {
+            const template = doc.createElement('template');
+            template.innerHTML = String(html || '');
+            const fragment = template.content.cloneNode(true);
+            const children = Array.from(fragment.childNodes).filter((child) => {
+              return !(child.nodeType === 3 && !String(child.textContent || '').trim());
+            });
+            let anchor = node.lastElementChild;
+            if (!isAnchor(anchor)) {
+              anchor = createAnchor();
+              node.appendChild(anchor);
+            }
+            children.forEach((child) => {
+              node.insertBefore(child, anchor);
+            });
+            return anchor;
+          };
+          node.focus();
+          let anchor = null;
+          try {
+            anchor = appendFragment();
+          } catch (_err) {
             node.insertAdjacentHTML('beforeend', html);
+            anchor = node.lastElementChild;
+          }
+          if (anchor) {
+            const selection = doc.getSelection();
+            const range = doc.createRange();
+            range.selectNodeContents(anchor);
+            range.collapse(false);
+            if (selection) {
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
+          } else {
+            moveCursorToEnd();
           }
           node.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: null }));
           node.dispatchEvent(new Event('change', { bubbles: true }));
@@ -500,7 +639,9 @@ def _upload_inline_image(page: Any, selectors: dict[str, Any], image_path: Path,
     if not file_selector:
         raise PublishError("INLINE_IMAGE_SELECTOR_MISSING", "inline_image_file_input selector is required")
 
-    before_count = _editor_image_count(page, str(selectors["content_editor"]))
+    editor_selector = str(selectors["content_editor"])
+    _ensure_editor_anchor(page, editor_selector)
+    before_count = _editor_image_count(page, editor_selector)
     if button_selector and not _click_first_visible(page, button_selector, timeout_ms=5000):
         raise PublishError("INLINE_IMAGE_SELECTOR_MISSING", f"Cannot find inline image button: {button_selector}")
     page.wait_for_timeout(600)
@@ -510,8 +651,9 @@ def _upload_inline_image(page: Any, selectors: dict[str, Any], image_path: Path,
     deadline = time.monotonic() + max(2.0, wait_ms / 1000.0)
     while time.monotonic() < deadline:
         page.wait_for_timeout(500)
-        after_count = _editor_image_count(page, str(selectors["content_editor"]))
+        after_count = _editor_image_count(page, editor_selector)
         if after_count > before_count:
+            _ensure_editor_anchor(page, editor_selector)
             return
     raise PublishError("INLINE_IMAGE_UPLOAD_FAILED", f"Inline image upload did not appear in editor: {image_path.name} (block {index})")
 
@@ -528,6 +670,7 @@ def _insert_content(page: Any, selectors: dict[str, Any], payload: dict[str, Any
                 page.wait_for_timeout(150)
                 continue
             _upload_inline_image(page, selectors, Path(str(block["path"])), index=index)
+        _cleanup_editor_anchors(page, editor_selector)
         return
 
     content_html = str(payload.get("content_html") or "").strip()
@@ -538,6 +681,7 @@ def _insert_content(page: Any, selectors: dict[str, Any], payload: dict[str, Any
     if content_html:
         _clear_editor(page, editor_selector)
         _append_editor_html(page, editor_selector, content_html)
+        _cleanup_editor_anchors(page, editor_selector)
         return
     if selectors.get("content_textarea"):
         _fill_first_visible(page, str(selectors["content_textarea"]), content_md, timeout_ms=30000)

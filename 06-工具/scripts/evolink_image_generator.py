@@ -77,6 +77,8 @@ def _normalize_size(value: str | None) -> str:
 class EvolinkImageGenerator:
     """Generate images through the Evolink async image task API."""
 
+    supports_concurrency = True
+
     MODEL_ALIASES = {
         "flash": "gemini-3.1-flash-image-preview",
         "nanobanana-2": "gemini-3.1-flash-image-preview",
@@ -271,13 +273,25 @@ class EvolinkImageGenerator:
         self.last_task_id = None
 
         for model_id in self.model_candidates:
-            task_id = self._submit_generation(prompt, model_id, size=size)
+            try:
+                task_id = self._submit_generation(prompt, model_id, size=size)
+            except requests.RequestException as exc:
+                self._set_error("network_request_failed", str(exc))
+                task_id = None
             if task_id:
-                results = self._poll_task_results(task_id)
+                try:
+                    results = self._poll_task_results(task_id)
+                except requests.RequestException as exc:
+                    self._set_error("network_request_failed", str(exc))
+                    return None
                 if not results:
                     return None
                 image_url = results[0]
-                downloaded = self._download_image(image_url, account, page_type)
+                try:
+                    downloaded = self._download_image(image_url, account, page_type)
+                except requests.RequestException as exc:
+                    self._set_error("network_request_failed", str(exc))
+                    return None
                 if downloaded:
                     return downloaded
                 return None

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from topic_doc_utils import parse_frontmatter
+from wechat_article_model import build_article_model
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -190,6 +191,13 @@ def build_render_payload(
         raise RenderError("missing frontmatter field: cover_image")
 
     cover_path = _resolve_local_path(article_path, cover_image, required=True)
+    article_model = build_article_model(
+        article_path=article_path,
+        title=title,
+        summary=summary,
+        body_markdown=body_section,
+        cta_markdown=cta_section,
+    )
     preview_dir = _preview_dir(article_path, preview_root=preview_root, task_id=task_id)
     preview_dir.mkdir(parents=True, exist_ok=True)
 
@@ -197,18 +205,17 @@ def build_render_payload(
         {
             "article_path": str(article_path),
             "article_dir": str(article_path.parent),
-            "title": title,
-            "summary": summary,
-            "body_markdown": body_section,
-            "cta_markdown": cta_section,
+            "article_model": article_model,
             "theme_id": theme_id,
             "layout_profile": layout_profile,
         },
         preview_dir=preview_dir,
     )
 
-    content_blocks = list(compiled.get("content_blocks") or [])
-    body_image_count = sum(1 for block in content_blocks if block.get("type") == "image")
+    publish_blocks = list(compiled.get("publish_blocks") or compiled.get("content_blocks") or [])
+    preview_blocks = list(compiled.get("preview_blocks") or [])
+    body_image_count = sum(1 for block in publish_blocks if block.get("type") == "image")
+    section_count = len(list(article_model.get("sections") or []))
 
     preview_html_path = preview_dir / "preview.html"
     preview_html_path.write_text(str(compiled.get("preview_html") or ""), encoding="utf-8")
@@ -229,9 +236,13 @@ def build_render_payload(
         "summary": summary,
         "cover_path": str(cover_path),
         "cover_path_rel": cover_path.relative_to(article_path.parent).as_posix(),
+        "section_count": section_count,
+        "article_model": article_model,
         "preview_html": preview_html_path.as_posix(),
         "clipboard_html": clipboard_html_path.as_posix(),
-        "content_blocks": content_blocks,
+        "preview_blocks": preview_blocks,
+        "publish_blocks": publish_blocks,
+        "content_blocks": publish_blocks,
         "content_html": str(compiled.get("content_html") or ""),
         "body_image_count": body_image_count,
     }

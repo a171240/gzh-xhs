@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "commonjs",
-  "description": "Embedded WeChat layout compiler inspired by raphael-publish core rendering",
+  "description": "Embedded WeChat layout compiler using adapted raphael-publish theme and WeChat compatibility core",
   "scripts": {
     "render": "node render.js"
   },

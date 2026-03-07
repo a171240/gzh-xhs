@@ -2,6 +2,17 @@
 
 这是仓库内正式受管的 Node 子项目，用于生成公众号排版预览与渲染产物。
 
+当前实现会复用并裁剪 `raphael-publish` 的核心能力：
+- 主题样式
+- Markdown 预处理
+- WeChat 兼容 HTML 转换
+
+仓库会保留本地的发布契约：
+- `content_blocks`
+- `preview_html`
+- `clipboard_html`
+- `render-manifest.json`
+
 ## 纳管范围
 - `package.json`
 - `package-lock.json`

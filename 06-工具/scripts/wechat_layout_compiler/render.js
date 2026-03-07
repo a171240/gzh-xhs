@@ -1,114 +1,41 @@
 #!/usr/bin/env node
 
+"use strict";
+
 const fs = require("fs");
 const path = require("path");
-const { pathToFileURL } = require("url");
 const MarkdownIt = require("markdown-it");
 const hljs = require("highlight.js");
 const { JSDOM } = require("jsdom");
+const {
+  escapeHtml,
+  getThemeTokens,
+  makeWeChatCompatible,
+  preprocessMarkdown,
+  renderImageFragment,
+  renderMarkdownFragment,
+} = require("./raphael_core");
+const { getTheme } = require("./raphael_themes");
 
-const THEMES = {
-  notion: {
-    name: "notion",
-    background: "#ffffff",
-    pageBackground: "#f5f6f8",
-    text: "#1f2328",
-    muted: "#667085",
-    accent: "#0969da",
-    accentSoft: "#eef6ff",
-    accentBorder: "#bfdbfe",
-    ctaBackground: "#0f172a",
-    ctaText: "#f8fafc",
-    quoteBackground: "#f8fafc",
-    quoteBorder: "#cbd5e1",
-    codeBackground: "#f6f8fa",
-    divider: "#e5e7eb",
-  },
-  github: {
-    name: "github",
-    background: "#ffffff",
-    pageBackground: "#f6f8fa",
-    text: "#24292f",
-    muted: "#57606a",
-    accent: "#0969da",
-    accentSoft: "#edf6ff",
-    accentBorder: "#b6d4fe",
-    ctaBackground: "#0d1117",
-    ctaText: "#f0f6fc",
-    quoteBackground: "#f6f8fa",
-    quoteBorder: "#d0d7de",
-    codeBackground: "#f6f8fa",
-    divider: "#d0d7de",
-  },
-  sspai: {
-    name: "sspai",
-    background: "#ffffff",
-    pageBackground: "#eef2f7",
-    text: "#1b1f24",
-    muted: "#5b6472",
-    accent: "#0070f3",
-    accentSoft: "#f4f8ff",
-    accentBorder: "#d6e4ff",
-    ctaBackground: "#111827",
-    ctaText: "#f9fafb",
-    quoteBackground: "#f8fbff",
-    quoteBorder: "#c7d9ff",
-    codeBackground: "#f6f8fb",
-    divider: "#e5e7eb",
-  },
-  sunset: {
-    name: "sunset",
-    background: "#fffdf9",
-    pageBackground: "#fff6ef",
-    text: "#42210b",
-    muted: "#8a5a44",
-    accent: "#ea580c",
-    accentSoft: "#fff1e8",
-    accentBorder: "#fed7aa",
-    ctaBackground: "#7c2d12",
-    ctaText: "#fff7ed",
-    quoteBackground: "#fff7ed",
-    quoteBorder: "#fdba74",
-    codeBackground: "#fff3e8",
-    divider: "#fed7aa",
-  },
-  mint: {
-    name: "mint",
-    background: "#fbfffd",
-    pageBackground: "#eefaf5",
-    text: "#16342b",
-    muted: "#52756a",
-    accent: "#0f766e",
-    accentSoft: "#edfdfa",
-    accentBorder: "#99f6e4",
-    ctaBackground: "#134e4a",
-    ctaText: "#f0fdfa",
-    quoteBackground: "#f0fdfa",
-    quoteBorder: "#99f6e4",
-    codeBackground: "#effcf7",
-    divider: "#cdeee1",
-  },
-};
-
-const md = new MarkdownIt({
-  html: false,
+const publishMd = new MarkdownIt({
+  html: true,
   breaks: true,
   linkify: true,
   highlight(code, language) {
     if (language && hljs.getLanguage(language)) {
-      return `<pre><code>${hljs.highlight(code, { language }).value}</code></pre>`;
+      return `<pre><code class="hljs">${hljs.highlight(code, { language }).value}</code></pre>`;
     }
-    return `<pre><code>${md.utils.escapeHtml(code)}</code></pre>`;
+    return `<pre><code class="hljs">${publishMd.utils.escapeHtml(code)}</code></pre>`;
   },
 });
 
 function parseArgs(argv) {
   const out = { input: "" };
-  for (let i = 0; i < argv.length; i += 1) {
-    const item = argv[i];
+  for (let index = 0; index < argv.length; index += 1) {
+    const item = argv[index];
     if (item === "--input") {
-      out.input = argv[i + 1] || "";
-      i += 1;
+      out.input = argv[index + 1] || "";
+      index += 1;
     }
   }
   if (!out.input) {
@@ -117,263 +44,479 @@ function parseArgs(argv) {
   return out;
 }
 
-function preprocessMarkdown(text) {
+function compactMarkdown(text) {
   return String(text || "")
     .replace(/\r\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
-function splitBodyBlocks(bodyMarkdown, articleDir) {
-  const lines = String(bodyMarkdown || "").replace(/\r\n/g, "\n").split("\n");
-  const blocks = [];
-  const buffer = [];
-  const imageLineRe = /^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/;
+function resolveImageSpec(spec, articleDir) {
+  const rawPath = String((spec && (spec.raw_path || spec.path)) || "").trim();
+  const resolved = path.isAbsolute(rawPath) ? rawPath : path.resolve(String(articleDir || "").trim(), rawPath);
+  return {
+    alt: String(spec && spec.alt || "").trim() || "正文配图",
+    rawPath,
+    path: resolved,
+  };
+}
 
-  function flushBuffer() {
-    const content = buffer.join("\n").trim();
-    if (!content) {
-      buffer.length = 0;
-      return;
-    }
-    blocks.push({ type: "markdown", markdown: content });
-    buffer.length = 0;
+function buildFallbackArticleModel(payload) {
+  const lines = String(payload.body_markdown || "").replace(/\r\n/g, "\n").split("\n");
+  const imageLineRe = /^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/;
+  const headingRe = /^\s*###\s+(.+?)\s*$/;
+  const leadLines = [];
+  const leadImages = [];
+  const sections = [];
+  let current = null;
+
+  function ensureCurrent(heading) {
+    current = { heading, bodyLines: [], images: [] };
+    sections.push(current);
+    return current;
   }
 
   lines.forEach((line) => {
-    const match = line.match(imageLineRe);
-    if (!match) {
-      buffer.push(line);
+    const headingMatch = line.match(headingRe);
+    if (headingMatch) {
+      ensureCurrent(String(headingMatch[1] || "").trim());
       return;
     }
-    flushBuffer();
-    const alt = String(match[1] || "").trim();
-    const rawPath = String(match[2] || "").trim();
-    const resolved = path.isAbsolute(rawPath)
-      ? rawPath
-      : path.resolve(articleDir, rawPath);
-    blocks.push({
-      type: "image",
-      alt: alt || "正文配图",
-      rawPath,
-      path: resolved,
-    });
+
+    const imageMatch = line.match(imageLineRe);
+    if (imageMatch) {
+      const imageSpec = {
+        alt: String(imageMatch[1] || "").trim(),
+        raw_path: String(imageMatch[2] || "").trim(),
+      };
+      if (current) {
+        current.images.push(imageSpec);
+      } else {
+        leadImages.push(imageSpec);
+      }
+      return;
+    }
+
+    if (current) {
+      current.bodyLines.push(line);
+      return;
+    }
+    leadLines.push(line);
   });
 
-  flushBuffer();
-  return blocks;
+  return {
+    title: String(payload.title || "").trim(),
+    summary: String(payload.summary || "").trim(),
+    lead_markdown: compactMarkdown(leadLines.join("\n")),
+    lead_images: leadImages,
+    sections: sections.map((section) => ({
+      heading: String(section.heading || "").trim(),
+      body_markdown: compactMarkdown(section.bodyLines.join("\n")),
+      images: section.images,
+    })),
+    cta_markdown: compactMarkdown(payload.cta_markdown),
+  };
 }
 
-function applyTheme(fragment, theme) {
-  const dom = new JSDOM(`<body>${fragment}</body>`);
+function normalizeArticleModel(payload) {
+  const raw = payload.article_model;
+  if (!raw || typeof raw !== "object") {
+    return buildFallbackArticleModel(payload);
+  }
+  return {
+    title: String(raw.title || payload.title || "").trim(),
+    summary: String(raw.summary || payload.summary || "").trim(),
+    lead_markdown: compactMarkdown(raw.lead_markdown),
+    lead_images: Array.isArray(raw.lead_images) ? raw.lead_images : [],
+    sections: Array.isArray(raw.sections) ? raw.sections : [],
+    cta_markdown: compactMarkdown(raw.cta_markdown || payload.cta_markdown),
+  };
+}
+
+function renderSummaryCard(summary, themeId) {
+  const tokens = getThemeTokens(themeId);
+  return [
+    `<section data-role="summary-card" style="margin:0 0 28px; padding:18px 18px 16px; border:1px solid ${tokens.quoteBorder}; border-radius:18px; background:${tokens.accentSoft};">`,
+    `<div style="margin:0 0 10px; font-size:12px; line-height:1; letter-spacing:0.08em; font-weight:700; text-transform:uppercase; color:${tokens.accent};">文章摘要</div>`,
+    `<p style="margin:0; font-size:15px; line-height:1.9; color:${tokens.text}; font-weight:400 !important;">${escapeHtml(String(summary || "").trim())}</p>`,
+    "</section>",
+  ].join("");
+}
+
+function renderSectionHeadingCard(heading, themeId, index) {
+  const tokens = getThemeTokens(themeId);
+  const label = String(index + 1).padStart(2, "0");
+  return [
+    `<section data-role="section-heading" style="margin:34px 0 14px; padding:0;">`,
+    `<div style="display:flex; align-items:center; gap:12px;">`,
+    `<span style="display:inline-flex; align-items:center; justify-content:center; min-width:40px; height:40px; padding:0 10px; border-radius:999px; background:${tokens.accentSoft}; color:${tokens.accent}; font-size:16px; font-weight:700; line-height:1;">${escapeHtml(label)}</span>`,
+    `<h3 style="margin:0; font-size:24px; line-height:1.45; font-weight:700; color:${tokens.text};">${escapeHtml(String(heading || "").trim())}</h3>`,
+    `</div>`,
+    `</section>`,
+  ].join("");
+}
+
+function renderPublishSafeMarkdown(markdown, themeId, role) {
+  const tokens = getThemeTokens(themeId);
+  const html = publishMd.render(preprocessMarkdown(markdown));
+  const dom = new JSDOM(`<body>${String(html || "")}</body>`);
   const { document } = dom.window;
 
-  const blockSpacing = "margin:0 0 16px;";
-  const bodyText = `${blockSpacing}color:${theme.text};font-size:16px;line-height:1.9;letter-spacing:0.15px;`;
+  document.querySelectorAll("img, figure, table").forEach((node) => node.remove());
+
+  document.querySelectorAll("h1, h2, h3, h4, h5, h6").forEach((node) => {
+    const p = document.createElement("p");
+    p.innerHTML = node.innerHTML;
+    node.replaceWith(p);
+  });
+
+  const baseParagraphStyle = [
+    "margin:0 0 22px",
+    `font-size:${role === "lead" ? "16px" : "16px"}`,
+    "line-height:1.95",
+    `color:${tokens.text}`,
+    "font-weight:400 !important",
+    "letter-spacing:0.015em",
+  ].join("; ");
 
   document.querySelectorAll("p").forEach((node) => {
-    node.setAttribute("style", bodyText);
+    const current = String(node.getAttribute("style") || "").trim();
+    node.setAttribute("style", current ? `${current}; ${baseParagraphStyle}` : baseParagraphStyle);
   });
-  document.querySelectorAll("ul,ol").forEach((node) => {
-    node.setAttribute(
-      "style",
-      `${blockSpacing}padding-left:24px;color:${theme.text};font-size:16px;line-height:1.9;`
-    );
+
+  document.querySelectorAll("ul, ol").forEach((node) => {
+    const current = String(node.getAttribute("style") || "").trim();
+    const extra = [
+      "margin:4px 0 22px",
+      "padding-left:1.55em",
+      `color:${tokens.text}`,
+      "font-size:16px",
+      "line-height:1.95",
+    ].join("; ");
+    node.setAttribute("style", current ? `${current}; ${extra}` : extra);
   });
+
   document.querySelectorAll("li").forEach((node) => {
-    node.setAttribute("style", "margin:0 0 10px;");
+    const current = String(node.getAttribute("style") || "").trim();
+    const extra = [
+      "margin:0 0 14px",
+      `color:${tokens.text}`,
+      "font-size:16px",
+      "line-height:1.95",
+      "font-weight:400 !important",
+    ].join("; ");
+    node.setAttribute("style", current ? `${current}; ${extra}` : extra);
   });
-  document.querySelectorAll("strong").forEach((node) => {
-    node.setAttribute("style", `color:${theme.text};font-weight:700;`);
-  });
-  document.querySelectorAll("em").forEach((node) => {
-    node.setAttribute("style", `color:${theme.muted};font-style:italic;`);
-  });
-  document.querySelectorAll("a").forEach((node) => {
-    node.setAttribute(
-      "style",
-      `color:${theme.accent};text-decoration:none;border-bottom:1px solid ${theme.accentBorder};`
-    );
-    node.setAttribute("target", "_blank");
-    node.setAttribute("rel", "noopener noreferrer");
-  });
+
   document.querySelectorAll("blockquote").forEach((node) => {
-    node.setAttribute(
-      "style",
-      `margin:22px 0;padding:14px 16px;border-left:4px solid ${theme.accent};background:${theme.quoteBackground};color:${theme.text};border-radius:8px;`
-    );
+    const current = String(node.getAttribute("style") || "").trim();
+    const extra = [
+      "margin:20px 0",
+      "padding:14px 16px",
+      `border-left:4px solid ${tokens.accent}`,
+      `background:${tokens.accentSoft}`,
+      "border-radius:14px",
+    ].join("; ");
+    node.setAttribute("style", current ? `${current}; ${extra}` : extra);
   });
+
+  document.querySelectorAll("strong, b").forEach((node) => {
+    const current = String(node.getAttribute("style") || "").trim();
+    node.setAttribute("style", current ? `${current}; font-weight:700 !important;` : "font-weight:700 !important;");
+  });
+
+  document.querySelectorAll("em, i").forEach((node) => {
+    const current = String(node.getAttribute("style") || "").trim();
+    node.setAttribute("style", current ? `${current}; font-style:italic;` : "font-style:italic;");
+  });
+
+  document.querySelectorAll("a").forEach((node) => {
+    const current = String(node.getAttribute("style") || "").trim();
+    const extra = [`color:${tokens.accent}`, "text-decoration:none"].join("; ");
+    node.setAttribute("style", current ? `${current}; ${extra}` : extra);
+  });
+
   document.querySelectorAll("pre").forEach((node) => {
-    node.setAttribute(
-      "style",
-      `margin:18px 0;padding:14px 16px;background:${theme.codeBackground};border-radius:12px;overflow:auto;`
-    );
+    const current = String(node.getAttribute("style") || "").trim();
+    const extra = [
+      "margin:18px 0",
+      "padding:14px 16px",
+      "overflow-x:auto",
+      "border-radius:14px",
+      "background:#0f172a",
+      "color:#e2e8f0",
+      "font-size:14px",
+      "line-height:1.75",
+    ].join("; ");
+    node.setAttribute("style", current ? `${current}; ${extra}` : extra);
   });
+
   document.querySelectorAll("code").forEach((node) => {
-    const isInline = node.parentElement && node.parentElement.tagName !== "PRE";
-    if (isInline) {
-      node.setAttribute(
-        "style",
-        `padding:2px 6px;background:${theme.codeBackground};border-radius:6px;color:${theme.text};font-size:0.92em;`
-      );
-    } else {
-      node.setAttribute("style", `color:${theme.text};font-size:14px;line-height:1.7;`);
+    if (node.closest("pre")) {
+      return;
     }
+    const current = String(node.getAttribute("style") || "").trim();
+    const extra = [
+      "padding:0.1em 0.35em",
+      "border-radius:6px",
+      "background:rgba(15, 23, 42, 0.06)",
+      "font-size:0.94em",
+    ].join("; ");
+    node.setAttribute("style", current ? `${current}; ${extra}` : extra);
   });
+
   document.querySelectorAll("hr").forEach((node) => {
-    node.setAttribute("style", `border:none;border-top:1px solid ${theme.divider};margin:28px 0;`);
-  });
-  document.querySelectorAll("h3").forEach((node) => {
-    node.setAttribute(
-      "style",
-      `margin:28px 0 14px;padding-left:12px;border-left:4px solid ${theme.accent};font-size:20px;line-height:1.55;color:${theme.text};`
-    );
-  });
-  document.querySelectorAll("h4").forEach((node) => {
-    node.setAttribute(
-      "style",
-      `margin:22px 0 12px;font-size:18px;line-height:1.55;color:${theme.text};`
-    );
+    const current = String(node.getAttribute("style") || "").trim();
+    const extra = [
+      "margin:24px 0",
+      "border:none",
+      `border-top:1px solid ${tokens.divider}`,
+    ].join("; ");
+    node.setAttribute("style", current ? `${current}; ${extra}` : extra);
   });
 
   return document.body.innerHTML.trim();
 }
 
-function renderMarkdownBlock(markdown, theme) {
-  const html = md.render(preprocessMarkdown(markdown));
-  return applyTheme(html, theme);
+function splitSectionHeading(heading, index) {
+  const text = String(heading || "").trim();
+  const matched = text.match(/^(\d{1,2})[\s、.．\-_:：]*(.+)$/);
+  if (matched) {
+    return {
+      label: String(matched[1] || "").padStart(2, "0"),
+      title: String(matched[2] || "").trim(),
+    };
+  }
+  return {
+    label: String(index + 1).padStart(2, "0"),
+    title: text,
+  };
 }
 
-function renderSummaryCard(summary, theme) {
+function renderPublishSummaryBlock(summary, themeId) {
+  const tokens = getThemeTokens(themeId);
   return [
-    `<section style="margin:0 0 24px;padding:18px 20px;border:1px solid ${theme.accentBorder};border-radius:16px;background:${theme.accentSoft};">`,
-    `<div style="margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${theme.accent};">文章摘要</div>`,
-    `<p style="margin:0;color:${theme.text};font-size:15px;line-height:1.85;">${escapeHtml(String(summary || "").trim())}</p>`,
-    "</section>",
+    `<div data-role="summary" style="margin:0 0 30px; padding:16px 18px; border-left:3px solid ${tokens.accent}; background:${tokens.accentSoft}; border-radius:16px;">`,
+    `<p style="margin:0; font-size:15px; line-height:1.9; color:${tokens.text}; font-weight:400 !important;">${escapeHtml(String(summary || "").trim())}</p>`,
+    "</div>",
   ].join("");
 }
 
-function renderCtaCard(markdown, theme) {
-  const inner = renderMarkdownBlock(markdown, {
-    ...theme,
-    text: theme.ctaText,
-    muted: theme.ctaText,
-    accent: "#93c5fd",
-    accentBorder: "rgba(147,197,253,0.45)",
-    quoteBackground: "rgba(255,255,255,0.08)",
-    codeBackground: "rgba(255,255,255,0.08)",
-    divider: "rgba(255,255,255,0.18)",
-  });
+function renderPublishSectionHeading(heading, themeId, index) {
+  const tokens = getThemeTokens(themeId);
+  const parsed = splitSectionHeading(heading, index);
   return [
-    `<section style="margin:32px 0 0;padding:18px 20px;border-radius:16px;background:${theme.ctaBackground};color:${theme.ctaText};">`,
-    `<div style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#93c5fd;">行动建议</div>`,
+    `<div data-role="section-heading" style="margin:40px 0 18px; padding:0;">`,
+    `<div style="display:flex; align-items:center; gap:10px; margin:0 0 10px;">`,
+    `<span style="display:inline-flex; align-items:center; justify-content:center; min-width:42px; height:32px; padding:0 12px; border-radius:999px; background:${tokens.accentSoft}; color:${tokens.accent}; font-size:15px; font-weight:700; line-height:1;">${escapeHtml(parsed.label)}</span>`,
+    `<span style="display:inline-block; font-size:12px; line-height:1; letter-spacing:0.12em; text-transform:uppercase; color:${tokens.muted}; font-weight:700;">关键章节</span>`,
+    `</div>`,
+    `<p style="margin:0; color:${tokens.text}; font-size:24px; line-height:1.5; font-weight:700;">${escapeHtml(parsed.title)}</p>`,
+    `<div style="margin:12px 0 0; width:56px; height:3px; border-radius:999px; background:${tokens.accent};"></div>`,
+    `</div>`,
+  ].join("");
+}
+
+function renderPublishCtaBlock(markdown, themeId) {
+  const tokens = getThemeTokens(themeId);
+  const inner = renderPublishSafeMarkdown(markdown, themeId, "cta");
+  return [
+    `<div data-role="cta" style="margin:34px 0 0; padding:18px 20px; border:1px solid ${tokens.divider}; border-radius:18px; background:${tokens.quoteBackground};">`,
+    `<div style="margin:0 0 12px; font-size:12px; line-height:1; letter-spacing:0.1em; text-transform:uppercase; color:${tokens.accent}; font-weight:700;">行动建议</div>`,
+    inner,
+    "</div>",
+  ].join("");
+}
+
+function renderPublishSpacer(heightPx) {
+  return `<p data-role="spacer" style="margin:0; height:${Number(heightPx) || 16}px; line-height:${Number(heightPx) || 16}px;"><br></p>`;
+}
+
+function renderCtaCard(markdown, themeId) {
+  const tokens = getThemeTokens(themeId);
+  const inner = renderMarkdownFragment(markdown, themeId);
+  return [
+    `<section data-role="cta-card" style="margin:32px 0 0; padding:18px 18px 16px; border:1px solid ${tokens.divider}; border-radius:18px; background:${tokens.quoteBackground};">`,
+    `<div style="margin:0 0 12px; font-size:12px; line-height:1; letter-spacing:0.08em; font-weight:700; text-transform:uppercase; color:${tokens.accent};">行动建议</div>`,
     inner,
     "</section>",
   ].join("");
 }
 
-function renderImageBlock(imagePath, alt) {
+function wrapBodyHtml(html, themeId, role) {
+  const tokens = getThemeTokens(themeId);
   return [
-    '<figure style="margin:24px 0;">',
-    `<img src="${pathToFileURL(imagePath).href}" alt="${escapeHtml(alt)}" style="display:block;width:100%;border-radius:18px;border:1px solid #e5e7eb;" />`,
-    "</figure>",
+    `<section data-role="${escapeHtml(String(role || "body"))}" style="margin:0; padding:0; color:${tokens.text}; font-weight:400 !important;">`,
+    String(html || ""),
+    "</section>",
   ].join("");
 }
 
-function renderClipboardImage(imagePath, alt) {
-  return [
-    '<figure style="margin:24px 0;">',
-    `<img src="${pathToFileURL(imagePath).href}" alt="${escapeHtml(alt)}" style="display:block;max-width:100%;height:auto;border-radius:16px;" />`,
-    "</figure>",
-  ].join("");
-}
-
-function buildPreviewHtml(title, blocks, theme) {
-  const body = blocks
-    .map((block) => {
-      if (block.type === "image") {
-        return renderImageBlock(block.path, block.alt);
-      }
-      return block.html || "";
-    })
-    .join("\n");
+function buildPreviewHtml(title, contentHtml, themeId) {
+  const theme = getTheme(themeId);
+  const tokens = getThemeTokens(themeId);
+  const baseContainer = String(theme.styles.container || "")
+    .replace(/max-width:\s*[^;]+;?/i, "")
+    .replace(/margin:\s*[^;]+;?/i, "")
+    .trim();
+  const safeBaseContainer = baseContainer.replace(/"/g, "&quot;");
 
   return [
     "<!doctype html>",
     "<html><head><meta charset=\"utf-8\" />",
     `<title>${escapeHtml(title)}</title>`,
-    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />",
+    '<meta name="viewport" content="width=device-width, initial-scale=1" />',
     "</head>",
-    `<body style="margin:0;padding:32px 0;background:${theme.pageBackground};font-family:'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;">`,
-    '<main style="max-width:760px;margin:0 auto;padding:0 18px;">',
-    `<article style="padding:34px 32px;background:${theme.background};border-radius:24px;box-shadow:0 18px 40px rgba(15,23,42,0.08);">`,
-    `<h1 style="margin:0 0 26px;font-size:34px;line-height:1.28;color:${theme.text};">${escapeHtml(title)}</h1>`,
-    body,
-    "</article></main></body></html>",
+    `<body style="margin:0; padding:32px 0 56px; background:${tokens.accentSoft};">`,
+    '<main style="max-width:760px; margin:0 auto; padding:0 16px;">',
+    `<article style="${safeBaseContainer}; max-width:720px; margin:0 auto; border-radius:24px; box-shadow:0 18px 48px rgba(15, 23, 42, 0.08);">`,
+    '<header style="margin:0 0 28px;">',
+    `<div style="margin:0 0 10px; font-size:12px; line-height:1; letter-spacing:0.08em; font-weight:700; text-transform:uppercase; color:${tokens.accent};">微信公众号排版预览</div>`,
+    `<h1 style="margin:0; ${theme.styles.h1}">${escapeHtml(title)}</h1>`,
+    "</header>",
+    contentHtml,
+    "</article>",
+    "</main>",
+    "</body></html>",
   ].join("");
 }
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 function compile(payload) {
-  const themeId = THEMES[payload.theme_id] ? payload.theme_id : "sspai";
-  const theme = THEMES[themeId];
-  const blocks = [];
+  const themeId = getTheme(String(payload.theme_id || "").trim()).id;
+  const layoutProfile = String(payload.layout_profile || "raphael_wechat_v1").trim() || "raphael_wechat_v1";
+  const article = normalizeArticleModel(payload);
+  const articleDir = String(payload.article_dir || "").trim();
+  const previewBlocks = [];
+  const publishBlocks = [];
 
-  blocks.push({
-    type: "html",
-    role: "summary",
-    html: renderSummaryCard(payload.summary, theme),
-  });
-
-  const bodyBlocks = splitBodyBlocks(payload.body_markdown, payload.article_dir);
-  bodyBlocks.forEach((block) => {
-    if (block.type === "image") {
-      blocks.push({
-        type: "image",
-        role: "body_image",
-        alt: block.alt,
-        path: block.path,
-      });
-      return;
-    }
-    blocks.push({
+  if (article.summary) {
+    previewBlocks.push({
       type: "html",
-      role: "body",
-      html: renderMarkdownBlock(block.markdown, theme),
+      role: "summary",
+      html: renderSummaryCard(article.summary, themeId),
     });
-  });
-
-  if (String(payload.cta_markdown || "").trim()) {
-    blocks.push({
+    publishBlocks.push({
       type: "html",
-      role: "cta",
-      html: renderCtaCard(payload.cta_markdown, theme),
+      role: "summary",
+      html: renderPublishSummaryBlock(article.summary, themeId),
     });
   }
 
-  const clipboardHtml = blocks
+  if (article.lead_markdown) {
+    previewBlocks.push({
+      type: "html",
+      role: "lead",
+      html: wrapBodyHtml(renderMarkdownFragment(article.lead_markdown, themeId), themeId, "lead"),
+    });
+    publishBlocks.push({
+      type: "html",
+      role: "lead",
+      html: renderPublishSafeMarkdown(article.lead_markdown, themeId, "lead"),
+    });
+  }
+
+  (article.lead_images || []).forEach((image) => {
+    const resolved = resolveImageSpec(image, articleDir);
+    previewBlocks.push({
+      type: "image",
+      role: "lead_image",
+      alt: resolved.alt,
+      path: resolved.path,
+    });
+    publishBlocks.push({
+      type: "image",
+      role: "lead_image",
+      alt: resolved.alt,
+      path: resolved.path,
+    });
+  });
+
+  (article.sections || []).forEach((section, index) => {
+    previewBlocks.push({
+      type: "html",
+      role: "section_heading",
+      html: renderSectionHeadingCard(section.heading, themeId, index),
+    });
+    publishBlocks.push({
+      type: "html",
+      role: "section_heading",
+      html: renderPublishSectionHeading(section.heading, themeId, index),
+    });
+
+    if (String(section.body_markdown || "").trim()) {
+      previewBlocks.push({
+        type: "html",
+        role: "body",
+        html: wrapBodyHtml(renderMarkdownFragment(section.body_markdown, themeId), themeId, "body"),
+      });
+      publishBlocks.push({
+        type: "html",
+        role: "body",
+        html: renderPublishSafeMarkdown(section.body_markdown, themeId, "body"),
+      });
+    }
+
+    (section.images || []).forEach((image) => {
+      const resolved = resolveImageSpec(image, articleDir);
+      publishBlocks.push({
+        type: "html",
+        role: "image_spacer_before",
+        html: renderPublishSpacer(18),
+      });
+      previewBlocks.push({
+        type: "image",
+        role: "body_image",
+        alt: resolved.alt,
+        path: resolved.path,
+      });
+      publishBlocks.push({
+        type: "image",
+        role: "body_image",
+        alt: resolved.alt,
+        path: resolved.path,
+      });
+      publishBlocks.push({
+        type: "html",
+        role: "image_spacer_after",
+        html: renderPublishSpacer(22),
+      });
+    });
+  });
+
+  if (article.cta_markdown) {
+    previewBlocks.push({
+      type: "html",
+      role: "cta",
+      html: renderCtaCard(article.cta_markdown, themeId),
+    });
+    publishBlocks.push({
+      type: "html",
+      role: "cta",
+      html: renderPublishCtaBlock(article.cta_markdown, themeId),
+    });
+  }
+
+  const articleHtml = previewBlocks
     .map((block) => {
       if (block.type === "image") {
-        return renderClipboardImage(block.path, block.alt);
+        return renderImageFragment(block.path, block.alt, themeId);
       }
       return block.html || "";
     })
     .join("\n");
 
+  const clipboardHtml = makeWeChatCompatible(articleHtml, themeId);
+
   return {
     theme_id: themeId,
-    layout_profile: "raphael_wechat_v1",
-    content_blocks: blocks,
+    layout_profile: layoutProfile,
+    article_model: article,
+    preview_blocks: previewBlocks,
+    publish_blocks: publishBlocks,
+    content_blocks: publishBlocks,
     content_html: clipboardHtml,
     clipboard_html: clipboardHtml,
-    preview_html: buildPreviewHtml(payload.title, blocks, theme),
+    preview_html: buildPreviewHtml(article.title || payload.title, articleHtml, themeId),
   };
 }
 

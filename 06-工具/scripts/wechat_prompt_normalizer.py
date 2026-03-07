@@ -29,6 +29,7 @@ SUBSECTION_RE = re.compile(r"(?ms)^###\s+(.+?)\s*\n(.*?)(?=^###\s+|^##\s+|\Z)")
 FIELD_RE = re.compile(r"(?im)^\s*(观点|案例细节|底层逻辑|行动第一步|反驳安全阀(?:A|B)?)\s*[:：]\s*(.+?)\s*$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 STYLE_SECTION_RE = re.compile(r"^##\s+风格([A-Z])：(.+?)（(.+?)专用）\s*$", re.MULTILINE)
+BODY_IMAGE_LINE_RE = re.compile(r"(?m)^\s*!\[[^\]]*\]\([^)]+\)\s*$")
 
 
 def _norm(text: str) -> str:
@@ -74,7 +75,7 @@ STYLE_CONFIGS: dict[str, StyleConfig] = {
     "知识黑板报风格": StyleConfig(
         style_name="知识黑板报风格",
         account="IP内容工厂",
-        cover_visual="深墨绿色黑板背景，粉笔灰纹理，白色粉笔标题，淡黄色副标题，中央 383×383 核心安全区，左右仅做可裁剪手绘装饰",
+        cover_visual="深墨绿色黑板背景，粉笔灰纹理，白色粉笔标题，淡黄色副标题，左右保留可裁切留白，整体像一张干净的知识黑板报封面",
         body_visual="深色黑板背景，粉笔手绘标题，流程图/图谱/结构图表达，强调框架、机制、对照关系",
         body_decorations="手绘箭头、星号、虚线、灯泡/书本图标",
         cover_palette="深墨绿色、白色、淡黄色、浅灰",
@@ -84,7 +85,7 @@ STYLE_CONFIGS: dict[str, StyleConfig] = {
     "温暖故事插画风格": StyleConfig(
         style_name="温暖故事插画风格",
         account="IP工厂",
-        cover_visual="柔和暖色调背景，手绘水彩/彩铅质感，中央 383×383 核心安全区，圆润手写体，插画人物或生活物件围绕标题",
+        cover_visual="柔和暖色调背景，手绘水彩/彩铅质感，圆润手写体，插画人物或生活物件围绕标题，整体像一张温暖关系故事封面",
         body_visual="温暖故事插画风格，暖色调，人物状态与情绪场景化表达，突出关系张力和人生阶段感",
         body_decorations="光斑、植物、咖啡杯、书本、柔和留白",
         cover_palette="米黄、浅橙、暖粉、柔绿、深棕",
@@ -94,7 +95,7 @@ STYLE_CONFIGS: dict[str, StyleConfig] = {
     "科技蓝数据图风格": StyleConfig(
         style_name="科技蓝数据图风格",
         account="IP增长引擎",
-        cover_visual="深蓝渐变背景，科技网格与数据节点，亮青色主标题与亮绿色数据，高对比中央安全区",
+        cover_visual="深蓝渐变背景，科技网格与数据节点，亮青色主标题与亮绿色数据，整体像一张高对比增长数据封面",
         body_visual="科技蓝数据可视化风格，深蓝背景，柱状图/折线图/矩阵图/流程图表达，突出指标、样本、增长杠杆",
         body_decorations="细线、光点、数据流、简洁图标",
         cover_palette="深蓝、亮青、亮绿、蓝色光点",
@@ -104,7 +105,7 @@ STYLE_CONFIGS: dict[str, StyleConfig] = {
     "手账笔记风格": StyleConfig(
         style_name="手账笔记风格",
         account="商业IP实战笔记",
-        cover_visual="米白色纸张背景，纸张纹理和轻微折痕，活泼手写体，荧光笔高亮，中央 383×383 核心安全区，便签和贴纸围绕标题",
+        cover_visual="米白色纸张背景，纸张纹理和轻微折痕，活泼手写体，荧光笔高亮，便签和贴纸围绕标题，整体像一张手账笔记封面",
         body_visual="手账笔记风格，纸张背景，手写手绘感，突出步骤、清单、checkbox 和马上执行的动作提示",
         body_decorations="和纸胶带、手绘 checkbox、便签条、贴纸图标、涂鸦箭头、荧光笔标记",
         cover_palette="米白、奶油色、深棕/黑色、黄色/粉色荧光",
@@ -150,7 +151,9 @@ def _extract_subsections(body: str) -> list[ArticleSection]:
     sections: list[ArticleSection] = []
     for matched in SUBSECTION_RE.finditer(str(body or "")):
         title = str(matched.group(1) or "").strip()
-        content = str(matched.group(2) or "").strip()
+        content = str(matched.group(2) or "")
+        content = BODY_IMAGE_LINE_RE.sub("", content)
+        content = re.sub(r"\n{3,}", "\n\n", content).strip()
         if title:
             sections.append(ArticleSection(title=title, content=content))
     return sections
@@ -277,10 +280,7 @@ def _style_summary(style: StyleConfig) -> str:
 
 
 def _style_consistency_rule(style: StyleConfig) -> str:
-    return (
-        f"整组图片必须统一为“{style.style_name}”，封面图与所有正文图共享同一套配色、材质、笔触和装饰语言，"
-        "不能一张是插画、一张是数据图、一张是真实摄影。"
-    )
+    return f"整组图片必须统一为“{style.style_name}”视觉语言，禁止混入其他画风、材质和摄影风格。"
 
 
 def _pick_visual_subject(title: str, summary: str) -> str:
@@ -288,6 +288,63 @@ def _pick_visual_subject(title: str, summary: str) -> str:
     if not merged:
         return "与标题强相关的单一视觉主体，避免多个冲突焦点"
     return f"围绕“{merged}”提炼单一主视觉，不做无关背景堆砌"
+
+
+def _cover_subheadline(summary: str) -> str:
+    value = str(summary or "").strip()
+    if not value:
+        return ""
+    first_sentence = re.split(r"[。；;！？?!]", value, maxsplit=1)[0]
+    return _clean_text(first_sentence, 32)
+
+
+def _compress_cover_title(title: str) -> str:
+    raw = _clean_text(title, 48)
+    if not raw:
+        return ""
+
+    matched = re.search(r"把(?P<a>[^当]{1,8})当(?P<b>.+?)(?:忽略|$)", raw)
+    if matched:
+        return _clean_text(f"{matched.group('a')}不等于{matched.group('b')}", 16)
+
+    matched = re.search(r"一开口就(?P<a>.+?人).*?(?P<b>做错这[一二三四五六七八九十0-9]+步)", raw)
+    if matched:
+        return _clean_text(f"{matched.group('a')}{matched.group('b').replace('这', '')}", 16)
+
+    matched = re.search(r"(把[^；，。!?]{1,8}降到\d+)", raw)
+    if matched:
+        return _clean_text(matched.group(1), 16)
+
+    cleaned = re.sub(r"^今晚就能用的", "", raw)
+    cleaned = re.sub(r"附[^；，。!?]{0,10}$", "", cleaned)
+    matched = re.search(r"([^；，。!?]{1,18}?模板)", cleaned)
+    if matched:
+        return _clean_text(matched.group(1), 16)
+
+    if len(raw) <= 16:
+        return raw
+    return _clean_text(raw, 16)
+
+
+def _default_cover_subject(style: StyleConfig) -> str:
+    mapping = {
+        "知识黑板报风格": "一个粉笔手绘的核心符号，如箭头、对话气泡、连接线或灯泡图标，辅助标题表达关系与沟通主题",
+        "温暖故事插画风格": "一组关系感明确的人物对话插画，人物表情和姿态清楚，辅助标题表达亲密关系场景",
+        "科技蓝数据图风格": "一个简洁的数据仪表盘、趋势箭头或数值面板，辅助标题表达增长和指标变化",
+        "手账笔记风格": "一张手写清单卡片、勾选框或便签纸，辅助标题表达可马上执行的步骤感",
+    }
+    return mapping.get(style.style_name, "一个单一、明确、可一眼识别的主视觉主体")
+
+
+def _pick_cover_visual_subject(title: str, summary: str, semantic_hint: str, style: StyleConfig) -> str:
+    hint = _semantic_hint(semantic_hint, limit=42)
+    if hint:
+        return f"围绕“{hint}”设计一个单一、明确、可一眼识别的主视觉"
+    title_hint = _clean_text(title, 18)
+    subject = _default_cover_subject(style)
+    if not title_hint:
+        return subject
+    return f"围绕“{title_hint}”主题，用{subject}"
 
 
 def _field_block(fields: dict[str, str]) -> str:
@@ -322,26 +379,26 @@ def _build_cover_prompt(
     style: StyleConfig,
     semantic_hint: str,
 ) -> str:
-    visual_subject = _pick_visual_subject(title, summary)
+    visual_subject = _pick_cover_visual_subject(title, summary, semantic_hint, style)
+    cover_title = _compress_cover_title(title) or _clean_text(title, 16)
     parts = [
         "【图片类型】微信公众号封面图",
-        f"【尺寸】{COVER_SIZE_TEXT}",
-        f"【比例】{COVER_RATIO_TEXT}",
-        "【输出目标】直接用于公众号头条封面，必须保留完整封面构图，并兼容分享/次条时的中央裁切",
-        "【核心构图规则】正方形优先法，所有核心文字与主视觉必须放在中央 383×383 安全区，文字安全区控制在 350×350 内，左右两侧仅做可裁剪装饰",
+        "【输出目标】用于公众号头条封面，画面稳定、干净、适合中央裁切后的阅读",
         f"【账号】{profile.account}",
         f"【固定风格】{style.cover_visual}",
         f"【统一风格约束】{_style_consistency_rule(style)}",
-        f"【标题】{_clean_text(title, 40)}",
-        f"【摘要亮点】{_clean_text(summary, 120)}",
-        f"【主视觉】{visual_subject}",
-        "【文字要求】生成清晰可读的中文标题排版，主标题必须醒目，副标题与数据点只做辅助，不允许乱码、镜像字、错字、变形字",
-        "【画面布局】中央安全区放主标题+一个核心视觉主体；左右两侧只允许延展背景、贴纸、图标、纹理，不得放核心文字",
-        "【细节要求】画面干净、主次清晰、边距明确、留白足够，适合手机端一眼识别",
+        f"【标题文字】{cover_title}",
+        f"【核心画面】{visual_subject}",
+        "【构图要求】横向封面构图，但所有文字和主视觉都必须压缩在画面中央的正方形焦点区内；标题按 2 到 4 行堆叠成居中标题块；左右两侧只保留可裁切装饰，不放任何文字",
+        "【文字要求】默认只保留一组清晰可读的中文主标题，不写副标题；主标题必须短、粗、居中，宽度明显小于整张封面宽度；不要出现额外说明文字、小字注释、账号名、水印、参数字样",
+        "【细节要求】画面干净、焦点单一、标题醒目、文字数量尽量少，适合手机端一眼识别",
         f"【视觉语言】{style.cover_palette}",
         f"【装饰元素】{style.body_decorations}",
     ]
-    parts.append(f"【负面提示词】{style.cover_negative}")
+    parts.append(
+        "【负面提示词】"
+        f"{style.cover_negative}、尺寸数字、像素标注、比例标注、边框线、裁切示意框、箭头标注、教程说明文字、过多小字、复杂拼贴、横向铺满整张图的长标题、边缘文字"
+    )
     return "；".join(parts)
 
 
