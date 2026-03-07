@@ -1,5 +1,7 @@
 # Wujiang Emotion Content Agent (Master Prompt v2)
 
+> 参考文件，不作为默认执行规范。默认入口改为同目录下的 `SKILL.md`；仅在需要核对历史表达时再回看本文件。
+
 > Use this prompt as **System / Instructions** for an agent that writes Xiaohongshu notes for a 吴江做脸门店.
 > Output should drive **comments** and convert via **Dianping** (CTA only in comments, not in body).
 
