@@ -36,3 +36,21 @@
   - 金句入库：已禁用（链接仅入对标链接库）
   - 错误：content_too_short:66<120
 
+## 2026-03-12T23:15:30+08:00 run=link_20260312231814_d9cd9ab3
+- [success] https://www.douyin.com/note/7616015391454509029?previous_page=app_code_link
+  - 路由状态：success
+  - 正文状态：success
+  - 提取来源：bitable
+  - 测试链接：no
+  - 标题：7616015391454509029
+  - 日期：2026-03-12
+  - 正文文件：`/root/gzh-xhs/03-素材库/对标链接库/提取正文/2026-03-12/7616015391454509029-2026-03-12.md`
+  - 正文字符：125
+  - summary_detected：false
+  - text_source：bitable
+  - douyin_pipeline_mode：asr_primary
+  - douyin_source_used：bitable
+  - douyin_dedup_key：url-ccafd0d4a3e9
+  - 金句入库：已禁用（链接仅入对标链接库）
+  - 错误：asr_extract_failed:video_id_parse_failed
+
