@@ -68,3 +68,10 @@
   - https://www.douyin.com/note/7616015391454509029?previous_page=app_code_link route=success content=success provider=bitable chars=125
     text_source: bitable
 
+## 2026-03-12T23:21:58+08:00 event=user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 赤裸裸的来到世上，得到什么都是赚到
+
