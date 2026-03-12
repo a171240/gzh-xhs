@@ -17,3 +17,22 @@
   - douyin_dedup_key：dy-7615556195890121147
   - 金句入库：已禁用（链接仅入对标链接库）
 
+## 2026-03-12T23:15:30+08:00 run=link_20260312231605_2d832fe3
+- [failed] https://www.douyin.com/note/7616015391454509029?previous_page=app_code_link
+  - 路由状态：success
+  - 正文状态：failed
+  - 提取来源：share_text
+  - 测试链接：no
+  - 标题：7616015391454509029
+  - 日期：2026-03-12
+  - 正文字符：0
+  - 质量原因：content_too_short:66<120
+  - summary_detected：false
+  - text_source：share_text
+  - douyin_pipeline_mode：asr_primary
+  - douyin_source_used：share_text
+  - douyin_dedup_key：url-ccafd0d4a3e9
+  - reject_reason：content_too_short:66<120
+  - 金句入库：已禁用（链接仅入对标链接库）
+  - 错误：content_too_short:66<120
+

@@ -24,3 +24,30 @@
 - quote_exact_dup: 0
 - quote_preview: 如果花终会枯萎，你还会去浇水吗？
 
+## 2026-03-12T23:15:30+08:00 event=user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `link_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- links: 1
+  - https://v.douyin.com/qjA3MPAANeM/
+- link_route_success: 1/1
+- link_content_success: 0
+- link_content_failed: 1
+- link_content_skipped_test: 0
+- link_doc_saved: 0
+- link_summary_detected: false
+  - https://www.douyin.com/note/7616015391454509029?previous_page=app_code_link route=success content=failed provider=share_text chars=0
+    quality_reason: content_too_short:66<120
+    text_source: share_text
+    reject_reason: content_too_short:66<120
+- errors:
+  - https://www.douyin.com/note/7616015391454509029?previous_page=app_code_link: content_too_short:66<120
+
+## 2026-03-12T23:16:13+08:00 event=user:ou_5d56d561182428f0bb29f1507989a034
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 不建议在春天沉默，找个晴天走出去！！
+
