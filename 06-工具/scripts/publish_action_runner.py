@@ -29,6 +29,13 @@ from automation_state import (
     update_task,
 )
 from wechat_publish_renderer import build_render_payload
+from xhs_flow import (
+    archive_xhs_publish_result,
+    canonicalize_xhs_account,
+    load_xhs_content_profile,
+    validate_xhs_publish_profile,
+    xhs_account_prefix,
+)
 
 
 REQUEST_DIR = AUTOMATION_ROOT / "requests"
@@ -36,6 +43,8 @@ REQUEST_DIR.mkdir(parents=True, exist_ok=True)
 SCRIPT_DIR = Path(__file__).resolve().parent
 
 ENV_FALLBACK_FILES = (
+    ".env.xhs.publish.local",
+    ".env.xhs.publish",
     ".env.ingest-writer.local",
     ".env.ingest-writer",
     ".env.feishu",
@@ -292,6 +301,29 @@ def _load_content_profile(content_path: Path) -> dict[str, Any]:
     }
 
 
+def _load_publish_content_profile(content_path: Path, *, platform: str) -> dict[str, Any]:
+    if platform != "xhs":
+        return _load_content_profile(content_path)
+
+    profile = load_xhs_content_profile(content_path)
+    return {
+        "path": content_path,
+        "meta": {
+            **dict(profile.meta or {}),
+            "account": profile.account,
+            "mode": profile.mode,
+            "image_manifest": profile.image_manifest_path,
+        },
+        "title": profile.chosen_title,
+        "body": profile.publish_body,
+        "cta": profile.pinned_comment,
+        "tags": list(profile.tags),
+        "images": list(profile.images),
+        "xhs_profile": profile,
+        "raw": profile.raw_body,
+    }
+
+
 def _default_profile_dir(platform: str) -> str:
     base = REPO_ROOT / "06-工具" / "data" / "automation" / "profiles"
     if platform == "wechat":
@@ -451,6 +483,40 @@ def _lookup_wechat_bitbrowser_profile(account: str, cfg: dict[str, Any]) -> dict
     return {}
 
 
+def _lookup_xhs_bitbrowser_profile(account: str, cfg: dict[str, Any]) -> dict[str, Any]:
+    canonical = canonicalize_xhs_account(account, allow_empty=True)
+    if not canonical:
+        return {}
+    prefix = xhs_account_prefix(canonical)
+    normalized_targets = {
+        _normalize_label(canonical),
+        _normalize_label(f"{canonical}号"),
+        _normalize_label(xhs_account_prefix(canonical)),
+    }
+    normalized_targets.update(
+        {
+            _normalize_label(prefix),
+            _normalize_label(f"小红书{canonical}"),
+            _normalize_label(f"小红书账号{canonical}"),
+            _normalize_label(f"账号{canonical}"),
+            _normalize_label(f"{canonical}号"),
+        }
+    )
+    for item in _bitbrowser_list_profiles(cfg):
+        profile_name = str(item.get("name") or "").strip()
+        if _normalize_label(profile_name) not in normalized_targets:
+            continue
+        profile_id = str(item.get("id") or "").strip()
+        if not profile_id:
+            continue
+        out = dict(cfg)
+        out["profile_id"] = profile_id
+        out["profile_name"] = profile_name or canonical
+        out["resolved_by"] = "bitbrowser_profile_name"
+        return out
+    return {}
+
+
 def _platform_bitbrowser_cfg(platform: str, *, account: str = "") -> dict[str, Any]:
     prefix = {
         "wechat": "WECHAT",
@@ -461,35 +527,39 @@ def _platform_bitbrowser_cfg(platform: str, *, account: str = "") -> dict[str, A
         return {}
 
     cfg: dict[str, Any] = {}
-    account_slug = _wechat_account_slug(account) if platform == "wechat" and account else ""
+    account_key = ""
+    if platform == "wechat" and account:
+        account_key = _wechat_account_slug(account)
+    elif platform == "xhs" and account:
+        account_key = canonicalize_xhs_account(account, allow_empty=True)
 
     profile_id = ""
-    if account_slug:
+    if account_key:
         profile_id = _first_env_text(
-            *_candidate_env_names(prefix, account_slug, "BITBROWSER", "PROFILE", "ID"),
-            *_candidate_env_names(prefix, account_slug, "METRICS", "BITBROWSER", "PROFILE", "ID"),
+            *_candidate_env_names(prefix, account_key, "BITBROWSER", "PROFILE", "ID"),
+            *_candidate_env_names(prefix, account_key, "METRICS", "BITBROWSER", "PROFILE", "ID"),
         )
 
     api_base = _first_env_text(
-        *_candidate_env_names(prefix, account_slug, "BITBROWSER", "API", "BASE"),
+        *_candidate_env_names(prefix, account_key, "BITBROWSER", "API", "BASE"),
         "BITBROWSER_API_BASE",
         "BITBROWSER_LOCAL_API_BASE",
     )
     api_key = _first_env_text(
-        *_candidate_env_names(prefix, account_slug, "BITBROWSER", "API", "KEY"),
+        *_candidate_env_names(prefix, account_key, "BITBROWSER", "API", "KEY"),
         "BITBROWSER_API_KEY",
         "BITBROWSER_LOCAL_API_TOKEN",
     )
     timeout_sec = _first_env_text(
-        *_candidate_env_names(prefix, account_slug, "BITBROWSER", "TIMEOUT", "SEC"),
+        *_candidate_env_names(prefix, account_key, "BITBROWSER", "TIMEOUT", "SEC"),
         "BITBROWSER_TIMEOUT_SEC",
     )
     cdp_timeout_ms = _first_env_text(
-        *_candidate_env_names(prefix, account_slug, "BITBROWSER", "CDP", "TIMEOUT", "MS"),
+        *_candidate_env_names(prefix, account_key, "BITBROWSER", "CDP", "TIMEOUT", "MS"),
         "BITBROWSER_CDP_TIMEOUT_MS",
     )
     close_after = _first_env_text(
-        *_candidate_env_names(prefix, account_slug, "BITBROWSER", "CLOSE", "AFTER", "PUBLISH"),
+        *_candidate_env_names(prefix, account_key, "BITBROWSER", "CLOSE", "AFTER", "PUBLISH"),
         "BITBROWSER_CLOSE_AFTER_COLLECT",
     )
 
@@ -506,7 +576,7 @@ def _platform_bitbrowser_cfg(platform: str, *, account: str = "") -> dict[str, A
 
     if profile_id:
         cfg["profile_id"] = profile_id
-        if account_slug:
+        if account_key:
             cfg["resolved_by"] = "env_account_profile"
         return cfg
 
@@ -514,6 +584,11 @@ def _platform_bitbrowser_cfg(platform: str, *, account: str = "") -> dict[str, A
         looked_up = _lookup_wechat_bitbrowser_profile(account, cfg)
         if looked_up:
             return looked_up
+    if platform == "xhs" and account:
+        looked_up = _lookup_xhs_bitbrowser_profile(account, cfg)
+        if looked_up:
+            return looked_up
+        return cfg
 
     profile_id = _first_env_text(f"{prefix}_METRICS_BITBROWSER_PROFILE_ID", f"{prefix}_BITBROWSER_PROFILE_ID")
     if profile_id:
@@ -690,7 +765,7 @@ def _build_xhs_adapter_payload(payload: dict[str, Any]) -> dict[str, Any]:
     adapter_payload = payload.get("adapter_payload")
     if isinstance(adapter_payload, dict):
         return dict(adapter_payload)
-    content_ref = str(payload.get("content") or "").strip()
+    content_ref = str(payload.get("content") or payload.get("content_ref") or "").strip()
     if content_ref:
         content_path = _resolve_content_path(content_ref)
         content_profile = _load_content_profile(content_path)
@@ -714,6 +789,11 @@ def _build_xhs_adapter_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _default_wechat_selectors_path() -> str:
     config_path = SCRIPT_DIR / "config" / "selectors.wechat.json"
+    return str(config_path) if config_path.exists() else ""
+
+
+def _default_xhs_selectors_path() -> str:
+    config_path = SCRIPT_DIR / "config" / "selectors.xhs.sample.json"
     return str(config_path) if config_path.exists() else ""
 
 
@@ -777,7 +857,7 @@ def _build_platform_payload(
         payload = {
             "title": str(render.get("title") or title),
             "author": author,
-            "content_blocks": list(render.get("content_blocks") or []),
+            "content_blocks": list(render.get("publish_blocks") or render.get("content_blocks") or []),
             "content_html": str(render.get("content_html") or ""),
             "cover_path": str(render.get("cover_path") or (images[0] if images else "")),
             "layout_profile": str(render.get("layout_profile") or "raphael_wechat_v1"),
@@ -801,24 +881,45 @@ def _build_platform_payload(
         return _wechat_script(), payload
 
     if platform == "xhs":
+        canonical_account = canonicalize_xhs_account(
+            str(account or content_profile.get("meta", {}).get("account") or "").strip()
+        )
+        xhs_profile = content_profile.get("xhs_profile")
+        resolved_images = [str(item).strip() for item in (images or content_profile.get("images") or []) if str(item).strip()]
+        bitbrowser_cfg = _platform_bitbrowser_cfg("xhs", account=canonical_account)
+        if not str(bitbrowser_cfg.get("profile_id") or "").strip():
+            raise ValueError(f"dedicated xhs bitbrowser profile is required for account {canonical_account}")
+        selectors_path = _first_env_text(
+            *_candidate_env_names("XHS", canonical_account, "SELECTORS", "PATH"),
+            "XHS_SELECTORS_PATH",
+        )
+        profile_dir = _first_env_text(
+            *_candidate_env_names("XHS", canonical_account, "PROFILE", "DIR"),
+            *_candidate_env_names("XHS", canonical_account, "USER", "DATA", "DIR"),
+        )
+        if not profile_dir:
+            profile_dir = str(REPO_ROOT / "06-工具" / "data" / "automation" / "profiles" / xhs_account_prefix(canonical_account))
         payload = {
             "title": title[:20],
             "body": body[:1000],
             "tags": tags,
-            "images": images,
+            "images": resolved_images,
             "mode": mode,
             "schedule_time": schedule_time or "",
             "account_profile": {
-                "user_data_dir": str(os.getenv("XHS_PROFILE_DIR") or _preferred_profile_dir("xhs")),
+                "user_data_dir": profile_dir,
                 "headless": False,
                 "login_timeout_sec": int(os.getenv("XHS_LOGIN_TIMEOUT_SEC", "180")),
                 "slow_mo": int(os.getenv("XHS_SLOW_MO_MS", "0")),
             },
-            "selectors_path": str(os.getenv("XHS_SELECTORS_PATH") or "").strip(),
+            "selectors_path": str(selectors_path or _default_xhs_selectors_path()).strip(),
+            "account_name": canonical_account,
+            "pinned_comment": str(content_profile.get("cta") or "").strip(),
         }
-        bitbrowser_cfg = _platform_bitbrowser_cfg("xhs")
         if bitbrowser_cfg:
             payload["bitbrowser"] = bitbrowser_cfg
+        if xhs_profile is not None:
+            payload["image_manifest"] = str(getattr(xhs_profile, "image_manifest_path", "") or "")
         return _xhs_script(), payload
 
     if platform == "douyin":
@@ -909,7 +1010,7 @@ def preview_publish(payload: dict[str, Any], *, dry_run: bool = False) -> dict[s
     platform = _normalize_platform(str(payload.get("platform") or "wechat"))
     if platform and platform != "wechat":
         raise ValueError("publish preview currently supports only wechat")
-    content_ref = str(payload.get("content") or "").strip()
+    content_ref = str(payload.get("content") or payload.get("content_ref") or "").strip()
     if not content_ref:
         raise ValueError("content is required")
     content_path = _resolve_content_path(content_ref)
@@ -931,6 +1032,7 @@ def preview_publish(payload: dict[str, Any], *, dry_run: bool = False) -> dict[s
         "preview_html": str(rendered.get("preview_html_path") or ""),
         "render_manifest": str(rendered.get("manifest_path") or ""),
         "body_image_count": int(rendered.get("body_image_count") or 0),
+        "section_count": int(rendered.get("section_count") or 0),
         "dry_run": dry_run,
     }
 
@@ -941,7 +1043,7 @@ def prepare_publish(payload: dict[str, Any], *, dry_run: bool = False) -> dict[s
     platform = _normalize_platform(str(payload.get("platform") or ""))
     account = str(payload.get("account") or "").strip()
     final_mode = _normalize_mode(str(payload.get("mode") or "publish"), default="publish")
-    content_ref = str(payload.get("content") or "").strip()
+    content_ref = str(payload.get("content") or payload.get("content_ref") or "").strip()
     schedule_time = str(payload.get("schedule_time") or payload.get("时间") or "").strip()
     images = [str(item).strip() for item in (payload.get("images") or []) if str(item).strip()]
     videos = [str(item).strip() for item in (payload.get("videos") or []) if str(item).strip()]
@@ -962,7 +1064,7 @@ def prepare_publish(payload: dict[str, Any], *, dry_run: bool = False) -> dict[s
 
     content_path = _resolve_content_path(content_ref)
     task_id = make_task_id("pub")
-    content_profile = _load_content_profile(content_path)
+    content_profile = _load_publish_content_profile(content_path, platform=platform)
     if not account:
         meta = dict(content_profile.get("meta") or {})
         account = (
@@ -1000,7 +1102,15 @@ def prepare_publish(payload: dict[str, Any], *, dry_run: bool = False) -> dict[s
     else:
         precheck_dry_run = True
 
-    precheck = _run_script(script_path=script_path, input_payload=script_payload, dry_run=precheck_dry_run)
+    if platform == "xhs":
+        xhs_profile = content_profile.get("xhs_profile")
+        preflight_errors = validate_xhs_publish_profile(xhs_profile) if xhs_profile is not None else ["missing xhs publish profile"]
+        if preflight_errors:
+            precheck = {"status": "error", "errors": list(preflight_errors)}
+        else:
+            precheck = _run_script(script_path=script_path, input_payload=script_payload, dry_run=precheck_dry_run)
+    else:
+        precheck = _run_script(script_path=script_path, input_payload=script_payload, dry_run=precheck_dry_run)
     precheck_status = str(precheck.get("status") or "").lower()
     ok = precheck_status in {"success", "dry_run"}
     task_status = "pending_approval" if ok else "error"
@@ -1151,6 +1261,10 @@ def approve_publish(payload: dict[str, Any], *, dry_run: bool = False) -> dict[s
         error_text=error_text,
     )
     add_task_log(task_id, "approve", result)
+    archive_dir = ""
+    if platform == "xhs" and next_status == "success" and not dry_run:
+        refreshed_task = get_task(task_id) or task
+        archive_dir = archive_xhs_publish_result(refreshed_task, result)
 
     if next_status == "error":
         dead_log = append_dead_letter(
@@ -1178,6 +1292,7 @@ def approve_publish(payload: dict[str, Any], *, dry_run: bool = False) -> dict[s
             "platform": platform,
             "approver": approver,
             "status": next_status,
+            "archive_dir": archive_dir,
         },
     )
     return {
@@ -1186,6 +1301,7 @@ def approve_publish(payload: dict[str, Any], *, dry_run: bool = False) -> dict[s
         "phase": "approve",
         "platform": platform,
         "task_status": next_status,
+        "archive_dir": archive_dir,
         "run_log": run_log,
         "result": result,
     }

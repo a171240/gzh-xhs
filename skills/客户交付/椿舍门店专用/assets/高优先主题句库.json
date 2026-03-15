@@ -1,0 +1,563 @@
+﻿{
+    "meta":  {
+                 "principle":  "高优先主题句只收真实来源里适合椿舍短视频定主题、定情绪、定老板立场的句子。默认全部只做 theme_only，不直接进正文。正文可播句以差评原话和老板口语库为主。",
+                 "source_priority":  [
+                                         "金句库",
+                                         "对标链接库提取正文"
+                                     ]
+             },
+    "entry_classes":  {
+                          "信任怀疑":  {
+                                       "theme_lines":  [
+                                                           {
+                                                               "text":  "不扫兴，就是情绪价值的体现",
+                                                               "source_theme":  "人性与沟通",
+                                                               "source_file":  "04-人性与沟通.md",
+                                                               "source_type":  "金句库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "这是真实，这是信任。",
+                                                               "source_theme":  "对标链接库-提取正文",
+                                                               "source_file":  "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+                                                               "source_type":  "对标链接库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "最难的是什么？就是信任。",
+                                                               "source_theme":  "对标链接库-提取正文",
+                                                               "source_file":  "认真做好一件小事-公开分享做事全过程-build-in-public-2026-03-05.md",
+                                                               "source_type":  "对标链接库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "真正有用的东西极简单。不需要追求高大上、复杂的东西。",
+                                                               "source_theme":  "对标链接库-提取正文",
+                                                               "source_file":  "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+                                                               "source_type":  "对标链接库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           }
+                                                       ],
+                                       "translation_lines":  [
+                                                                 {
+                                                                     "text":  "每个人都在努力的生活 生活已经很累不想把社交变成负担",
+                                                                     "source_theme":  "人性与沟通",
+                                                                     "source_file":  "04-人性与沟通.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "不要沉浸在无意义的精神内耗中",
+                                                                     "source_theme":  "自我与哲学（次级）",
+                                                                     "source_file":  "91-自我与哲学（次级）.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "对于其他人，只做筛选，不去教育。",
+                                                                     "source_theme":  "自我与哲学（次级）",
+                                                                     "source_file":  "91-自我与哲学（次级）.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "改变的初期总是不太舒服的",
+                                                                     "source_theme":  "系统与执行",
+                                                                     "source_file":  "03-系统与执行.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 }
+                                                             ],
+                                       "boss_judgment_lines":  [
+                                                                   {
+                                                                       "text":  "不扫兴，就是情绪价值的体现",
+                                                                       "source_theme":  "人性与沟通",
+                                                                       "source_file":  "04-人性与沟通.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "对于其他人，只做筛选，不去教育。",
+                                                                       "source_theme":  "自我与哲学（次级）",
+                                                                       "source_file":  "91-自我与哲学（次级）.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "真正有用的东西极简单。不需要追求高大上、复杂的东西。",
+                                                                       "source_theme":  "对标链接库-提取正文",
+                                                                       "source_file":  "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+                                                                       "source_type":  "对标链接库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "做好当下该做的事情，就已经非常非常好了",
+                                                                       "source_theme":  "系统与执行",
+                                                                       "source_file":  "03-系统与执行.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   }
+                                                               ],
+                                       "low_pressure_offer_lines":  [
+                                                                        {
+                                                                            "text":  "做好当下该做的事情，就已经非常非常好了",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "改变的初期总是不太舒服的",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "人生海海，错了可以重来",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "只要开始，什么时候都不晚。怕就怕太想完美了，太在乎周边的评价了。过于在乎外界，反而会限制自己。",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        }
+                                                                    ]
+                                   },
+                          "问题修复":  {
+                                       "theme_lines":  [
+                                                           {
+                                                               "text":  "能力就是用最少的力气做最好的动作。",
+                                                               "source_theme":  "系统与执行",
+                                                               "source_file":  "03-系统与执行.md",
+                                                               "source_type":  "金句库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "问题加修改等于进步，写是输出，改才是进步。",
+                                                               "source_theme":  "对标链接库-提取正文",
+                                                               "source_file":  "通过不断修改促进进步-简单两步骤系统-2026-03-05.md",
+                                                               "source_type":  "对标链接库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "真正有用的东西极简单。不需要追求高大上、复杂的东西。",
+                                                               "source_theme":  "对标链接库-提取正文",
+                                                               "source_file":  "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+                                                               "source_type":  "对标链接库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "几乎任何事情都是越做越简单，越想越困难，越拖着越想放弃。",
+                                                               "source_theme":  "系统与执行",
+                                                               "source_file":  "03-系统与执行.md",
+                                                               "source_type":  "金句库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           }
+                                                       ],
+                                       "translation_lines":  [
+                                                                 {
+                                                                     "text":  "改变的初期总是不太舒服的",
+                                                                     "source_theme":  "系统与执行",
+                                                                     "source_file":  "03-系统与执行.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "不要沉浸在无意义的精神内耗中",
+                                                                     "source_theme":  "自我与哲学（次级）",
+                                                                     "source_file":  "91-自我与哲学（次级）.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "经历的意义在于引导你，而非定义你",
+                                                                     "source_theme":  "自我与哲学（次级）",
+                                                                     "source_file":  "91-自我与哲学（次级）.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "几乎任何事情都是越做越简单，越想越困难，越拖着越想放弃。",
+                                                                     "source_theme":  "系统与执行",
+                                                                     "source_file":  "03-系统与执行.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 }
+                                                             ],
+                                       "boss_judgment_lines":  [
+                                                                   {
+                                                                       "text":  "真正有用的东西极简单。不需要追求高大上、复杂的东西。",
+                                                                       "source_theme":  "对标链接库-提取正文",
+                                                                       "source_file":  "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+                                                                       "source_type":  "对标链接库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "能力就是用最少的力气做最好的动作。",
+                                                                       "source_theme":  "系统与执行",
+                                                                       "source_file":  "03-系统与执行.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "问题加修改等于进步，写是输出，改才是进步。",
+                                                                       "source_theme":  "对标链接库-提取正文",
+                                                                       "source_file":  "通过不断修改促进进步-简单两步骤系统-2026-03-05.md",
+                                                                       "source_type":  "对标链接库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "做好当下该做的事情，就已经非常非常好了",
+                                                                       "source_theme":  "系统与执行",
+                                                                       "source_file":  "03-系统与执行.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   }
+                                                               ],
+                                       "low_pressure_offer_lines":  [
+                                                                        {
+                                                                            "text":  "做好当下该做的事情，就已经非常非常好了",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "改变的初期总是不太舒服的",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "人生海海，错了可以重来",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "只要开始，什么时候都不晚。怕就怕太想完美了，太在乎周边的评价了。过于在乎外界，反而会限制自己。",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        }
+                                                                    ]
+                                   },
+                          "放松养护":  {
+                                       "theme_lines":  [
+                                                           {
+                                                               "text":  "不扫兴，就是情绪价值的体现",
+                                                               "source_theme":  "人性与沟通",
+                                                               "source_file":  "04-人性与沟通.md",
+                                                               "source_type":  "金句库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "每个人都在努力的生活 生活已经很累不想把社交变成负担",
+                                                               "source_theme":  "人性与沟通",
+                                                               "source_file":  "04-人性与沟通.md",
+                                                               "source_type":  "金句库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "这是真实，这是信任。",
+                                                               "source_theme":  "对标链接库-提取正文",
+                                                               "source_file":  "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+                                                               "source_type":  "对标链接库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "你能感觉到他不图你任何的东西，他也没有必要向你证明他自己。",
+                                                               "source_theme":  "对标链接库-提取正文",
+                                                               "source_file":  "一个人-心智成熟-的八个阶段-心智成熟-认知-自我提升-个人成长-青年创作者扶持计划-2026-03-06.md",
+                                                               "source_type":  "对标链接库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           }
+                                                       ],
+                                       "translation_lines":  [
+                                                                 {
+                                                                     "text":  "每个人都在努力的生活 生活已经很累不想把社交变成负担",
+                                                                     "source_theme":  "人性与沟通",
+                                                                     "source_file":  "04-人性与沟通.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "不要沉浸在无意义的精神内耗中",
+                                                                     "source_theme":  "自我与哲学（次级）",
+                                                                     "source_file":  "91-自我与哲学（次级）.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "对于其他人，只做筛选，不去教育。",
+                                                                     "source_theme":  "自我与哲学（次级）",
+                                                                     "source_file":  "91-自我与哲学（次级）.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "改变的初期总是不太舒服的",
+                                                                     "source_theme":  "系统与执行",
+                                                                     "source_file":  "03-系统与执行.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 }
+                                                             ],
+                                       "boss_judgment_lines":  [
+                                                                   {
+                                                                       "text":  "不扫兴，就是情绪价值的体现",
+                                                                       "source_theme":  "人性与沟通",
+                                                                       "source_file":  "04-人性与沟通.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "对于其他人，只做筛选，不去教育。",
+                                                                       "source_theme":  "自我与哲学（次级）",
+                                                                       "source_file":  "91-自我与哲学（次级）.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "真正有用的东西极简单。不需要追求高大上、复杂的东西。",
+                                                                       "source_theme":  "对标链接库-提取正文",
+                                                                       "source_file":  "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+                                                                       "source_type":  "对标链接库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "做好当下该做的事情，就已经非常非常好了",
+                                                                       "source_theme":  "系统与执行",
+                                                                       "source_file":  "03-系统与执行.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   }
+                                                               ],
+                                       "low_pressure_offer_lines":  [
+                                                                        {
+                                                                            "text":  "做好当下该做的事情，就已经非常非常好了",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "改变的初期总是不太舒服的",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "人生海海，错了可以重来",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "只要开始，什么时候都不晚。怕就怕太想完美了，太在乎周边的评价了。过于在乎外界，反而会限制自己。",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        }
+                                                                    ]
+                                   },
+                          "本地找店":  {
+                                       "theme_lines":  [
+                                                           {
+                                                               "text":  "这是真实，这是信任。",
+                                                               "source_theme":  "对标链接库-提取正文",
+                                                               "source_file":  "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+                                                               "source_type":  "对标链接库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "最难的是什么？就是信任。",
+                                                               "source_theme":  "对标链接库-提取正文",
+                                                               "source_file":  "认真做好一件小事-公开分享做事全过程-build-in-public-2026-03-05.md",
+                                                               "source_type":  "对标链接库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "不扫兴，就是情绪价值的体现",
+                                                               "source_theme":  "人性与沟通",
+                                                               "source_file":  "04-人性与沟通.md",
+                                                               "source_type":  "金句库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           },
+                                                           {
+                                                               "text":  "真正有用的东西极简单。不需要追求高大上、复杂的东西。",
+                                                               "source_theme":  "对标链接库-提取正文",
+                                                               "source_file":  "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+                                                               "source_type":  "对标链接库",
+                                                               "priority":  "high",
+                                                               "usage_mode":  "theme_only"
+                                                           }
+                                                       ],
+                                       "translation_lines":  [
+                                                                 {
+                                                                     "text":  "对于其他人，只做筛选，不去教育。",
+                                                                     "source_theme":  "自我与哲学（次级）",
+                                                                     "source_file":  "91-自我与哲学（次级）.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "每个人都在努力的生活 生活已经很累不想把社交变成负担",
+                                                                     "source_theme":  "人性与沟通",
+                                                                     "source_file":  "04-人性与沟通.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "不要沉浸在无意义的精神内耗中",
+                                                                     "source_theme":  "自我与哲学（次级）",
+                                                                     "source_file":  "91-自我与哲学（次级）.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 },
+                                                                 {
+                                                                     "text":  "改变的初期总是不太舒服的",
+                                                                     "source_theme":  "系统与执行",
+                                                                     "source_file":  "03-系统与执行.md",
+                                                                     "source_type":  "金句库",
+                                                                     "priority":  "high",
+                                                                     "usage_mode":  "theme_only"
+                                                                 }
+                                                             ],
+                                       "boss_judgment_lines":  [
+                                                                   {
+                                                                       "text":  "不扫兴，就是情绪价值的体现",
+                                                                       "source_theme":  "人性与沟通",
+                                                                       "source_file":  "04-人性与沟通.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "对于其他人，只做筛选，不去教育。",
+                                                                       "source_theme":  "自我与哲学（次级）",
+                                                                       "source_file":  "91-自我与哲学（次级）.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "真正有用的东西极简单。不需要追求高大上、复杂的东西。",
+                                                                       "source_theme":  "对标链接库-提取正文",
+                                                                       "source_file":  "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+                                                                       "source_type":  "对标链接库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   },
+                                                                   {
+                                                                       "text":  "做好当下该做的事情，就已经非常非常好了",
+                                                                       "source_theme":  "系统与执行",
+                                                                       "source_file":  "03-系统与执行.md",
+                                                                       "source_type":  "金句库",
+                                                                       "priority":  "high",
+                                                                       "usage_mode":  "theme_only"
+                                                                   }
+                                                               ],
+                                       "low_pressure_offer_lines":  [
+                                                                        {
+                                                                            "text":  "做好当下该做的事情，就已经非常非常好了",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "改变的初期总是不太舒服的",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "人生海海，错了可以重来",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        },
+                                                                        {
+                                                                            "text":  "只要开始，什么时候都不晚。怕就怕太想完美了，太在乎周边的评价了。过于在乎外界，反而会限制自己。",
+                                                                            "source_theme":  "系统与执行",
+                                                                            "source_file":  "03-系统与执行.md",
+                                                                            "source_type":  "金句库",
+                                                                            "priority":  "high",
+                                                                            "usage_mode":  "theme_only"
+                                                                        }
+                                                                    ]
+                                   }
+                      }
+}

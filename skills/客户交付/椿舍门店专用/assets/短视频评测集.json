@@ -1,0 +1,16 @@
+{
+  "cases": [
+    {"id": "TRUST-01", "entry_class": "信任怀疑", "keyword": "美容院做脸有用吗", "expect_opening_family": "冲突实景型"},
+    {"id": "TRUST-02", "entry_class": "信任怀疑", "keyword": "美容院套路最狠的那一秒", "expect_opening_family": "冲突实景型"},
+    {"id": "TRUST-03", "entry_class": "信任怀疑", "keyword": "做脸会不会被推销", "expect_opening_family": "冲突实景型"},
+    {"id": "TRUST-04", "entry_class": "信任怀疑", "keyword": "面部清洁美容院怎么选", "expect_opening_family": "直接判断型"},
+    {"id": "FIX-01", "entry_class": "问题修复", "keyword": "去黑头有用吗", "expect_opening_family": "后果先行型"},
+    {"id": "FIX-02", "entry_class": "问题修复", "keyword": "毛孔粗大怎么改善", "expect_opening_family": "后果先行型"},
+    {"id": "FIX-03", "entry_class": "问题修复", "keyword": "小气泡清洁做完更干", "expect_opening_family": "后果先行型"},
+    {"id": "RELAX-01", "entry_class": "放松养护", "keyword": "SPA", "expect_opening_family": "直接判断型"},
+    {"id": "RELAX-02", "entry_class": "放松养护", "keyword": "肩颈放松", "expect_opening_family": "直接判断型"},
+    {"id": "LOCAL-01", "entry_class": "本地找店", "keyword": "吴江美容院", "expect_opening_family": "直接判断型"},
+    {"id": "LOCAL-02", "entry_class": "本地找店", "keyword": "吴江做脸怎么选", "expect_opening_family": "直接判断型"},
+    {"id": "LOCAL-03", "entry_class": "本地找店", "keyword": "附近美容院推荐", "expect_opening_family": "直接判断型"}
+  ]
+}

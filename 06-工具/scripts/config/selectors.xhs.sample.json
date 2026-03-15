@@ -1,0 +1,12 @@
+{
+  "entry_url": "https://creator.xiaohongshu.com/publish/publish",
+  "logged_in_hint_selector": "body",
+  "title_input": "input[placeholder*='标题']",
+  "body_editor": "[contenteditable='true']",
+  "tag_input": "input[placeholder*='标签']",
+  "image_file_input": "input[type='file']",
+  "publish_button": "button:has-text('发布')",
+  "schedule_toggle": "span:has-text('定时发布')",
+  "schedule_time_input": "input[placeholder*='时间']",
+  "schedule_confirm_button": "button:has-text('确定')"
+}

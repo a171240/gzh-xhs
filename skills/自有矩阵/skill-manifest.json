@@ -18,6 +18,7 @@
       "default_contexts": [
         "02-内容生产/公众号/账号矩阵.md",
         "03-素材库/内容框架库/内容框架知识库.md",
+        "03-素材库/故事素材库/李可IP故事库.md",
         "03-素材库/增强模块/公众号爆文增强版.md",
         "02-内容生产/公众号/prompts/公众号内容质检规则.md"
       ]
@@ -94,6 +95,90 @@
       "kind": "execution",
       "default_contexts": [
         "06-工具/scripts/README_WECHAT_IMAGE_GENERATOR.md"
+      ]
+    },
+    {
+      "skill_id": "xhs",
+      "name": "小红书内容生成",
+      "path": "skills/自有矩阵/小红书内容生产.md",
+      "aliases": [
+        "小红书内容生成",
+        "生成小红书内容",
+        "小红书",
+        "xhs"
+      ],
+      "default_platform": "小红书",
+      "kind": "content",
+      "default_contexts": [
+        "02-内容生产/小红书/账号矩阵.md",
+        "03-素材库/故事素材库/李可IP故事库.md",
+        "02-内容生产/小红书/templates/信息图模板库.md",
+        "02-内容生产/小红书/templates/视觉风格库.md",
+        "02-内容生产/小红书/resources/高情绪标题公式.md",
+        "02-内容生产/小红书/resources/证据素材库.md",
+        "02-内容生产/小红书/resources/消费者洞察词库.md"
+      ]
+    },
+    {
+      "skill_id": "xhs_prompt_normalize",
+      "name": "小红书配图提示词标准化",
+      "path": "skills/自有矩阵/小红书图片生成.md",
+      "aliases": [
+        "小红书配图提示词标准化",
+        "标准化小红书配图提示词",
+        "xhs_prompt_normalize",
+        "xhs-prompt-normalize"
+      ],
+      "default_platform": "小红书",
+      "kind": "content",
+      "default_contexts": [
+        "02-内容生产/小红书/账号矩阵.md",
+        "02-内容生产/小红书/templates/信息图模板库.md",
+        "02-内容生产/小红书/templates/视觉风格库.md",
+        "02-内容生产/小红书/templates/笔记模板库.md"
+      ]
+    },
+    {
+      "skill_id": "xhs_image",
+      "name": "小红书图片生成",
+      "path": "skills/自有矩阵/小红书图片执行.md",
+      "aliases": [
+        "小红书图片生成",
+        "生成小红书图片",
+        "xhs_image",
+        "xhs-image",
+        "xhsimage"
+      ],
+      "default_platform": "小红书",
+      "kind": "execution",
+      "default_contexts": [
+        "06-工具/scripts/README_XHS_IMAGE_GENERATOR.md"
+      ]
+    },
+    {
+      "skill_id": "chunshe_wj",
+      "name": "椿舍门店专用",
+      "path": "skills/客户交付/椿舍门店专用/SKILL.md",
+      "aliases": [
+        "椿舍门店专用",
+        "椿舍内容",
+        "椿舍获客",
+        "椿舍",
+        "chunshe_wj",
+        "chunshe"
+      ],
+      "default_platform": "小红书",
+      "kind": "content",
+      "default_contexts": [
+        "skills/客户交付/美容内容底座/运行总纲.md",
+        "skills/客户交付/美容内容底座/关键词意图与阶段路由.md",
+        "skills/客户交付/美容内容底座/XHS短视频输出规范.md",
+        "skills/客户交付/椿舍门店专用/references/选题引擎规则.md",
+        "skills/客户交付/椿舍门店专用/references/内容策略.md",
+        "skills/客户交付/椿舍门店专用/references/富贵内容方法论.md",
+        "skills/客户交付/椿舍门店专用/references/样例输出.md",
+        "skills/客户交付/椿舍门店专用/references/审稿机制.md",
+        "skills/客户交付/椿舍门店专用/references/口语化二审.md"
       ]
     }
   ]

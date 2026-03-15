@@ -169,7 +169,7 @@ if (-not $resolved["FEISHU_COMMANDER_WORKERS"]) { $resolved["FEISHU_COMMANDER_WO
 $resolved["FEISHU_COMMANDER_MAX_RETRIES"] = (Merge-Setting -Key "FEISHU_COMMANDER_MAX_RETRIES" -Maps $envMaps)
 if (-not $resolved["FEISHU_COMMANDER_MAX_RETRIES"]) { $resolved["FEISHU_COMMANDER_MAX_RETRIES"] = "1" }
 $resolved["FEISHU_SKILL_MODEL"] = (Merge-Setting -Key "FEISHU_SKILL_MODEL" -Maps $envMaps)
-if (-not $resolved["FEISHU_SKILL_MODEL"]) { $resolved["FEISHU_SKILL_MODEL"] = "gpt-5.3-codex" }
+if (-not $resolved["FEISHU_SKILL_MODEL"]) { $resolved["FEISHU_SKILL_MODEL"] = "gpt-5.4" }
 $resolved["FEISHU_REPLY_MAX_CHARS"] = (Merge-Setting -Key "FEISHU_REPLY_MAX_CHARS" -Maps $envMaps)
 if (-not $resolved["FEISHU_REPLY_MAX_CHARS"]) { $resolved["FEISHU_REPLY_MAX_CHARS"] = "1500" }
 
@@ -179,8 +179,8 @@ if ([int]$resolved["FEISHU_COMMANDER_WORKERS"] -ne 2) {
 if ([int]$resolved["FEISHU_COMMANDER_MAX_RETRIES"] -ne 1) {
   throw "FEISHU_COMMANDER_MAX_RETRIES must be 1, got: $($resolved['FEISHU_COMMANDER_MAX_RETRIES'])"
 }
-if ($resolved["FEISHU_SKILL_MODEL"] -ne "gpt-5.3-codex") {
-  throw "FEISHU_SKILL_MODEL must be gpt-5.3-codex, got: $($resolved['FEISHU_SKILL_MODEL'])"
+if ($resolved["FEISHU_SKILL_MODEL"] -ne "gpt-5.4") {
+  throw "FEISHU_SKILL_MODEL must be gpt-5.4, got: $($resolved['FEISHU_SKILL_MODEL'])"
 }
 
 Write-Host "[cutover] Step 3/4 Switch Feishu routing to orchestrator-only entry..."

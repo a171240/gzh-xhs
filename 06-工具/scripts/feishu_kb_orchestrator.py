@@ -100,6 +100,14 @@ WECHAT_PROMPT_NORMALIZE_DIRECT_RE = re.compile(
     r"^\s*(?:标准化公众号配图提示词|公众号配图提示词标准化)\s*[:：]\s*(?P<target>.+?)\s*$",
     re.IGNORECASE,
 )
+XHS_PROMPT_NORMALIZE_DIRECT_RE = re.compile(
+    r"^\s*(?:标准化小红书配图提示词|小红书配图提示词标准化)\s*[:：]\s*(?P<target>.+?)\s*$",
+    re.IGNORECASE,
+)
+XHS_IMAGE_DIRECT_RE = re.compile(
+    r"^\s*(?:生成小红书图片|小红书图片生成)\s*[:：]\s*(?P<target>.+?)\s*$",
+    re.IGNORECASE,
+)
 WECHAT_LAYOUT_DIRECT_RE = re.compile(r"^\s*排版公众号\s*[:：]\s*(?P<target>.+?)\s*$", re.IGNORECASE)
 WECHAT_PUBLISH_DIRECT_RE = re.compile(r"^\s*发布公众号\s*[:：]\s*(?P<target>.+?)\s*$", re.IGNORECASE)
 WECHAT_APPROVE_DIRECT_RE = re.compile(r"^\s*确认发布\s*[:：]\s*(?P<task>[A-Za-z0-9._:-]+)\s*$", re.IGNORECASE)
@@ -765,6 +773,10 @@ def _find_best_skill_alias(text: str, registry: Any) -> str:
         ("公众号配图提示词标准化", "wechat_prompt_normalize"),
         ("公众号图片生成", "wechat_image"),
         ("生成公众号图片", "wechat_image"),
+        ("标准化小红书配图提示词", "xhs_prompt_normalize"),
+        ("小红书配图提示词标准化", "xhs_prompt_normalize"),
+        ("小红书图片生成", "xhs_image"),
+        ("生成小红书图片", "xhs_image"),
         ("wechat", "wechat"),
         ("公众号", "wechat"),
         ("xhs", "xhs"),
@@ -800,6 +812,8 @@ def _detect_skill_intent(text: str, registry: Any, forced_skill_id: str, forced_
         (WECHAT_BENCHMARK_DIRECT_RE, "wechat_benchmark_analyze"),
         (WECHAT_PROMPT_NORMALIZE_DIRECT_RE, "wechat_prompt_normalize"),
         (WECHAT_IMAGE_DIRECT_RE, "wechat_image"),
+        (XHS_PROMPT_NORMALIZE_DIRECT_RE, "xhs_prompt_normalize"),
+        (XHS_IMAGE_DIRECT_RE, "xhs_image"),
     )
     for pattern, target_skill_id in direct_skill_patterns:
         matched = pattern.match(raw)

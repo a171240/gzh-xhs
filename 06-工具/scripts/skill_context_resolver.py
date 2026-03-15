@@ -11,6 +11,7 @@ from skill_manifest import (
     get_repo_skill_entry,
     resolve_benchmark_report_contexts,
     resolve_quote_theme_contexts,
+    suggest_quote_theme,
 )
 from topic_doc_utils import normalize_related, parse_frontmatter
 
@@ -29,11 +30,12 @@ PLATFORM_CONTEXTS: dict[str, list[str]] = {
     ],
     "小红书": [
         "skills/自有矩阵/小红书内容生产.md",
-        "02-内容生产/小红书/resources/30天内容日历.md",
+        "02-内容生产/小红书/账号矩阵.md",
+        "02-内容生产/小红书/templates/信息图模板库.md",
+        "02-内容生产/小红书/templates/视觉风格库.md",
         "02-内容生产/小红书/resources/高情绪标题公式.md",
         "02-内容生产/小红书/resources/证据素材库.md",
         "02-内容生产/小红书/resources/消费者洞察词库.md",
-        "03-素材库/增强模块/富贵-打动人模块.md",
     ],
     "短视频": [
         "skills/自有矩阵/短视频脚本生产.md",
@@ -99,6 +101,7 @@ def _topic_flag(meta: dict[str, Any], *keys: str) -> bool:
 def resolve_context_files(topic_path: Path, *, platform: str, skill_id: str = "") -> list[str]:
     rel_topic = topic_path.resolve().relative_to(REPO_ROOT).as_posix()
     meta = _read_topic_meta(topic_path)
+    platform_text = str(platform or "").strip()
 
     ordered: list[str] = []
     seen: set[str] = set()
@@ -131,18 +134,46 @@ def resolve_context_files(topic_path: Path, *, platform: str, skill_id: str = ""
         for item in PLATFORM_CONTEXTS.get(family, []):
             add(item)
 
-    # 5) 公众号内容 skill 的条件上下文。
-    if str(skill_id or "").strip() == "wechat":
-        quote_enabled = _topic_flag(meta, "是否调用金句库", "调用金句库", "quote_enabled")
+    normalized_skill_id = str(skill_id or "").strip()
+    if normalized_skill_id == "wechat":
+        quote_raw = _topic_field(meta, "是否调用金句库", "调用金句库", "quote_enabled")
+        quote_enabled = _topic_flag(meta, "是否调用金句库", "调用金句库", "quote_enabled") if quote_raw else True
         quote_theme = _topic_field(meta, "金句主题", "quote_theme")
         benchmark_ref = _topic_field(meta, "参考对标文案", "对标文案", "benchmark_ref")
         fugui_enabled = _topic_flag(meta, "富贵模块开关", "是否启用富贵模块", "fugui_enabled")
 
         if quote_enabled:
-            for item in resolve_quote_theme_contexts(quote_theme):
+            selected_quote_theme = quote_theme or suggest_quote_theme(
+                _topic_field(meta, "topic", "主题矿区/选题"),
+                _topic_field(meta, "target", "目标人群"),
+                _topic_field(meta, "核心矛盾"),
+                _topic_field(meta, "选题分析"),
+            )
+            for item in resolve_quote_theme_contexts(selected_quote_theme):
                 add(item)
         if benchmark_ref:
             for item in resolve_benchmark_report_contexts(benchmark_ref):
+                add(item)
+        if fugui_enabled:
+            add("03-素材库/增强模块/富贵-打动人模块.md")
+
+    if normalized_skill_id == "xhs":
+        mode = _topic_field(meta, "模式", "mode")
+        quote_raw = _topic_field(meta, "是否调用金句库", "调用金句库", "quote_enabled")
+        quote_enabled = _topic_flag(meta, "是否调用金句库", "调用金句库", "quote_enabled") if quote_raw else False
+        quote_theme = _topic_field(meta, "金句主题", "quote_theme")
+        fugui_enabled = _topic_flag(meta, "富贵模块开关", "是否启用富贵模块", "fugui_enabled")
+
+        if "情绪冲突" in mode:
+            add("02-内容生产/小红书/resources/情绪冲突内容引擎.md")
+        if quote_enabled:
+            selected_quote_theme = quote_theme or suggest_quote_theme(
+                _topic_field(meta, "topic", "主关键词"),
+                _topic_field(meta, "target", "目标人群"),
+                _topic_field(meta, "核心矛盾"),
+                platform_text,
+            )
+            for item in resolve_quote_theme_contexts(selected_quote_theme):
                 add(item)
         if fugui_enabled:
             add("03-素材库/增强模块/富贵-打动人模块.md")

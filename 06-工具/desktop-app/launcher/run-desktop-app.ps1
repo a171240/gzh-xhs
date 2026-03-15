@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $appDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$defaultCodexModel = 'gpt-5.3-codex'
+$defaultCodexModel = 'gpt-5.4'
 $defaultReasoningEffort = 'xhigh'
 
 function Get-RequiredCommandPath {

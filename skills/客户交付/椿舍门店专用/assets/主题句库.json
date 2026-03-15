@@ -1,0 +1,531 @@
+{
+  "meta": {
+    "principle": "主题句必须来自金句库或对标链接内容库中的真实句子。优先挑能定情绪、定立场、定承接的句子，正文只借力，不硬塞。",
+    "source_priority": [
+      "椿舍已整理金句库",
+      "对标链接库提取正文"
+    ]
+  },
+  "entry_classes": {
+    "信任怀疑": {
+      "theme_lines": [
+        {
+          "text": "不扫兴，就是情绪价值的体现",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "所有的细节都是为了专属感，所有的专属感都是为了让顾客感受到安心",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "研究人性，不是为了给人使绊子，而是为了避开“雷区”，更好地与人打交道。",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "这是真实，这是信任。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+          "source_type": "对标链接库"
+        },
+        {
+          "text": "最难的是什么？就是信任。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "认真做好一件小事-公开分享做事全过程-build-in-public-2026-03-05.md",
+          "source_type": "对标链接库"
+        }
+      ],
+      "translation_lines": [
+        {
+          "text": "别人的认可是最廉价的枷锁，自我接纳是最低成本的自由",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "不要沉浸在无意义的精神内耗中",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "每个人都在努力的生活，生活已经很累，不想把社交变成负担",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "所以说你知道他不会掠夺你，你对他没有恐惧，你在跟他相处的时候，你就会感觉到很放松。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "一个人-心智成熟-的八个阶段-心智成熟-认知-自我提升-个人成长-青年创作者扶持计划-2026-03-06.md",
+          "source_type": "对标链接库"
+        },
+        {
+          "text": "总觉得说话应该气氛和谐、让别人舒服。但其实其他人说的话已经让我不舒服，让气氛不和谐了，我没有替他擦屁股的义务",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        }
+      ],
+      "boss_judgment_lines": [
+        {
+          "text": "通过服务给顾客带来满意效果，获得顾客的尊重，而成为有尊严的服务者",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "所有的细节都是为了专属感，所有的专属感都是为了让顾客感受到安心",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "对于其他人，只做筛选，不去教育。",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "研究人性，不是为了给人使绊子，而是为了避开“雷区”，更好地与人打交道。",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "你能感觉到他不图你任何的东西，他也没有必要向你证明他自己。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "一个人-心智成熟-的八个阶段-心智成熟-认知-自我提升-个人成长-青年创作者扶持计划-2026-03-06.md",
+          "source_type": "对标链接库"
+        }
+      ],
+      "low_pressure_offer_lines": [
+        {
+          "text": "做好当下该做的事情，就已经非常非常好了",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "一个粗糙的开始，就是最好的开始",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "这种把当下的事做好的确定感能够抵消对未来的焦虑。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "人生海海，错了可以重来",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "只要开始，什么时候都不晚。怕就怕太想完美了，太在乎周边的评价了。过于在乎外界，反而会限制自己。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        }
+      ]
+    },
+    "问题修复": {
+      "theme_lines": [
+        {
+          "text": "能力就是用最少的力气做最好的动作。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "一个粗糙的开始，就是最好的开始",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "做好当下该做的事情，就已经非常非常好了",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "问题加修改等于进步，写是输出，改才是进步。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "通过不断修改促进进步-简单两步骤系统-2026-03-05.md",
+          "source_type": "对标链接库"
+        },
+        {
+          "text": "好和伟大之间的区别往往是一轮额外的修订，花点时间把它做好。再修改一遍。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        }
+      ],
+      "translation_lines": [
+        {
+          "text": "经历的意义在于引导你，而非定义你",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "不要沉浸在无意义的精神内耗中",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "只要开始，什么时候都不晚。怕就怕太想完美了，太在乎周边的评价了。过于在乎外界，反而会限制自己。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "改变的初期总是不太舒服的",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "几乎任何事情都是越做越简单，越想越困难，越拖着越想放弃。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        }
+      ],
+      "boss_judgment_lines": [
+        {
+          "text": "通过服务给顾客带来满意效果，获得顾客的尊重，而成为有尊严的服务者",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "能力就是用最少的力气做最好的动作。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "这种把当下的事做好的确定感能够抵消对未来的焦虑。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "问题加修改等于进步，写是输出，改才是进步。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "通过不断修改促进进步-简单两步骤系统-2026-03-05.md",
+          "source_type": "对标链接库"
+        },
+        {
+          "text": "好和伟大之间的区别往往是一轮额外的修订，花点时间把它做好。再修改一遍。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        }
+      ],
+      "low_pressure_offer_lines": [
+        {
+          "text": "一个粗糙的开始，就是最好的开始",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "做好当下该做的事情，就已经非常非常好了",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "只要开始，什么时候都不晚。怕就怕太想完美了，太在乎周边的评价了。过于在乎外界，反而会限制自己。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "人生海海，错了可以重来",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "改变的初期总是不太舒服的",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        }
+      ]
+    },
+    "放松养护": {
+      "theme_lines": [
+        {
+          "text": "不扫兴，就是情绪价值的体现",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "每个人都在努力的生活，生活已经很累，不想把社交变成负担",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "你在谁面前最放松，最快乐，谁最爱你",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "所以说你知道他不会掠夺你，你对他没有恐惧，你在跟他相处的时候，你就会感觉到很放松。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "一个人-心智成熟-的八个阶段-心智成熟-认知-自我提升-个人成长-青年创作者扶持计划-2026-03-06.md",
+          "source_type": "对标链接库"
+        },
+        {
+          "text": "你能感觉到他不图你任何的东西，他也没有必要向你证明他自己。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "一个人-心智成熟-的八个阶段-心智成熟-认知-自我提升-个人成长-青年创作者扶持计划-2026-03-06.md",
+          "source_type": "对标链接库"
+        }
+      ],
+      "translation_lines": [
+        {
+          "text": "不要沉浸在无意义的精神内耗中",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "每个人都在努力的生活，生活已经很累，不想把社交变成负担",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "别人的认可是最廉价的枷锁，自我接纳是最低成本的自由",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "对于其他人，只做筛选，不去教育。",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "改变的初期总是不太舒服的",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        }
+      ],
+      "boss_judgment_lines": [
+        {
+          "text": "研究人性，不是为了给人使绊子，而是为了避开“雷区”，更好地与人打交道。",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "所有的细节都是为了专属感，所有的专属感都是为了让顾客感受到安心",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "通过服务给顾客带来满意效果，获得顾客的尊重，而成为有尊严的服务者",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "不扫兴，就是情绪价值的体现",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "这是真实，这是信任。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+          "source_type": "对标链接库"
+        }
+      ],
+      "low_pressure_offer_lines": [
+        {
+          "text": "做好当下该做的事情，就已经非常非常好了",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "这种把当下的事做好的确定感能够抵消对未来的焦虑。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "若是月亮还没来，路灯也可照窗台，好好爱自己。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "人生海海，错了可以重来",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "一个粗糙的开始，就是最好的开始",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        }
+      ]
+    },
+    "本地找店": {
+      "theme_lines": [
+        {
+          "text": "所有的细节都是为了专属感，所有的专属感都是为了让顾客感受到安心",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "不扫兴，就是情绪价值的体现",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "研究人性，不是为了给人使绊子，而是为了避开“雷区”，更好地与人打交道。",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "这是真实，这是信任。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "迷茫时-做这个-认真做好一件小事-公开分享做事全过程-2026-03-04.md",
+          "source_type": "对标链接库"
+        },
+        {
+          "text": "最难的是什么？就是信任。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "认真做好一件小事-公开分享做事全过程-build-in-public-2026-03-05.md",
+          "source_type": "对标链接库"
+        }
+      ],
+      "translation_lines": [
+        {
+          "text": "对于其他人，只做筛选，不去教育。",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "不要沉浸在无意义的精神内耗中",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "每个人都在努力的生活，生活已经很累，不想把社交变成负担",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "所以说你知道他不会掠夺你，你对他没有恐惧，你在跟他相处的时候，你就会感觉到很放松。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "一个人-心智成熟-的八个阶段-心智成熟-认知-自我提升-个人成长-青年创作者扶持计划-2026-03-06.md",
+          "source_type": "对标链接库"
+        },
+        {
+          "text": "你能感觉到他不图你任何的东西，他也没有必要向你证明他自己。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "一个人-心智成熟-的八个阶段-心智成熟-认知-自我提升-个人成长-青年创作者扶持计划-2026-03-06.md",
+          "source_type": "对标链接库"
+        }
+      ],
+      "boss_judgment_lines": [
+        {
+          "text": "通过服务给顾客带来满意效果，获得顾客的尊重，而成为有尊严的服务者",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "所有的细节都是为了专属感，所有的专属感都是为了让顾客感受到安心",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "对于其他人，只做筛选，不去教育。",
+          "source_theme": "自我与哲学（次级）",
+          "source_file": "91-自我与哲学（次级）.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "研究人性，不是为了给人使绊子，而是为了避开“雷区”，更好地与人打交道。",
+          "source_theme": "人性与沟通",
+          "source_file": "04-人性与沟通.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "你能感觉到他不图你任何的东西，他也没有必要向你证明他自己。",
+          "source_theme": "对标链接库-提取正文",
+          "source_file": "一个人-心智成熟-的八个阶段-心智成熟-认知-自我提升-个人成长-青年创作者扶持计划-2026-03-06.md",
+          "source_type": "对标链接库"
+        }
+      ],
+      "low_pressure_offer_lines": [
+        {
+          "text": "一个粗糙的开始，就是最好的开始",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "做好当下该做的事情，就已经非常非常好了",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "这种把当下的事做好的确定感能够抵消对未来的焦虑。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "人生海海，错了可以重来",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        },
+        {
+          "text": "只要开始，什么时候都不晚。怕就怕太想完美了，太在乎周边的评价了。过于在乎外界，反而会限制自己。",
+          "source_theme": "系统与执行",
+          "source_file": "03-系统与执行.md",
+          "source_type": "金句库"
+        }
+      ]
+    }
+  }
+}

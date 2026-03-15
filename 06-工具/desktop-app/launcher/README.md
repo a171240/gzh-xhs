@@ -27,7 +27,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install-desktop-shortcut.p
 - 自动写入/补齐 Electron `settings.json`：
   - `engine = codex`
   - `codexPath = 自动扫描最新 VSCode ChatGPT 扩展中的 codex.exe`
-  - `defaultModel = gpt-5.3-codex`
+  - `defaultModel = gpt-5.4`
   - `modelReasoningEffort = xhigh`（超高）
   - 若未扫描到，自动回退到 `codex`（PATH）
 

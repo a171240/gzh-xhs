@@ -23,6 +23,7 @@ from topic_doc_utils import (
     parse_frontmatter,
     parse_sections,
 )
+from xhs_flow import build_xhs_brief_from_topic, run_xhs_content
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -441,17 +442,28 @@ def _execute_one_task(
             continue
 
         brief = build_brief_from_payload(payload, platform=target_platform)
-        context_files = resolve_context_files(doc.path, platform=target_platform, skill_id=skill_id)
         try:
-            result = run_skill_task(
-                skill_id=skill_id,
-                brief=brief,
-                platform=target_platform,
-                model=model or DEFAULT_MODEL,
-                source_ref=f"topic-pipeline:{rel_path}",
-                context_files=context_files,
-                dry_run=dry_run,
-            )
+            if target_platform == "小红书":
+                account = str(source_meta.get("account") or source_meta.get("账号") or "").strip()
+                result = run_xhs_content(
+                    brief=build_xhs_brief_from_topic(doc.path, account=account),
+                    topic_file=doc.path,
+                    account=account,
+                    model=model or DEFAULT_MODEL,
+                    dry_run=dry_run,
+                )
+                context_files = list(result.get("context_files_used") or [])
+            else:
+                context_files = resolve_context_files(doc.path, platform=target_platform, skill_id=skill_id)
+                result = run_skill_task(
+                    skill_id=skill_id,
+                    brief=brief,
+                    platform=target_platform,
+                    model=model or DEFAULT_MODEL,
+                    source_ref=f"topic-pipeline:{rel_path}",
+                    context_files=context_files,
+                    dry_run=dry_run,
+                )
             ok = str(result.get("status") or "") == "success"
             if ok:
                 retry_counts.pop(retry_key, None)

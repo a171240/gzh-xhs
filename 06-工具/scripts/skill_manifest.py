@@ -31,6 +31,15 @@ QUOTE_THEME_TO_PATH = {
     "自我与哲学（次级）": "03-素材库/金句库/91-自我与哲学（次级）.md",
 }
 
+QUOTE_THEME_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "搞钱与生意": ("搞钱", "生意", "成交", "转化", "客单价", "创业", "门店", "客户", "营收", "变现"),
+    "内容与增长": ("内容", "增长", "流量", "选题", "标题", "分发", "账号", "传播", "获客"),
+    "系统与执行": ("系统", "执行", "复盘", "方法", "流程", "结构", "清单", "动作", "习惯", "效率"),
+    "人性与沟通": ("关系", "沟通", "情绪", "扫兴", "理解", "冲突", "亲密", "说话", "信任", "边界"),
+    "婚恋与家庭": ("婚恋", "家庭", "伴侣", "父母", "婚姻", "孩子", "亲子"),
+    "自我与哲学": ("自我", "人生", "意义", "哲学", "成长", "孤独", "内耗"),
+}
+
 
 @dataclasses.dataclass(frozen=True)
 class RepoSkillEntry:
@@ -155,6 +164,19 @@ def resolve_quote_theme_contexts(theme: str) -> list[str]:
         if lowered == _normalize_key(key):
             return ["03-素材库/金句库/00-索引.md", path]
     return []
+
+
+def suggest_quote_theme(*texts: str) -> str:
+    haystack = " ".join(str(item or "").strip() for item in texts if str(item or "").strip())
+    if not haystack:
+        return "系统与执行"
+    scores: dict[str, int] = {}
+    for theme, keywords in QUOTE_THEME_KEYWORDS.items():
+        scores[theme] = sum(1 for keyword in keywords if keyword and keyword in haystack)
+    best_theme = max(scores.items(), key=lambda item: item[1])[0]
+    if scores.get(best_theme, 0) <= 0:
+        return "系统与执行"
+    return best_theme
 
 
 def resolve_benchmark_report_contexts(reference: str) -> list[str]:

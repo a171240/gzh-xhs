@@ -49,6 +49,7 @@ related:
         assert "03-素材库/金句库/03-系统与执行.md" in merged
         assert "03-素材库/对标链接库/分析报告/2026-03-05/普通人逆袭三步法-分析.md" in merged
         assert "03-素材库/增强模块/富贵-打动人模块.md" in merged
+        assert "03-素材库/故事素材库/李可IP故事库.md" in merged
     finally:
         if topic_path.exists():
             topic_path.unlink()

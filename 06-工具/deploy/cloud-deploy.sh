@@ -356,8 +356,8 @@ chmod 600 /etc/openclaw/feishu.env
 
 set_env_kv /etc/openclaw/feishu.env FEISHU_COMMANDER_WORKERS "2"
 set_env_kv /etc/openclaw/feishu.env FEISHU_COMMANDER_MAX_RETRIES "1"
-set_env_kv /etc/openclaw/feishu.env FEISHU_SKILL_MODEL "gpt-5.3-codex"
-set_env_kv /etc/openclaw/feishu.env FEISHU_CHAT_MODEL "gpt-5.3-codex"
+set_env_kv /etc/openclaw/feishu.env FEISHU_SKILL_MODEL "gpt-5.4"
+set_env_kv /etc/openclaw/feishu.env FEISHU_CHAT_MODEL "gpt-5.4"
 set_env_kv /etc/openclaw/feishu.env FEISHU_PLAIN_TEXT_MODE "chat"
 set_env_kv /etc/openclaw/feishu.env FEISHU_REPLY_MAX_CHARS "1500"
 set_env_kv /etc/openclaw/feishu.env INGEST_LINK_MIN_CONTENT_CHARS "120"

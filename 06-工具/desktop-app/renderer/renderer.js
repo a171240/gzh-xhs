@@ -6,7 +6,7 @@
   { step: 5, title: '执行与交付' }
 ];
 
-const DEFAULT_CODEX_MODEL = 'gpt-5.3-codex';
+const DEFAULT_CODEX_MODEL = 'gpt-5.4';
 const DEFAULT_REASONING_EFFORT = 'xhigh';
 const ALLOWED_REASONING_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh']);
 

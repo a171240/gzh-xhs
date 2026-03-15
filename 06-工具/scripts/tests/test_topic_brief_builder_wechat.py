@@ -38,4 +38,6 @@ def test_wechat_brief_includes_quote_benchmark_and_fugui_fields() -> None:
     assert "金句主题：系统与执行" in brief
     assert "参考对标文案：03-素材库/对标链接库/分析报告/2026-03-05/普通人逆袭三步法-分析.md" in brief
     assert "富贵模块开关：是" in brief
+    assert "是否需要人设故事：自动" in brief
+    assert "故事用途：" in brief
     assert "引流物(CTA关键词)：评论区回复清单" in brief

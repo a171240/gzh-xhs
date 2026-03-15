@@ -471,7 +471,7 @@
 | `INGEST_AUTH_MAX_SKEW_SECONDS` | 时间戳最大偏移秒数 | `600` | writer |
 | `INGEST_ALLOWED_SOURCE_KINDS` | source_kind 白名单 | 空 | writer |
 | `FEISHU_APPROVAL_OPEN_IDS` | 审批白名单 open_id 列表 | 空 | orchestrator |
-| `FEISHU_SKILL_MODEL` | skill 执行模型 | `gpt-5.3-codex` | orchestrator |
+| `FEISHU_SKILL_MODEL` | skill 执行模型 | `gpt-5.4` | orchestrator |
 | `FEISHU_COMMANDER_WORKERS` | skill 并发 worker | `2` | orchestrator |
 | `FEISHU_COMMANDER_TIMEOUT_SEC` | 单批 skill 超时 | `1800` | orchestrator |
 | `FEISHU_COMMANDER_MAX_RETRIES` | skill 批重试次数 | `1` | orchestrator |
