@@ -39,7 +39,6 @@
   - `wechat_image_generator.py`
   - `publish_action_runner.py`
   - `ingest_writer_api.py`
-  - `gemini_api_generator.py`
 - 公众号主 skill：`skills/自有矩阵/公众号批量生产.md`
 
 ## 当前 untracked 新增热点

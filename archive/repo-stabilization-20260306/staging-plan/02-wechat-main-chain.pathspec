@@ -18,7 +18,6 @@ skills/自有矩阵/公众号配图提示词标准化.md
 06-工具/scripts/wechat_prompt_normalizer.py
 06-工具/scripts/wechat_image_generator.py
 06-工具/scripts/evolink_image_generator.py
-06-工具/scripts/gemini_api_generator.py
 06-工具/scripts/wechat_publish_renderer.py
 06-工具/scripts/publish_action_runner.py
 06-工具/scripts/publish_wechat_playwright.py
