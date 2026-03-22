@@ -66,3 +66,53 @@
 - quote_exact_dup: 0
 - quote_preview: 当爱可以用货币量化时，爱就开始贬值了
 
+## 2026-03-05T01:37:36+00:00 event=om_x100b55b9a8c120a4c3800ea1100201e#quote
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 8.25 复制打开抖音，看看【dontbesilent 聊赚钱的作品】只要你没在执行，你就是在逃避执行 # 执行力 # ... 01/05 R@k.Px Tyg:/
+
+## 2026-03-05T01:37:36+00:00 event=om_x100b55b9a8c120a4c3800ea1100201e#quote
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 8.25 复制打开抖音，看看【dontbesilent 聊赚钱的作品】只要你没在执行，你就是在逃避执行 # 执行力 # ... 01/05 R@k.Px Tyg:/
+
+## 2026-03-05T05:03:28+00:00 event=om_x100b55a4a4cd3ca8c2b670382c0c6c2#quote
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 1.07 10/30 ebN:/ z@T.LW 你自己就可以是一家公司 工业时代结束了。你不必做螺丝钉，可以成为整个机器。 但我们的认知还停在工业时代。那时专业分工是王道——人工一天做20个曲别针,流水线能做48000个。所以学校让你...
+
+## 2026-03-05T07:44:55+00:00 event=om_x100b55a709b0e8bcc2956865497cd64
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 不断前进，即使在某件事情上栽跟头，也比坐着不动的人更接近成功。
+
+## 2026-03-05T07:45:40+00:00 event=om_x100b55a70485dc70c4cbac2e2a96738#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 你难道忘了吗？今天正是你多年前祈求的模样啊# 人间清醒 # 内容太过真实 # 读书 # 共鸣 # 读书分享 复制此链接，打开Dou音搜索，直接观看视频！
+
+## 2026-03-05T23:40:52+00:00 event=om_x100b55950680c0a4c12a1fce061550e
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: “当爱可以用货币量化时，爱就开始贬值了”
+
+## 2026-03-05T23:42:13+00:00 event=om_x100b5595038304a4c499304c5806879
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 1
+- quote_exact_dup: 0
+- quote_preview: 当爱可以用货币量化时，爱就开始贬值了”
+- quote_near_dup_examples:
+  - 当爱可以用货币量化时，爱就开始贬值了” -> 03-系统与执行.md (1.000)

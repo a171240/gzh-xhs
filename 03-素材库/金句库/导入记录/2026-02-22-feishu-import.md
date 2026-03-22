@@ -106,3 +106,53 @@
 - link_doc_saved: 1
   - https://v.douyin.com/DPnCNC5loAM/ -> E:/公众号内容生成/03-素材库/对标链接库/提取正文/2026-02-22/第25集-知识年终盘点-老己-我不会再允许你和别人一起欺负自己-抖音精选-https-www-douyin-com-se-2026-02-22.md
 
+## 2026-02-22T13:45:56+00:00 event=om_x100b5684c78b20a0c44aeb49874fc36
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 先完成再完美
+
+## 2026-02-22T13:46:18+00:00 event=om_x100b5684c46bcca0c12cc555537cfa4#quote
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 1
+- quote_exact_dup: 0
+- quote_preview: 4.17 复制打开抖音，看看【Winnie蛋（澳洲留子版）的作品】知识年终盘点｜老己，我不会再允许你和别人一起欺负自... A@T.lP SLW:/ 07/11
+- quote_near_dup_examples:
+  - 4.17 复制打开抖音，看看【Winnie蛋（澳洲留子版）的作品】知识年终盘点｜老己，我不会再允许你和别人一起欺负自... A@T.lP SLW:/ 07/11 -> 03-系统与执行.md (0.992)
+
+## 2026-02-22T13:47:08+00:00 event=om_x100b5684c30d28a8c14f4ef3bc5cb9d
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 用公众号批量生成生成一篇关于复利思维的文章
+
+## 2026-02-22T13:54:43+00:00 event=om_x100b5684e4e288a0c3aadfaf8a35e38
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 先完成再完美
+
+## 2026-02-22T13:59:18+00:00 event=om_x100b5684f5aaaca4c2ada7f3db56c77
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 先完成再完美
+
+## 2026-02-22T15:42:56+00:00 event=om_x100b56860ecef0a4c35c76fc449f9d4
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 虽然天崩开局，奈何我是通天代
+
+## 2026-02-22T16:07:57+00:00 event=om_x100b5686d314f534c296ae7818e0f2e
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 先完成再完美

@@ -17,3 +17,9 @@
   - https://www.iesdouyin.com/share/video/7614361936053947694/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7614362340036823858&ts=1772935728&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=iWED3spENf1M3Qap2OIMLAF5RqLeEnU24oeP4v8Dh.c-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772935866%22,%22social_author_id%22:%22319298013788653%22,%22social_share_id%22:%227517492169541485627_1772935866%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772935866&share_version=370800&ug_share_id=a4a6f1848551b_1772935874994&u_code=el0igj1g4m570c&iid=MS4wLjABAAAAaEn1ckwHYTxKJf0Ax1K_50GefIvRPfmE2sZfl1QuK_IvO-rG3Ludfwy4Tj7_Rt2G&utm_campaign=client_share&app=aweme route=success content=success provider=asr chars=5089
     text_source: asr
 
+## 2026-03-08T02:11:31+00:00 event=om_x100b55f9e3f7f8a0c39071ac464ffe6#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 0.74 复制打开抖音，看看【5点的蜗牛的作品】5 小时连续顿悟！一套成长体系：知识→能力→系统！... C@h.oq 01/12 seb:/

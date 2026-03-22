@@ -24,26 +24,6 @@
 - quote_exact_dup: 0
 - quote_preview: 如果花终会枯萎，你还会去浇水吗？
 
-## 2026-03-12T23:15:30+08:00 event=user:ou_5d56d561182428f0bb29f1507989a034
-- mode: `link_mode`
-- quote_added: 0
-- quote_near_dup: 0
-- quote_exact_dup: 0
-- links: 1
-  - https://v.douyin.com/qjA3MPAANeM/
-- link_route_success: 1/1
-- link_content_success: 0
-- link_content_failed: 1
-- link_content_skipped_test: 0
-- link_doc_saved: 0
-- link_summary_detected: false
-  - https://www.douyin.com/note/7616015391454509029?previous_page=app_code_link route=success content=failed provider=share_text chars=0
-    quality_reason: content_too_short:66<120
-    text_source: share_text
-    reject_reason: content_too_short:66<120
-- errors:
-  - https://www.douyin.com/note/7616015391454509029?previous_page=app_code_link: content_too_short:66<120
-
 ## 2026-03-12T23:16:13+08:00 event=user:ou_5d56d561182428f0bb29f1507989a034
 - mode: `quote_mode`
 - quote_added: 1
@@ -82,3 +62,44 @@
 - quote_exact_dup: 0
 - quote_preview: 幸福也有一部分是装傻和不问 记性差也可以是通往幸福的道路之一
 
+## 2026-03-12T14:43:55+00:00 event=om_x100b54195c7528a4c442a92ef2df6ce#quote
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 4.87 复制打开抖音，看看【Thinker路远的作品】回报率最高的事情# Thinker路远 # 成长#... z@t.Rx vFu:/ 11/30
+
+## 2026-03-12T15:13:41+00:00 event=om_x100b5419cc9d74a8c4d25f14ac51413
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 如果花终会枯萎，你还会去浇水吗？
+
+## 2026-03-12T15:15:29+00:00 event=om_x100b5419c7d520a8c31783d1ead4a7f#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 8.74 复制打开抖音，看看【富贵美乐多～的图文作品】不建议：“在春天沉默”。找个晴天，走出去！！ b@n.QK 04/04 pQk:/
+
+## 2026-03-12T15:16:12+00:00 event=om_x100b5419c50414a4c129d7bb33cd5d5
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 不建议在春天沉默，找个晴天走出去！！
+
+## 2026-03-12T15:21:57+00:00 event=om_x100b5419ef96c0a0c4e81df31ec847e
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 赤裸裸的来到世上，得到什么都是赚到
+
+## 2026-03-12T15:22:43+00:00 event=om_x100b5419eaf4b4a4c3f72d7bee52114
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 幸福也有一部分是装傻和不问 记性差也可以是通往幸福的道路之一

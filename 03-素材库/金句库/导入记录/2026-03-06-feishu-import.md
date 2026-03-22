@@ -66,26 +66,6 @@
 - links: 1
   - https://v.douyin.com/ib_SSEQb_pE/
 - link_route_success: 1/1
-- link_content_success: 0
-- link_content_failed: 1
-- link_content_skipped_test: 0
-- link_doc_saved: 0
-- link_summary_detected: false
-  - https://www.iesdouyin.com/share/video/7605942922122408305/?from_ssr=1&video_share_track_ver=&life_share_ext=wyo80n/OK4Wb5DZs+711YBETgtd99mf9hL4NjjV+VGa58ZN2iDPe+/eTzyil3Vvue/mJfiKpz7ifAVfz/77hS1KBdBxpoQVY1d+uwmP6X/0EGmSbpy0LWYv1EIsNableTgcLN2MUUGk0ywUY8iD/EbwGXJykUjyhu1wrdQJKZtc%3D&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7605942835283610420&ts=1772780039&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=K8vJqSr61b1p.qU1sNfaJX.N2aL5wTSrRN.xZHcFt40-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780064%22,%22social_author_id%22:%221118619016918489%22,%22social_share_id%22:%227517492169541485627_1772780064%22,%22social_share_user_id%22:%227517492169541485627%22%7D&life_anchor_type=2&timestamp=1772780064&share_version=370700&ug_share_id=a4a6f1848551b_1772780067093&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=failed provider=asr chars=0
-    quality_reason: content_too_short:113<120
-    text_source: asr
-    reject_reason: content_too_short:113<120
-- errors:
-  - https://www.iesdouyin.com/share/video/7605942922122408305/?from_ssr=1&video_share_track_ver=&life_share_ext=wyo80n/OK4Wb5DZs+711YBETgtd99mf9hL4NjjV+VGa58ZN2iDPe+/eTzyil3Vvue/mJfiKpz7ifAVfz/77hS1KBdBxpoQVY1d+uwmP6X/0EGmSbpy0LWYv1EIsNableTgcLN2MUUGk0ywUY8iD/EbwGXJykUjyhu1wrdQJKZtc%3D&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7605942835283610420&ts=1772780039&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=K8vJqSr61b1p.qU1sNfaJX.N2aL5wTSrRN.xZHcFt40-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780064%22,%22social_author_id%22:%221118619016918489%22,%22social_share_id%22:%227517492169541485627_1772780064%22,%22social_share_user_id%22:%227517492169541485627%22%7D&life_anchor_type=2&timestamp=1772780064&share_version=370700&ug_share_id=a4a6f1848551b_1772780067093&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme: content_too_short:113<120
-
-## 2026-03-06T06:54:33Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
-- mode: `link_mode`
-- quote_added: 0
-- quote_near_dup: 0
-- quote_exact_dup: 0
-- links: 1
-  - https://v.douyin.com/ib_SSEQb_pE/
-- link_route_success: 1/1
 - link_content_success: 1
 - link_content_failed: 0
 - link_content_skipped_test: 0
@@ -104,26 +84,6 @@
 - links: 1
   - https://v.douyin.com/R6UO7kT3YFM/
 - link_route_success: 1/1
-- link_content_success: 0
-- link_content_failed: 1
-- link_content_skipped_test: 0
-- link_doc_saved: 0
-- link_summary_detected: false
-  - https://www.iesdouyin.com/share/video/7600378237923925093/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7600378177894042402&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=6Jjk6S1MixD0OKbLj3gDHL6eUL7FJcz8FCnqPusbDhY-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780250%22,%22social_author_id%22:%22678839663984752%22,%22social_share_id%22:%227517492169541485627_1772780250%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780251&share_version=370700&ug_share_id=a4a6f1848551b_1772780252532&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=failed provider=asr chars=0
-    quality_reason: content_too_short:90<120
-    text_source: asr
-    reject_reason: content_too_short:90<120
-- errors:
-  - https://www.iesdouyin.com/share/video/7600378237923925093/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7600378177894042402&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=6Jjk6S1MixD0OKbLj3gDHL6eUL7FJcz8FCnqPusbDhY-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780250%22,%22social_author_id%22:%22678839663984752%22,%22social_share_id%22:%227517492169541485627_1772780250%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780251&share_version=370700&ug_share_id=a4a6f1848551b_1772780252532&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme: content_too_short:90<120
-
-## 2026-03-06T06:57:38Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
-- mode: `link_mode`
-- quote_added: 0
-- quote_near_dup: 0
-- quote_exact_dup: 0
-- links: 1
-  - https://v.douyin.com/R6UO7kT3YFM/
-- link_route_success: 1/1
 - link_content_success: 1
 - link_content_failed: 0
 - link_content_skipped_test: 0
@@ -133,26 +93,6 @@
   - https://www.iesdouyin.com/share/video/7600378237923925093/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7600378177894042402&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=6Jjk6S1MixD0OKbLj3gDHL6eUL7FJcz8FCnqPusbDhY-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780250%22,%22social_author_id%22:%22678839663984752%22,%22social_share_id%22:%227517492169541485627_1772780250%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780251&share_version=370700&ug_share_id=a4a6f1848551b_1772780252532&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=success provider=bitable chars=253
     quality_reason: summary_detected
     text_source: bitable
-
-## 2026-03-06T07:00:07Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
-- mode: `link_mode`
-- quote_added: 0
-- quote_near_dup: 0
-- quote_exact_dup: 0
-- links: 1
-  - https://v.douyin.com/CtslG-dhXlk/
-- link_route_success: 1/1
-- link_content_success: 0
-- link_content_failed: 1
-- link_content_skipped_test: 0
-- link_doc_saved: 0
-- link_summary_detected: false
-  - https://www.iesdouyin.com/share/video/7609283083561834468/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7609283031303473946&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=x5YeX1.m9FGvrNLGyKmx1Cajg28EQakmsaMwBNmcvN0-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780393%22,%22social_author_id%22:%227597826054355715109%22,%22social_share_id%22:%227517492169541485627_1772780393%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780393&share_version=370700&ug_share_id=a4a6f1848551b_1772780395739&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme route=success content=failed provider=asr chars=0
-    quality_reason: content_too_short:92<120
-    text_source: asr
-    reject_reason: content_too_short:92<120
-- errors:
-  - https://www.iesdouyin.com/share/video/7609283083561834468/?from_ssr=1&video_share_track_ver=&did=MS4wLjABAAAASiUiehi-bkctI3n-ugelxYnYsZ3JHqy6qqBeT_KfeYtwo2WZnE4JV_9PHloBCXNz&mid=7609283031303473946&ts=1772780121&share_track_info=%7B%22link_description_type%22:%22%22%7D&region=CN&share_sign=x5YeX1.m9FGvrNLGyKmx1Cajg28EQakmsaMwBNmcvN0-&tt_from=share_to&with_sec_did=1&from_aid=1128&titleType=title&utm_source=share_to&utm_medium=ios&activity_info=%7B%22social_share_time%22:%221772780393%22,%22social_author_id%22:%227597826054355715109%22,%22social_share_id%22:%227517492169541485627_1772780393%22,%22social_share_user_id%22:%227517492169541485627%22%7D&timestamp=1772780393&share_version=370700&ug_share_id=a4a6f1848551b_1772780395739&u_code=el0igj1g4m570c&iid=MS4wLjABAAAANSZE42zE8_TvbRO1N9XRKn82IXyDvD92mYSLyqftTKFIhgov8IEyfjF9LSunRcz3&utm_campaign=client_share&app=aweme: content_too_short:92<120
 
 ## 2026-03-06T07:01:03Z event=feishu:user:ou_5d56d561182428f0bb29f1507989a034
 - mode: `quote_mode`
@@ -329,3 +269,151 @@
 - quote_exact_dup: 0
 - quote_preview: 只要你开始行动，焦虑就会变成路径。
 
+## 2026-03-06T00:55:33+00:00 event=om_x100b55962e97a4a4c4d2294b9b7ed59
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 因为父母压力导致孩子抑郁自杀 ，结果父母上坟给孩子烧纸钱，还居然问网友，得烧多少钱合适，怕烧多了钱，孩子在下面乱花。
+
+## 2026-03-06T06:49:02+00:00 event=om_x100b5593c313b44cc4ed14f3408ec40#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 1.28 复制打开抖音，看看【小胡爱唠嗑的作品】“这句话 杀死了我的懒惰” # 情感共鸣 # 励志... 03/14 ATy:/ g@B.tR
+
+## 2026-03-06T06:50:13+00:00 event=om_x100b5593dc8084a8c36997f23f90d23#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 5.35 复制打开抖音，看看【晴朗☀️的作品】# 读书# 人生经验# 借势 W@M.jC 02/06 pda:/
+
+## 2026-03-06T06:53:02+00:00 event=om_x100b5593d211cca8c37d3b2a97624e5#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 7.61 复制打开抖音，看看【YuE悦的作品】有些人认为自己很能吃苦，回头想想，其实只是能吃体力... 04/26 BGi:/ l@C.HI
+
+## 2026-03-06T06:54:33+00:00 event=om_x100b5593ec5db910c3b35a405ca4b8b#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 5.15 复制打开抖音，看看【𝐅𝐨𝐜𝐮𝐬摄迹的作品】“所有的一鸣惊人都是源于厚积薄发” # 拍出电影感... u@F.Hi EUL:/ 09/13
+
+## 2026-03-06T06:57:37+00:00 event=om_x100b5593e0d920a8c4f5b69c3609b70#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 2.58 复制打开抖音，看看【𝓚ⅈꫛᧁ的作品】“要么成功，要么成长，做什么事都不会白费 任何事情... DuS:/ v@S.Lj 07/29
+
+## 2026-03-06T07:00:06+00:00 event=om_x100b5593f9a49078c3e19d022b2ef5b#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 7.10 复制打开抖音，看看【百家之言的作品】人的心气，是可以重新养回来的。长时间极致的独处，大... lpd:/ 02/04 N@J.vf
+
+## 2026-03-06T07:01:02+00:00 event=om_x100b5593f41054a0c3b69826c5c01d9
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 谁能想到，大一和六年级只差了六年，却好像过了半辈子
+
+## 2026-03-06T07:03:40+00:00 event=om_x100b55938a0ff8d4c110db4f99b682c#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 5.61 复制打开抖音，看看【发发呀的作品】祝我们在各自的选择中，渐入佳境！ 12/27 eoq:/ b@N.JV
+
+## 2026-03-06T07:08:04+00:00 event=om_x100b55939b8bc4acc4de86fdd3de9c9
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 你应该亲手打造一个全盛姿态的自己
+
+## 2026-03-06T07:08:37+00:00 event=om_x100b5593999cc4a0c149259d03149d9#quote
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 7.61 复制打开抖音，看看【Mayi的作品】“没有天赋 那就重复”# inmyfeelings... dnD:/ s@E.HV 01/12
+
+## 2026-03-06T07:10:53+00:00 event=om_x100b5593911764b4c267e16ce6dc429#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 5.15 复制打开抖音，看看【初代风华的作品】“岂不闻光阴如骏马加鞭，日月如落花流水，哪有不倒的... h@b.AG nDu:/ 05/18
+
+## 2026-03-06T07:14:42+00:00 event=om_x100b5593a0e47ca8c495a0778552084
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 世界一天比一天美丽，我独自一人，但我感到很自在，我再无他念，只想全身沐浴在阳光下，我渴望成熟，准备好死去，准备好重生. ---黑塞[德]
+
+## 2026-03-06T07:16:29+00:00 event=om_x100b5593ba0324a0c3b34427057020a
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 经历的意义在于引导你，而非定义你
+
+## 2026-03-06T07:21:14+00:00 event=om_x100b559c4853b080c2e9841e8dbe2ca#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 8.74 复制打开抖音，看看【boya补给站的作品】人只要卯足劲往前走，就一定会有新的东西在前面# 人... r@e.BT mQx:/ 10/12
+
+## 2026-03-06T07:22:05+00:00 event=om_x100b559c4714548cc4c93d514e8c020#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 0.51 复制打开抖音，看看【赫振焜的作品】你不会是变得无情而是真清醒 “利润Z高的赛道是你自... S@l.pd zgb:/ 07/18
+
+## 2026-03-06T07:26:20+00:00 event=om_x100b559c570f0c8cc494a3615eef068
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 用宏大的世界去稀释痛苦，用细微的敏感去感知幸福
+
+## 2026-03-06T07:29:54+00:00 event=om_x100b559c69ec30b4c2dc58c539904e7
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 1
+- quote_exact_dup: 0
+- quote_preview: 我们究竟是活了365天，还是一天重复了365遍？”
+- quote_near_dup_examples:
+  - 我们究竟是活了365天，还是一天重复了365遍？” -> 03-系统与执行.md (1.000)
+
+## 2026-03-06T07:31:21+00:00 event=om_x100b559c625e70acc12723880597313
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 人生最好的三位老师: 干瘪的钱包、失败的经历、离开的她
+
+## 2026-03-06T07:31:47+00:00 event=om_x100b559c60f4808cc4cbbb4db8e64f1#quote
+- mode: `quote_mode`
+- quote_added: 1
+- quote_near_dup: 0
+- quote_exact_dup: 0
+- quote_preview: 3.87 复制打开抖音，看看【范不慌的作品】一个人『心智成熟』的八个阶段！# 心智成熟 # 认... Q@X.ZM mDu:/ 01/03
+
+## 2026-03-06T07:59:47+00:00 event=om_x100b559cd9fe04acc4c6c64dac513cc
+- mode: `quote_mode`
+- quote_added: 0
+- quote_near_dup: 0
+- quote_exact_dup: 1
+- quote_preview: 只要你开始行动，焦虑就会变成路径。
