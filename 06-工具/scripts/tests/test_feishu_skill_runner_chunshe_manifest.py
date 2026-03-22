@@ -105,6 +105,37 @@ def test_extract_chunshe_runtime_config_accepts_explicit_mode() -> None:
     assert config["mode"] == "快速"
 
 
+def test_extract_chunshe_runtime_config_accepts_cover_prompt_flag() -> None:
+    config = runner._extract_chunshe_runtime_config("椿舍内容：关键词=SPA\n配图=是")
+
+    assert config["cover_prompt_enabled"] is True
+
+
+def test_resolve_codex_cli_materializes_windowsapps_binary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_dir = tmp_path / "Program Files" / "WindowsApps" / "OpenAI.Codex" / "app" / "resources"
+    source_dir.mkdir(parents=True)
+    source_path = source_dir / "codex.exe"
+    source_path.write_bytes(b"codex-binary")
+
+    cache_dir = tmp_path / "cache-root"
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir(parents=True)
+
+    monkeypatch.delenv("CODEX_CLI_PATH", raising=False)
+    monkeypatch.setattr(runner, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: str(source_path))
+    monkeypatch.setattr(runner.tempfile, "gettempdir", lambda: str(cache_dir))
+
+    resolved = Path(runner.resolve_codex_cli())
+
+    assert resolved.exists()
+    assert resolved.read_bytes() == b"codex-binary"
+    assert "WindowsApps" not in resolved.parts
+
+
 def test_chunshe_context_plan_does_not_auto_load_quotes_by_default() -> None:
     plan = runner.build_skill_context_plan(
         skill_id="chunshe_wj",

@@ -50,9 +50,9 @@ STORE_RULES = (
     "流程、时长、合理预期说清楚",
 )
 ENTRY_CLASS_KEYWORDS = {
-    "放松养护": ("spa", "按摩", "肩颈", "放松", "解压", "舒缓", "松一松", "松下来"),
+    "放松养护": ("spa", "按摩", "肩颈", "放松", "解压", "舒缓", "松一松", "松下来", "不想讲话", "别跟我讲话", "先别跟我讲话", "安静一会儿", "安静会儿"),
     "本地找店": ("吴江", "附近", "推荐", "哪家", "去哪家", "到店", "门店", "江兴西路", "吴江公园"),
-    "信任怀疑": ("有用吗", "靠谱吗", "值不值", "套路", "推销", "退卡", "退费", "会不会", "怎么选", "避坑"),
+    "信任怀疑": ("有用吗", "靠谱吗", "值不值", "套路", "推销", "退卡", "退费", "会不会", "怎么选", "避坑", "不扫兴", "情绪价值"),
 }
 HIGH_BOUNDARY_TERMS = (
     "点痣",
@@ -96,6 +96,64 @@ QUOTE_BLOCK_KEYWORDS = (
     "投资",
     "密保",
 )
+QUOTE_TOPIC_SEED_BLOCK_MARKERS = (
+    "对于其他人，只做筛选，不去教育",
+    "做好当下该做的事情",
+    "改变的初期总是不太舒服的",
+    "研究人性，不是为了给人使绊子",
+    "所有的细节都是为了专属感",
+    "通过服务给顾客带来满意效果",
+    "你能感觉到他不图你任何的东西",
+    "他不会掠夺你",
+)
+QUOTE_TOPIC_SEED_HINTS = {
+    "问题修复": ("稳住", "别乱", "别猛", "少折腾", "简单", "反复"),
+    "信任怀疑": ("信任", "边界", "分寸", "扫兴", "停", "安心", "放松", "被照顾"),
+    "放松养护": ("放松", "轻", "负担", "松", "缓一口气", "不扫兴"),
+    "本地找店": ("信任", "分寸", "边界", "白跑", "值不值得", "停"),
+}
+QUOTE_TOPIC_ANGLE_BY_ENTRY = {
+    "问题修复": "规矩托底",
+    "信任怀疑": "防御拆解",
+    "放松养护": "向往画面",
+    "本地找店": "本地决策",
+}
+QUOTE_TOPIC_SCENE_BY_ENTRY = {
+    "问题修复": "第一次做项目前，最怕这次又白折腾",
+    "信任怀疑": "刚躺下就怕对面开始讲项目",
+    "放松养护": "忙完一天只想安静躺一会儿",
+    "本地找店": "第一次进店前怕白跑又一肚子气",
+}
+QUOTE_TOPIC_FEAR_BY_ENTRY = {
+    "问题修复": "怕今天做完，明天脸更闹腾",
+    "信任怀疑": "怕说不要以后，对面还继续讲",
+    "放松养护": "怕来做护理还得继续被安排",
+    "本地找店": "怕第一次进店就被推项目，白跑一趟",
+}
+QUOTE_TOPIC_DESIRE_BY_ENTRY = {
+    "问题修复": "先做稳，不想再反复试错",
+    "信任怀疑": "先把戒备放下，安心做一次",
+    "放松养护": "先缓一口气，人能松下来",
+    "本地找店": "先把店看明白，再决定要不要长期来",
+}
+QUOTE_TOPIC_BUY_POINT_BY_ENTRY = {
+    "问题修复": "别越做越糟，先稳住",
+    "信任怀疑": "说不要能停，边界感对",
+    "放松养护": "今天别再被安排，人能轻一点",
+    "本地找店": "第一次先看分寸感，再看项目",
+}
+QUOTE_TOPIC_RULE_BY_ENTRY = {
+    "问题修复": "能温和就别做猛",
+    "信任怀疑": "说不要，话题就停",
+    "放松养护": "先看状态，再决定今天做到哪一步",
+    "本地找店": "第一次来，先把店看明白",
+}
+QUOTE_TOPIC_ENDING_BY_ENTRY = {
+    "问题修复": "先把这一趟做稳",
+    "信任怀疑": "先让人敢躺下",
+    "放松养护": "今天先让人轻一点",
+    "本地找店": "第一次先别白跑",
+}
 CHUNSHE_ABSTRACT_MARKERS = (
     "状态不对",
     "被消耗",
@@ -289,6 +347,28 @@ CHUNSHE_OWNER_SPOKEN_LIBRARY = {
         ],
     },
 }
+CHUNSHE_MATCH_STOP_TOKENS = {
+    "美容院",
+    "做脸",
+    "项目",
+    "今天",
+    "这次",
+    "第一次",
+    "很多人",
+    "一个人",
+    "一下",
+    "一种",
+    "是不是",
+    "会不会",
+    "怎么选",
+    "有用吗",
+    "能不能",
+    "先别",
+    "别跟",
+    "跟我",
+    "讲话",
+    "说话",
+}
 
 
 def _normalize_key(value: str) -> str:
@@ -296,6 +376,57 @@ def _normalize_key(value: str) -> str:
     if not text:
         return ""
     return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", text)
+
+
+def _extract_chunshe_match_tokens(value: str) -> set[str]:
+    text = _normalize_key(value)
+    if not text:
+        return set()
+    tokens: set[str] = set()
+    for token in re.findall(r"[a-z0-9]{2,}", text):
+        if token not in CHUNSHE_MATCH_STOP_TOKENS:
+            tokens.add(token)
+    for chunk in re.findall(r"[\u4e00-\u9fff]{2,}", text):
+        if len(chunk) <= 4 and chunk not in CHUNSHE_MATCH_STOP_TOKENS:
+            tokens.add(chunk)
+        for size in (2, 3, 4):
+            if len(chunk) < size:
+                continue
+            for index in range(len(chunk) - size + 1):
+                token = chunk[index : index + size]
+                if token in CHUNSHE_MATCH_STOP_TOKENS:
+                    continue
+                tokens.add(token)
+    return {token for token in tokens if len(token) >= 2}
+
+
+def _count_chunshe_overlap_tokens(left: str, right: str) -> int:
+    if not left or not right:
+        return 0
+    return len(_extract_chunshe_match_tokens(left) & _extract_chunshe_match_tokens(right))
+
+
+def _build_chunshe_brief_seed_topic(seed_keyword: str, entry_class: str) -> dict[str, Any]:
+    keyword = str(seed_keyword or "").strip()
+    normalized_entry_class = infer_chunshe_entry_class(keyword, entry_class)
+    fingerprint = sum(ord(ch) for ch in keyword)
+    return {
+        "topic_id": f"AUTO-{normalized_entry_class}-{fingerprint % 100000:05d}",
+        "seed_keyword": keyword,
+        "topic_title": keyword,
+        "entry_class": normalized_entry_class,
+        "angle_type": QUOTE_TOPIC_ANGLE_BY_ENTRY.get(normalized_entry_class, "防御拆解"),
+        "scene_trigger": QUOTE_TOPIC_SCENE_BY_ENTRY.get(normalized_entry_class, ""),
+        "fear": QUOTE_TOPIC_FEAR_BY_ENTRY.get(normalized_entry_class, ""),
+        "real_desire": QUOTE_TOPIC_DESIRE_BY_ENTRY.get(normalized_entry_class, ""),
+        "real_buy_point": QUOTE_TOPIC_BUY_POINT_BY_ENTRY.get(normalized_entry_class, ""),
+        "store_rule_hint": QUOTE_TOPIC_RULE_BY_ENTRY.get(normalized_entry_class, "说不要，话题就停"),
+        "life_stage_hint": "自动",
+        "ending_function": QUOTE_TOPIC_ENDING_BY_ENTRY.get(normalized_entry_class, "安心感"),
+        "priority_score": 9.9,
+        "source_type": "synthetic_seed",
+        "status": "brief_seed",
+    }
 
 
 def normalize_chunshe_role(value: str) -> str:
@@ -794,6 +925,127 @@ def default_chunshe_topics() -> list[dict[str, Any]]:
     return [dict(item) for item in load_chunshe_topic_seed_pool() if str(item.get("status") or "") == "default_fallback"]
 
 
+def _build_chunshe_quote_topic_seed(
+    *,
+    item: dict[str, Any],
+    seed_keyword: str,
+    entry_class: str,
+    score: float,
+    index: int,
+) -> dict[str, Any]:
+    quote_text = str(item.get("text") or "").strip().rstrip("。！？；;")
+    return {
+        "topic_id": f"QUOTE-{entry_class}-{index:02d}",
+        "seed_keyword": str(seed_keyword or "").strip(),
+        "topic_title": quote_text,
+        "entry_class": entry_class,
+        "angle_type": QUOTE_TOPIC_ANGLE_BY_ENTRY.get(entry_class, "防御拆解"),
+        "scene_trigger": QUOTE_TOPIC_SCENE_BY_ENTRY.get(entry_class, ""),
+        "fear": QUOTE_TOPIC_FEAR_BY_ENTRY.get(entry_class, ""),
+        "real_desire": QUOTE_TOPIC_DESIRE_BY_ENTRY.get(entry_class, ""),
+        "real_buy_point": QUOTE_TOPIC_BUY_POINT_BY_ENTRY.get(entry_class, ""),
+        "store_rule_hint": QUOTE_TOPIC_RULE_BY_ENTRY.get(entry_class, "说不要，话题就停"),
+        "life_stage_hint": "自动",
+        "ending_function": QUOTE_TOPIC_ENDING_BY_ENTRY.get(entry_class, "安心感"),
+        "priority_score": round(score, 2),
+        "source_type": "quote_topic_seed",
+        "quote_seed_text": quote_text,
+        "quote_seed_theme": str(item.get("theme") or "").strip(),
+        "quote_seed_usage": str(item.get("usage") or "").strip(),
+        "quote_seed_file": str(item.get("file_name") or "").strip(),
+        "quote_seed_tags": list(item.get("tags") or []),
+        "title_preserve_core_feel": True,
+        "quote_direct_use_rule": "保留核心句感，不机械照抄原话",
+        "benchmark_usage_rule": "对标链接只学结构，不直接借句",
+    }
+
+
+def _is_chunshe_quote_topic_seed(item: dict[str, Any], *, seed_keyword: str, entry_class: str) -> bool:
+    tags = set(item.get("tags") or [])
+    text = str(item.get("text") or "").strip()
+    if "#选题" not in tags:
+        return False
+    if not _is_safe_chunshe_quote(item):
+        return False
+    if any(marker in text for marker in QUOTE_TOPIC_SEED_BLOCK_MARKERS):
+        return False
+    normalized_keyword = _normalize_key(seed_keyword)
+    normalized_text = _normalize_key(text)
+    if normalized_keyword and normalized_text and normalized_keyword == normalized_text:
+        return True
+    overlap_hits = _count_chunshe_overlap_tokens(seed_keyword, text)
+    hint_hits = sum(1 for token in QUOTE_TOPIC_SEED_HINTS.get(entry_class, ()) if token in text)
+    keyword_hits = overlap_hits
+    if normalized_keyword and normalized_text and (
+        normalized_keyword in normalized_text or normalized_text in normalized_keyword
+    ):
+        keyword_hits += 2
+    if normalized_keyword and keyword_hits <= 0:
+        return False
+    if len(text) > 28 and keyword_hits < 2:
+        return False
+    if keyword_hits <= 1 and hint_hits <= 0:
+        return False
+    return True
+
+
+def match_chunshe_quote_topic_seed_examples(seed_keyword: str, entry_class: str, *, limit: int = 12) -> list[dict[str, Any]]:
+    normalized_entry_class = infer_chunshe_entry_class(seed_keyword, entry_class)
+    theme_order = allowed_quote_themes(normalized_entry_class)
+    normalized_keyword = _normalize_key(seed_keyword)
+    ranked: list[tuple[float, dict[str, Any]]] = []
+    for index, item in enumerate(load_chunshe_quote_catalog(), start=1):
+        if item.get("theme") not in theme_order:
+            continue
+        if not _is_chunshe_quote_topic_seed(item, seed_keyword=seed_keyword, entry_class=normalized_entry_class):
+            continue
+        score = 12.0
+        score += max(0, 6 - theme_order.index(str(item.get("theme") or ""))) * 2.0
+        usage = str(item.get("usage") or "").strip()
+        if usage in {"开头钩子", "观点", "警示"}:
+            score += 2.0
+        if "#标题" in set(item.get("tags") or []):
+            score += 1.0
+        text = str(item.get("text") or "")
+        normalized_text = _normalize_key(text)
+        if normalized_keyword and normalized_text and normalized_keyword == normalized_text:
+            score += 30.0
+        elif normalized_keyword and normalized_text and (
+            normalized_keyword in normalized_text or normalized_text in normalized_keyword
+        ):
+            score += 8.0
+        overlap_hits = _count_chunshe_overlap_tokens(seed_keyword, text)
+        score += min(overlap_hits * 2.4, 7.2)
+        for token in QUOTE_TOPIC_SEED_HINTS.get(normalized_entry_class, ()):
+            if token in text:
+                score += 0.8
+        ranked.append(
+            (
+                score,
+                _build_chunshe_quote_topic_seed(
+                    item=dict(item),
+                    seed_keyword=seed_keyword,
+                    entry_class=normalized_entry_class,
+                    score=score,
+                    index=index,
+                ),
+            )
+        )
+
+    ranked.sort(key=lambda pair: (-pair[0], str(pair[1].get("quote_seed_text") or "")))
+    out: list[dict[str, Any]] = []
+    seen_titles: set[str] = set()
+    for _score, item in ranked:
+        title_key = _normalize_key(str(item.get("topic_title") or ""))
+        if not title_key or title_key in seen_titles:
+            continue
+        seen_titles.add(title_key)
+        out.append(item)
+        if len(out) >= max(1, limit):
+            break
+    return out
+
+
 def match_chunshe_topic_seed_examples(seed_keyword: str, entry_class: str, *, limit: int = 12) -> list[dict[str, Any]]:
     keyword = str(seed_keyword or "").strip()
     normalized_keyword = _normalize_key(keyword)
@@ -801,33 +1053,74 @@ def match_chunshe_topic_seed_examples(seed_keyword: str, entry_class: str, *, li
     if normalized_keyword in {_normalize_key("默认7题"), _normalize_key("默认七题")}:
         return default_chunshe_topics()[: max(1, limit)]
 
+    normalized_entry_class = infer_chunshe_entry_class(seed_keyword, entry_class)
+    ranked_out: list[dict[str, Any]] = []
+    quote_seeds = match_chunshe_quote_topic_seed_examples(
+        seed_keyword,
+        normalized_entry_class,
+        limit=max(1, limit),
+    )
+    ranked_out.extend(quote_seeds[: max(1, limit)])
+
     ranked: list[tuple[float, dict[str, Any]]] = []
+    best_manual_score = 0.0
     for item in pool:
         score = 0.0
         seed = str(item.get("seed_keyword") or "").strip()
         topic_title = str(item.get("topic_title") or "").strip()
+        score += min(_count_chunshe_overlap_tokens(keyword, seed) * 2.2, 6.6)
+        score += min(_count_chunshe_overlap_tokens(keyword, topic_title) * 1.6, 4.8)
         if normalized_keyword and _normalize_key(seed) == normalized_keyword:
             score += 8.0
         elif normalized_keyword and (normalized_keyword in _normalize_key(seed) or _normalize_key(seed) in normalized_keyword):
             score += 4.0
-        if entry_class and str(item.get("entry_class") or "").strip() == entry_class:
+        if normalized_entry_class and str(item.get("entry_class") or "").strip() == normalized_entry_class:
             score += 3.0
         if normalized_keyword and normalized_keyword in _normalize_key(topic_title):
             score += 2.0
         if str(item.get("status") or "").strip() == "default_fallback":
             score += 0.8
         if score > 0:
-            ranked.append((score, dict(item)))
+            topic = dict(item)
+            topic.setdefault("source_type", "topic_seed_pool")
+            ranked.append((score, topic))
+            best_manual_score = max(best_manual_score, float(score))
 
     if not ranked:
         ranked = [
-            (1.0 if str(item.get("entry_class") or "").strip() == entry_class else 0.1, dict(item))
+            (
+                1.0 if str(item.get("entry_class") or "").strip() == normalized_entry_class else 0.1,
+                {**dict(item), "source_type": str(item.get("source_type") or "topic_seed_pool").strip() or "topic_seed_pool"},
+            )
             for item in pool
-            if not entry_class or str(item.get("entry_class") or "").strip() == entry_class
+            if not normalized_entry_class or str(item.get("entry_class") or "").strip() == normalized_entry_class
         ]
+        best_manual_score = max((float(score) for score, _item in ranked), default=0.0)
+
+    should_promote_brief_seed = (
+        not quote_seeds
+        and bool(keyword)
+        and len(keyword) >= 8
+        and best_manual_score <= 3.2
+        and any(marker in keyword for marker in ("能不能", "不想讲话", "别跟我讲话", "安静", "推销", "办卡", "白跑", "先不要", "别讲"))
+    )
+    if should_promote_brief_seed:
+        synthetic = _build_chunshe_brief_seed_topic(keyword, normalized_entry_class)
+        ranked_out.insert(0, synthetic)
 
     ranked.sort(key=lambda pair: (-pair[0], str(pair[1].get("topic_id") or "")))
-    return [item for _score, item in ranked[: max(1, limit)]]
+    seen_titles = {_normalize_key(str(item.get("topic_title") or "")) for item in ranked_out}
+    for score, item in ranked:
+        title_key = _normalize_key(str(item.get("topic_title") or ""))
+        if not title_key or title_key in seen_titles:
+            continue
+        clone = dict(item)
+        clone["priority_score"] = max(float(clone.get("priority_score") or 0), float(score))
+        ranked_out.append(clone)
+        seen_titles.add(title_key)
+        if len(ranked_out) >= max(1, limit):
+            break
+    return ranked_out[: max(1, limit)]
 
 
 def __deprecated_collect_recent_chunshe_history_v1(*, lookback_days: int = 30) -> list[dict[str, Any]]:
@@ -1350,7 +1643,7 @@ def select_chunshe_quote_candidates(
         if "#标题" in item.get("tags", []):
             score += 0.3
         if "#选题" in item.get("tags", []):
-            score += 0.2
+            score += 1.2
         scored.append((score, dict(item)))
 
     scored.sort(key=lambda pair: (-pair[0], str(pair[1].get("text") or "")))

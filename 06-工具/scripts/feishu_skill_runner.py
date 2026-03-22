@@ -23,6 +23,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -59,9 +60,13 @@ from chunshe_video_runtime import (
     build_chunshe_video_polish_package_prompt,
     build_chunshe_video_reply_template,
     ensure_chunshe_video_core_lines,
+    extract_chunshe_video_title,
     extract_chunshe_video_draft_body,
+    generate_cover_prompt,
     normalize_chunshe_video_markdown,
     normalize_chunshe_video_polish_issues,
+    render_chunshe_cover_sidecar,
+    render_chunshe_publish_pack,
     render_chunshe_video_markdown,
     validate_chunshe_video_markdown,
 )
@@ -569,13 +574,38 @@ def resolve_codex_cli() -> str:
         if item == "codex":
             resolved = shutil.which(item)
             if resolved:
-                return resolved
+                return _materialize_windowsapps_binary(resolved)
             continue
         candidate = Path(item)
         if candidate.exists():
-            return str(candidate)
+            return _materialize_windowsapps_binary(str(candidate))
 
     raise RuntimeError("Codex CLI not found. Set CODEX_CLI_PATH or install `codex`.")
+
+
+def _materialize_windowsapps_binary(path_text: str) -> str:
+    candidate = Path(str(path_text or "").strip())
+    if not candidate.exists():
+        return str(candidate)
+    if "WindowsApps" not in candidate.parts:
+        return str(candidate)
+
+    cache_dir = Path(tempfile.gettempdir()) / "codex-cli-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cached_path = cache_dir / candidate.name
+    try:
+        source_stat = candidate.stat()
+        target_stat = cached_path.stat() if cached_path.exists() else None
+        needs_copy = (
+            target_stat is None
+            or int(target_stat.st_size) != int(source_stat.st_size)
+            or int(target_stat.st_mtime_ns) != int(source_stat.st_mtime_ns)
+        )
+        if needs_copy:
+            shutil.copy2(candidate, cached_path)
+    except Exception:
+        return str(candidate)
+    return str(cached_path)
 
 
 def _extract_between(text: str, start: str, end: str) -> str | None:
@@ -721,14 +751,22 @@ def _select_primary_file(files: list[dict[str, str]]) -> dict[str, str] | None:
         content = str(item.get("content") or "")
         name = Path(path.replace("\\", "/")).name
         bonus = 0
+        if re.search(r"(李可|孟欣|伍霖)-\d{8}-\d{2}", name, re.IGNORECASE):
+            bonus += 20_000
         if re.search(r"(正文|成稿|全文|main|article|body)", name, re.IGNORECASE):
             bonus += 10_000
         if re.search(r"(正文|成稿|全文|main|article|body)", path, re.IGNORECASE):
             bonus += 5_000
+        if "# 标题" in content and "## 备选标题" in content and "# 正文" in content:
+            bonus += 25_000
         if re.search(r"(标题|候选|大纲|提纲|top2|outline|title)", name, re.IGNORECASE):
             bonus -= 10_000
         if re.search(r"(标题|候选|大纲|提纲|top2|outline|title)", path, re.IGNORECASE):
             bonus -= 5_000
+        if re.search(r"(\.cover\.md$|cover|封面|汇总|发布包|summary)", name, re.IGNORECASE):
+            bonus -= 30_000
+        if re.search(r"(\.cover\.md$|cover|封面|汇总|发布包|summary)", path, re.IGNORECASE):
+            bonus -= 20_000
         return (bonus, len(content))
 
     return max(files, key=score)
@@ -2479,6 +2517,7 @@ def _extract_chunshe_runtime_config(brief: str) -> dict[str, Any]:
         "banned_words": _brief_field(brief, "禁写", "禁用词", "ban"),
         "quote_enabled": _brief_flag_or_default(brief, False, "是否调用金句库", "调用金句库"),
         "explicit_quote_theme": _brief_field(brief, "金句主题", "quote_theme"),
+        "cover_prompt_enabled": _brief_flag_or_default(brief, False, "配图", "cover_prompt"),
         "high_boundary": is_high_boundary_keyword(seed_keyword),
         "mode": _normalize_chunshe_generation_mode(_brief_field(brief, "模式", "mode")),
     }
@@ -2753,6 +2792,19 @@ def _normalize_chunshe_title_candidates(topic: dict[str, Any], payload: dict[str
         out.append(title)
         if len(out) >= 3:
             break
+    if bool(topic.get("title_preserve_core_feel")):
+        core_title = str(topic.get("quote_seed_text") or topic.get("topic_title") or "").strip(" ｜：")
+        core_key = _normalize_key(core_title)
+        if core_title and core_key:
+            preserve_exists = any(
+                core_key in _normalize_key(item) or _normalize_key(item) in core_key
+                for item in out
+            )
+            if not preserve_exists:
+                if len(out) >= 3:
+                    out[-1] = core_title
+                else:
+                    out.append(core_title)
     while len(out) < 3 and out:
         out.append(out[-1])
     return out[:3]
@@ -2763,8 +2815,6 @@ def _normalize_chunshe_markdown(markdown_text: str, title_candidates: list[str])
         "title": [],
         "alt_titles": [],
         "body": [],
-        "comment": [],
-        "reply": [],
     }
     current: str | None = None
     for raw_line in str(markdown_text or "").splitlines():
@@ -2779,11 +2829,8 @@ def _normalize_chunshe_markdown(markdown_text: str, title_candidates: list[str])
         if stripped in {"# 正文", "## 正文", "# 口播正文", "## 口播正文"}:
             current = "body"
             continue
-        if stripped in {"# 置顶评论", "## 置顶评论"}:
-            current = "comment"
-            continue
-        if stripped in {"# 回复模板", "## 回复模板"}:
-            current = "reply"
+        if stripped in {"# 置顶评论", "## 置顶评论", "# 回复模板", "## 回复模板"}:
+            current = None
             continue
         if current:
             sections[current].append(line)
@@ -2816,8 +2863,6 @@ def _normalize_chunshe_markdown(markdown_text: str, title_candidates: list[str])
             break
 
     body = "\n".join(sections["body"]).strip()
-    comment = "\n".join(sections["comment"]).strip()
-    reply = "\n".join(sections["reply"]).strip()
     parts = [
         "# 标题",
         title or "先别急着决定做不做脸",
@@ -2828,12 +2873,6 @@ def _normalize_chunshe_markdown(markdown_text: str, title_candidates: list[str])
         "",
         "# 正文",
         body,
-        "",
-        "# 置顶评论",
-        comment,
-        "",
-        "# 回复模板",
-        reply,
     ]
     return "\n".join(parts).strip() + "\n"
 
@@ -2871,6 +2910,18 @@ def _build_chunshe_output_path(
     if output_type == "标题池":
         prefix = f"chunshe-{compact_date}"
     return f"生成内容/{date_str}/{prefix}-{short}.md"
+
+
+def _build_chunshe_cover_output_path(main_output_path: str) -> str:
+    path = Path(str(main_output_path or "").replace("\\", "/"))
+    stem = path.stem
+    return path.with_name(f"{stem}.cover.md").as_posix()
+
+
+def _build_chunshe_publish_pack_path(*, date_str: str, topic_count: int) -> str:
+    compact_date = str(date_str or _today()).replace("-", "")
+    count = max(1, int(topic_count or 1))
+    return f"生成内容/{date_str}/椿舍发布包-{compact_date}-{count}篇汇总.md"
 
 
 def _render_chunshe_file_contract(*, date_str: str, topic_docs: list[dict[str, Any]]) -> str:
@@ -2966,7 +3017,7 @@ def __deprecated_run_chunshe_single_topic_v1(
         polish_package = _normalize_wechat_stage_dict("chunshe_polish_package", polish_payload)
         candidate_text = _normalize_chunshe_markdown(str(polish_package.get("final_markdown") or "").strip(), title_candidates)
         issues = [str(item or "").strip() for item in polish_package.get("issues") or [] if str(item or "").strip()]
-        local_issues = _validate_chunshe_markdown(candidate_text, topic)
+        local_issues, _local_advisories = _validate_chunshe_markdown(candidate_text, topic)
         merged_issues = list(dict.fromkeys([*issues, *local_issues]))
         removed_or_softened_claims = [
             str(item or "").strip()
@@ -3049,6 +3100,9 @@ def __deprecated_run_chunshe_staged_task_v1(
     dry_run: bool,
 ) -> dict[str, Any]:
     config = _extract_chunshe_runtime_config(brief)
+    initial_warnings: list[str] = []
+    if bool(config.get("cover_prompt_enabled")) and str(config.get("output_type") or "") == "标题池":
+        initial_warnings.append("标题池模式已忽略配图：封面提示词只对精简发布版和解释型口播版生效")
     seed_examples = match_chunshe_topic_seed_examples(
         str(config.get("seed_keyword") or ""),
         str(config.get("entry_class") or ""),
@@ -3070,6 +3124,7 @@ def __deprecated_run_chunshe_staged_task_v1(
         "batch_count": config.get("batch_count"),
         "quote_enabled": config.get("quote_enabled"),
         "quote_theme_requested": config.get("explicit_quote_theme"),
+        "cover_prompt_enabled": bool(config.get("cover_prompt_enabled")),
         "high_boundary": config.get("high_boundary"),
         "recent_history": recent_history_summary,
         "seed_examples": seed_examples[:8],
@@ -3079,6 +3134,7 @@ def __deprecated_run_chunshe_staged_task_v1(
         "output_type": config.get("output_type") or "精简发布版",
         "role": config.get("role") or "李可",
         "mode": config.get("mode") or "平衡",
+        "cover_prompt_enabled": bool(config.get("cover_prompt_enabled")),
         "stages": list(CHUNSHE_SHARED_STAGES),
     }
     merged_runtime_contexts = list(dict.fromkeys(context_plan.get("context_files_merged") or []))
@@ -3819,14 +3875,20 @@ def _split_chunshe_issues(issues: list[str]) -> tuple[list[str], list[str]]:
     soft: list[str] = []
     seen: set[str] = set()
     soft_markers = (
-        "过桥", "口语", "制度感", "节奏", "结尾", "金句", "生硬", "更顺", "更像人话", "收回", "压缩",
+        "过桥", "口语", "制度感", "节奏", "结尾", "生硬", "更顺", "更像人话", "收回", "压缩",
         "缺少区块",  # no longer hard — story-driven content may not have mechanical blocks
-        "不是A", "不是...是...", "向往感不足",
-        "角色称谓",
+        "文艺",
+        "老板回应",
+        "低压力",
+        "向往",
+        "想象层",
+        "标题层",
     )
     hard_markers = (
         "为空", "CTA", "问答模板味", "值不值模板味", "身份开头", "店规开头", "显式禁用句式",
-        "缺少向往画面", "缺少具体人",  # story-driven bottom lines
+        "文章开头", "角色名开头", "主题句直塞", "老师口气", "解释味",
+        "原词", "事实层", "感受层", "金句判断",
+        "前 3 句", "前 6 句", "顾客原话", "服务动作", "亲自服务", "低压收口", "抽象判断",
     )
     for raw in issues:
         text = str(raw or "").strip()
@@ -3845,6 +3907,7 @@ def _split_chunshe_issues(issues: list[str]) -> tuple[list[str], list[str]]:
 
 def _build_local_chunshe_source_pack(*, config: dict[str, Any], source_materials: dict[str, Any]) -> dict[str, Any]:
     seed_examples = source_materials.get("seed_examples") or []
+    raw_review_force_terms = ("推销", "办卡", "敷衍", "白跑", "约不上", "补差价", "套路", "忽悠", "销售感")
 
     store_rule_options: list[str] = []
     for item in seed_examples:
@@ -3888,8 +3951,8 @@ def _build_local_chunshe_source_pack(*, config: dict[str, Any], source_materials
                     "正文不写流程堆砌和项目说明书",
                 ],
                 "output_goal": {
-                    "精简发布版": "90-140字，5-7行短句，适合20-35秒短视频口播",
-                    "解释型口播版": "140-220字，7-10行短句，适合25-45秒短视频口播",
+                    "精简发布版": "280-360字，10-14行短句，适合45-65秒深口播",
+                    "解释型口播版": "420-650字，14-18行短句，适合75-95秒深口播",
                 },
                 "pinned_comment_boundary": [
                     "店名、位置、预约方式放置顶评论",
@@ -3940,6 +4003,18 @@ def _build_local_chunshe_source_pack(*, config: dict[str, Any], source_materials
             },
             "topic_helpers": {
                 "high_boundary": bool(config.get("high_boundary")),
+                "topic_source_order": [
+                    "金句评论#选题",
+                    "用户显式关键词",
+                    "椿舍专用选题池",
+                    "默认7题",
+                ],
+                "quote_roles": {
+                    "topic_seed": "带 #选题 的爆款评论/金句，可直接生成选题、标题角度和开头钩子。",
+                    "theme_only": "高优先主题句只负责定立场、定情绪、定收口，不直接进正文主句。",
+                    "body_ready": "差评原话和老板口语负责正文可播内容。",
+                },
+                "benchmark_rule": "对标链接只允许贡献开头方式、推进节奏、信任建立逻辑和转折结构，不直接借句。",
                 "batch_dedupe_rules": [
                     "同一批里不要重复同一个 angle_type",
                     "同一批里不要重复同一个 scene_trigger",
@@ -3960,12 +4035,27 @@ def _build_local_chunshe_source_pack(*, config: dict[str, Any], source_materials
         entry_class=str(config.get("entry_class") or "").strip(),
         topic={"seed_keyword": str(config.get("seed_keyword") or "").strip()},
     )
+    must_keep_terms: list[str] = []
+    for text in [
+        *(review_pack.get("opening") or []),
+        *(review_pack.get("scene") or []),
+        *(review_pack.get("landing") or []),
+    ]:
+        raw_text = str(text or "").strip()
+        if not raw_text:
+            continue
+        for term in raw_review_force_terms:
+            if term in raw_text and term not in must_keep_terms:
+                must_keep_terms.append(term)
+
     root["source_pack"]["review_language"] = {
         "principle": "优先直接复用差评里的原话，不要把顾客说过的话改成抽象词或文艺词。",
         "bucket": str(review_pack.get("bucket") or "").strip(),
         "opening_examples": review_pack.get("opening") or [],
         "scene_examples": review_pack.get("scene") or [],
         "landing_examples": review_pack.get("landing") or [],
+        "raw_word_policy": "如果差评原话里已经有推销、办卡、敷衍、白跑、约不上这类硬词，正文优先直接用，不要艺术处理。",
+        "must_keep_terms": must_keep_terms,
     }
     root["source_pack"]["theme_language"] = {
         "principle": str(theme_pack.get("principle") or "").strip(),
@@ -3973,6 +4063,27 @@ def _build_local_chunshe_source_pack(*, config: dict[str, Any], source_materials
         "translation_examples": theme_pack.get("translation_examples") or [],
         "boss_judgment_examples": theme_pack.get("boss_judgment_examples") or [],
         "low_pressure_offer_examples": theme_pack.get("low_pressure_offer_examples") or [],
+    }
+    root["source_pack"]["fugui_logic"] = {
+        "core_principles": [
+            "不是先写项目，而是先写一个具体的人。",
+            "不是卖流程，而是卖她为什么终于敢做这件事。",
+            "不是卖专业，而是卖她不用再一直防着你。",
+            "反套路是入口，向往感才是成交理由。",
+        ],
+        "single_story_ratio": "2-5-3：20%冲突 + 50%向往画面 + 30%规矩托底",
+        "three_layers": {
+            "fact": "门店真的做了什么，动作和细节是什么。",
+            "feeling": "她少了什么不舒服，多了什么舒服。",
+            "imagination": "因此出现了什么生活画面，比如终于能闭眼、回家不用再解释、下次还敢来。",
+        },
+        "bad_smells": [
+            "只会讲店规，不会讲具体的人。",
+            "只会讲规矩和流程，没有生活画面。",
+            "把差评原话磨成抽象情绪词。",
+            "金句只停留在题源，正文里看不见一句像样的判断。",
+        ],
+        "gold_sentence_rule": "topic_seed 默认用于起题和标题句感；正文里显性金句最多 1 句，只能放在中段转折或结尾。翻成老板口语后仍生硬，就降级回标题层，不强行进正文。",
     }
     return _normalize_chunshe_source_pack(root)
 
@@ -4003,7 +4114,13 @@ def _build_chunshe_reply_template(*, topic: dict[str, Any]) -> str:
     )
 
 
-def _render_chunshe_markdown(*, title_candidates: list[str], body_text: str, pinned_comment: str, reply_template: str) -> str:
+def _render_chunshe_markdown(
+    *,
+    title_candidates: list[str],
+    body_text: str,
+    pinned_comment: str = "",
+    reply_template: str = "",
+) -> str:
     title = title_candidates[0] if title_candidates else "先别急着决定做不做脸"
     alt_1 = title_candidates[1] if len(title_candidates) > 1 else title
     alt_2 = title_candidates[2] if len(title_candidates) > 2 else alt_1
@@ -4018,12 +4135,6 @@ def _render_chunshe_markdown(*, title_candidates: list[str], body_text: str, pin
             "",
             "# 正文",
             str(body_text or "").strip(),
-            "",
-            "# 置顶评论",
-            str(pinned_comment or "").strip(),
-            "",
-            "# 回复模板",
-            str(reply_template or "").strip(),
         ]
     )
     return _normalize_chunshe_markdown(raw_markdown, title_candidates)
@@ -4129,7 +4240,10 @@ def _build_chunshe_polish_package_prompt(
     )
 
 
-def _validate_chunshe_markdown(markdown_text: str, topic: dict[str, Any] | None = None) -> list[str]:
+def _validate_chunshe_markdown(
+    markdown_text: str, topic: dict[str, Any] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Return ``(issues, advisories)``."""
     return validate_chunshe_video_markdown(markdown_text, CHUNSHE_BODY_CTA_BLACKLIST, topic)
 
 
@@ -4178,15 +4292,11 @@ def _run_chunshe_single_topic(
         topic,
         output_type=output_type,
     )
-    pinned_comment = build_chunshe_video_pinned_comment(topic=topic, source_pack=source_pack)
-    reply_template = build_chunshe_video_reply_template(topic=topic)
     draft_text = render_chunshe_video_markdown(
         title_candidates=title_candidates,
         body_text=draft_body,
-        pinned_comment=pinned_comment,
-        reply_template=reply_template,
     )
-    draft_issues = _validate_chunshe_markdown(draft_text, topic)
+    draft_issues, draft_advisories = _validate_chunshe_markdown(draft_text, topic)
     _write_json_file(
         topic_report_dir / "draft-package.json",
         {
@@ -4198,11 +4308,18 @@ def _run_chunshe_single_topic(
             "store_rule_primary": draft_package.get("store_rule_primary"),
             "narrative_ratio": draft_package.get("narrative_ratio"),
             "title_candidates": title_candidates,
+            "hook_line": draft_package.get("hook_line"),
+            "customer_quote": draft_package.get("customer_quote"),
+            "beautician_actions": draft_package.get("beautician_actions"),
+            "emotion_shift": draft_package.get("emotion_shift"),
+            "boss_rule_line": draft_package.get("boss_rule_line"),
+            "boss_judgment_line": draft_package.get("boss_judgment_line"),
+            "ending_line": draft_package.get("ending_line"),
+            "body_markdown": draft_package.get("body_markdown"),
             "draft_body": draft_body,
-            "pinned_comment": pinned_comment,
-            "reply_template": reply_template,
             "draft_markdown": draft_text,
             "draft_issues": draft_issues,
+            "draft_advisories": draft_advisories,
         },
     )
 
@@ -4299,13 +4416,15 @@ def _run_chunshe_single_topic(
             final_text = render_chunshe_video_markdown(
                 title_candidates=title_candidates,
                 body_text=final_body,
-                pinned_comment=pinned_comment,
-                reply_template=reply_template,
             )
         model_issues = normalize_chunshe_video_polish_issues(polish_package.get("issues") or [])
-        local_issues = _validate_chunshe_markdown(final_text, topic)
+        local_issues, local_advisories = _validate_chunshe_markdown(final_text, topic)
         merged_issues = list(dict.fromkeys([*model_issues, *local_issues]))
         hard_issues, soft_issues = _split_chunshe_issues(merged_issues)
+        for advisory in local_advisories:
+            text = str(advisory or "").strip()
+            if text and text not in soft_issues and text not in hard_issues:
+                soft_issues.append(text)
         removed_or_softened_claims = [
             str(item or "").strip()
             for item in polish_package.get("removed_or_softened_claims") or []
@@ -4414,6 +4533,9 @@ def _run_chunshe_staged_task(
     dry_run: bool,
 ) -> dict[str, Any]:
     config = _extract_chunshe_runtime_config(brief)
+    initial_warnings: list[str] = []
+    if bool(config.get("cover_prompt_enabled")) and str(config.get("output_type") or "") == "标题池":
+        initial_warnings.append("标题池模式已忽略配图：封面提示词只对精简发布版和解释型口播版生效")
     seed_examples = match_chunshe_topic_seed_examples(
         str(config.get("seed_keyword") or ""),
         str(config.get("entry_class") or ""),
@@ -4435,6 +4557,7 @@ def _run_chunshe_staged_task(
         "batch_count": config.get("batch_count"),
         "quote_enabled": config.get("quote_enabled"),
         "quote_theme_requested": config.get("explicit_quote_theme"),
+        "cover_prompt_enabled": bool(config.get("cover_prompt_enabled")),
         "high_boundary": config.get("high_boundary"),
         "recent_history": recent_history_summary,
         "seed_examples": seed_examples[:8],
@@ -4444,6 +4567,7 @@ def _run_chunshe_staged_task(
         "output_type": config.get("output_type") or "精简发布版",
         "role": config.get("role") or "李可",
         "mode": config.get("mode") or "平衡",
+        "cover_prompt_enabled": bool(config.get("cover_prompt_enabled")),
         "stages": list(CHUNSHE_SHARED_STAGES),
     }
     merged_runtime_contexts = list(dict.fromkeys(context_plan.get("context_files_merged") or []))
@@ -4484,7 +4608,7 @@ def _run_chunshe_staged_task(
             source_materials=source_materials,
             selected_topics=selected_preview,
             topic_results=[],
-            warnings=[],
+            warnings=initial_warnings,
             stage_timings=[],
             dry_run=True,
             pipeline_mode=pipeline_mode,
@@ -4517,7 +4641,7 @@ def _run_chunshe_staged_task(
             source_materials=source_materials,
             selected_topics=[],
             topic_results=[],
-            warnings=[],
+            warnings=initial_warnings,
             stage_timings=[],
             pipeline_mode=pipeline_mode,
         )
@@ -4527,13 +4651,14 @@ def _run_chunshe_staged_task(
     report_dir = _chunshe_generation_report_dir(date_str, task_id)
     report_dir_text = _report_dir_text(report_dir)
     stage_timings: list[dict[str, Any]] = []
-    warnings: list[str] = []
+    warnings: list[str] = list(initial_warnings)
     selected_topics: list[dict[str, Any]] = []
     topic_results: list[dict[str, Any]] = []
     errors: list[str] = []
     saved_files: list[str] = []
     full_text = ""
     status = "success"
+    publish_pack_path = ""
 
     _write_json_file(report_dir / "source-materials.json", source_materials)
 
@@ -4702,11 +4827,38 @@ def _run_chunshe_staged_task(
                         index=index,
                     )
                     topic_docs.append({"path": output_path, "content": result["content"]})
+                    final_title = extract_chunshe_video_title(result["content"])
+                    if not final_title:
+                        final_title = str(topic.get("topic_title") or "").strip()
+                        if final_title:
+                            warnings.append(f"{final_title}: 未从成稿提取到标题，封面回退使用 topic_title")
+                    cover_path = ""
+                    cover_template = ""
+                    cover_highlight = ""
+                    if bool(config.get("cover_prompt_enabled")) and final_title:
+                        try:
+                            cover_result = generate_cover_prompt(final_title)
+                            cover_path = _build_chunshe_cover_output_path(output_path)
+                            cover_template = str(cover_result.get("template_label") or cover_result.get("template") or "").strip()
+                            cover_highlight = str(cover_result.get("highlight") or "").strip() or "无"
+                            topic_docs.append(
+                                {
+                                    "path": cover_path,
+                                    "content": render_chunshe_cover_sidecar(final_title, cover_result),
+                                }
+                            )
+                        except Exception as exc:
+                            warning_title = final_title or str(topic.get("topic_title") or topic.get("topic_id") or index).strip()
+                            warnings.append(f"{warning_title}: 封面提示词生成失败：{exc}")
                     topic_results.append(
                         {
                             "topic_id": topic.get("topic_id"),
                             "topic_title": topic.get("topic_title"),
+                            "final_title": final_title,
                             "path": output_path,
+                            "cover_path": cover_path,
+                            "cover_template": cover_template,
+                            "cover_highlight": cover_highlight,
                             "retry_count": result.get("retry_count"),
                             "quote_used": result.get("quote_used"),
                             "warnings": result.get("warnings") or [],
@@ -4718,10 +4870,46 @@ def _run_chunshe_staged_task(
                 except Exception as exc:
                     errors.append(f"{str(topic.get('topic_title') or topic.get('topic_id') or index).strip()}: {exc}")
 
+            if bool(config.get("cover_prompt_enabled")) and topic_results:
+                try:
+                    publish_pack_path = _build_chunshe_publish_pack_path(date_str=date_str, topic_count=len(topic_results))
+                    publish_pack_text = render_chunshe_publish_pack(
+                        date_str=date_str,
+                        role=str(config.get("role") or "李可"),
+                        topic_items=[
+                            {
+                                "title": item.get("final_title") or item.get("topic_title") or "",
+                                "path": item.get("path") or "",
+                                "cover_path": item.get("cover_path") or "",
+                                "cover_template": item.get("cover_template") or "",
+                                "cover_highlight": item.get("cover_highlight") or "无",
+                            }
+                            for item in topic_results
+                        ],
+                    )
+                    topic_docs.append({"path": publish_pack_path, "content": publish_pack_text})
+                except Exception as exc:
+                    warnings.append(f"批次发布包生成失败：{exc}")
+
             if topic_docs:
                 contract_text = _render_chunshe_file_contract(date_str=date_str, topic_docs=topic_docs)
                 _write_text_file(report_dir / "chunshe-files-contract.txt", contract_text)
                 saved_files = _save_generated_files(text=contract_text, skill=skill, platform=platform, date_str=date_str)
+                saved_path_map = {
+                    str(doc.get("path") or "").strip(): str(saved or "").strip()
+                    for doc, saved in zip(topic_docs, saved_files)
+                    if str(doc.get("path") or "").strip() and str(saved or "").strip()
+                }
+                if saved_path_map:
+                    for item in topic_results:
+                        main_path = str(item.get("path") or "").strip()
+                        cover_path = str(item.get("cover_path") or "").strip()
+                        if main_path in saved_path_map:
+                            item["path"] = saved_path_map[main_path]
+                        if cover_path in saved_path_map:
+                            item["cover_path"] = saved_path_map[cover_path]
+                    if publish_pack_path and publish_pack_path in saved_path_map:
+                        publish_pack_path = saved_path_map[publish_pack_path]
                 full_text = _read_primary_saved_file(saved_files)
 
         status = "success"
@@ -4741,11 +4929,13 @@ def _run_chunshe_staged_task(
         "skill_id": skill.skill_id,
         "output_type": str(config.get("output_type") or ""),
         "mode": str(config.get("mode") or ""),
+        "cover_prompt_enabled": bool(config.get("cover_prompt_enabled")),
         "seed_keyword": str(config.get("seed_keyword") or ""),
         "report_dir": report_dir_text,
         "selected_topics": selected_topics,
         "topic_results": topic_results,
         "saved_files": saved_files,
+        "publish_pack_path": publish_pack_path,
         "warnings": warnings,
         "errors": errors,
         "elapsed_ms": elapsed,
@@ -4778,6 +4968,10 @@ def _run_chunshe_staged_task(
         warnings=warnings,
         stage_timings=stage_timings,
         pipeline_mode="staged_single_worker" if len(selected_topics) <= 1 else "staged_serial_topics",
+        extra={
+            "publish_pack_path": publish_pack_path,
+            "cover_prompt_enabled": bool(config.get("cover_prompt_enabled")),
+        },
     )
 
 
@@ -4852,7 +5046,8 @@ def _parse_codex_json_lines(stdout_text: str) -> tuple[str, str]:
 
 
 def _run_codex(prompt: str, *, model: str, codex_cli: str, timeout_sec: int) -> tuple[str, str]:
-    args = [codex_cli, "exec", "--json", "--skip-git-repo-check", "-m", model, "-"]
+    cli_path = _materialize_windowsapps_binary(codex_cli)
+    args = [cli_path, "exec", "--json", "--skip-git-repo-check", "-m", model, "-"]
     completed = subprocess.run(
         args,
         input=prompt,
